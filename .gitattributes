@@ -1,0 +1,5 @@
+docs/internal/ export-ignore
+dist/ export-ignore
+validation/ export-ignore
+.venv/ export-ignore
+AGENTS.md export-ignore

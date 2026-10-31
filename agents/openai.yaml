@@ -1,0 +1,5 @@
+interface:
+  display_name: "Skill Builder"
+  short_description: "Build, test, and improve reusable skills"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,48 @@
+# Create a skill from a task and evidence
+
+Start with the task's users, triggering requests, inputs, expected results, constraints, and important failure cases. Use available conversations and project files before asking for information again. Separate demonstrated requirements from assumptions; examples alone may not determine a general rule.
+
+## Research, specify, and plan
+
+Inspect an existing package before proposing replacements. Research current official host documentation and domain uncertainties that affect this task. Record the source, date, relevant decision, and whether it was actually opened. Report unsupported claims as unverified. The runner records these statements; it does not independently prove that browsing occurred.
+
+The research response leads to a specification containing purpose, inputs, outputs, stable requirement IDs, assumptions, and material ambiguities. Resolve the ambiguities before advancing. Then plan executable mechanics, residual AI responsibilities, dependencies, resource purposes, acceptance cases, and the permitted candidate edit surface.
+
+Use `schema PHASE` for exact fields. Each response includes the packet's `run_id`, `phase`, `packet_sha256`, and typed `data`. A response for a stale packet cannot advance the run.
+
+The CLI uses these operations:
+
+| Operation | Result |
+| --- | --- |
+| `create` | New package |
+| `modify` | Intended changes within exact allowed paths |
+| `refactor` | Reorganization preserving the agreed behavior |
+| `rebuild` | Recreated package compared with its preserved source |
+| `audit` | Findings and a retain/modify/refactor/rebuild recommendation |
+| `specify` or `plan` | Requested planning artifact; no implementation |
+
+Stage evidence can reuse current research and decisions for a narrow edit. Record what was reused; do not invent checks or burden an ordinary edit with unrelated research.
+
+## Decide what belongs in code
+
+Encode parsing, transformations, file handling, state, schemas, literals, identifiers, required structure, scoring, and stopping rules when their behavior can be defined. Reuse suitable commands. Explain residual AI responsibilities, such as interpreting a novel brief or judging supported prose. An unconstrained prompt behind a script is not an executable contract.
+
+For an AI-assisted runtime, define what enters the AI stage, which structured output returns, what code verifies, and what happens on refusal, malformed output, or uncertainty. Supply the required implementation with the skill, or declare an available supported dependency. The builder's optional CLI model helper generates phase responses; it does not supply a universal runtime to every generated skill.
+
+## Learn from paired examples
+
+Use `examples --manifest PAIRS.json --output BUNDLE_DIR`. Each pair declares `id`, `source_family`, `input` and `output` paths, `split`, and `provenance`. Splits are `development`, `regression`, or `protected`; provenance is `real` or `synthetic`.
+
+The current adapters support JSON, UTF-8 text, and Markdown. They preserve original copies and extracted values. Other document formats require a verified adapter; report unsupported formats instead of silently dropping their structure.
+
+Set the request's `examples` field to the bundle directory. Authoring packets omit protected pairs. The runner rejects cross-split family labels and exact duplicate content; semantic near duplicates still need review. Keep protected material out of candidate resources and use verified external isolation where confidentiality matters.
+
+Infer transformations, invariant values, acceptable variation, and unknowns. Test new values and boundary conditions. A synthetic variant is not independent ground truth. One pair cannot establish broad generalization or justify an invented target.
+
+## Assemble and verify
+
+During `produce`, supply the description, instructions, usage, and task-specific files. For creation and rebuilding, code renders `SKILL.md`, `README.md`, the evaluation suite, and the portable evaluator. It prevents direct replacement of those managed files. Resource declarations control the generated routing.
+
+For narrow maintenance, `files` and optional `remove` modify only authorized paths on a captured source copy. Keep custom content and host metadata unless the requested change affects them. A rebuild is appropriate when generation must replace the whole managed structure.
+
+Check complete output examples where depth matters, and use a different scenario to test transfer. Review all prose using the writing guide. Evaluate the candidate independently before delivery; file generation is not evidence that its language, decisions, installation, or model behavior are correct.

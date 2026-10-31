@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "designed_hosts": [
+    "chatgpt",
+    "claude",
+    "codex",
+    "claude-code"
+  ],
+  "default_ai_route": "current_host_model",
+  "external_cli_required": false,
+  "execution_requirements": [
+    "Python 3",
+    "file access",
+    "declared dependencies"
+  ],
+  "tested_host_activation": [],
+  "budget_policy": "Ask the user before extending an exhausted iteration or runtime allowance; preserve the objective.",
+  "maintenance": {
+    "max_experiments": 5,
+    "max_stagnant_experiments": 3,
+    "max_seconds": 600,
+    "target_success_percent": 100,
+    "allowed_candidate_paths": [
+      "README.md",
+      "SKILL.md",
+      "references/authoring.md",
+      "references/evaluation.md",
+      "references/host_support.md",
+      "references/maintenance.md",
+      "references/writing_style.md",
+      "scripts/skill_builder_cli.py",
+      "scripts/runtime/__init__.py",
+      "scripts/runtime/adapters.py",
+      "scripts/runtime/artifacts.py",
+      "scripts/runtime/benchmark.py",
+      "scripts/runtime/common.py",
+      "scripts/runtime/contracts.py",
+      "scripts/runtime/delivery.py",
+      "scripts/runtime/examples.py",
+      "scripts/runtime/hosts.py",
+      "scripts/runtime/workflow.py"
+    ]
+  }
+}

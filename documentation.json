@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "name": "skill-builder",
+  "documentation": {
+    "title": "Skill Builder",
+    "summary": "Create and improve reusable AI skills with executable workflows, focused references, and evaluations. Audit an existing skill, make a scoped change, or build a new skill from a brief and input/output examples.",
+    "prerequisites": [
+      "Python 3.11 or later on macOS, Linux, or WSL.",
+      "A host with code execution and file access: ChatGPT desktop/Codex, Claude, or Claude Code.",
+      "The Python packages declared in requirements-lock.txt. External model CLIs are optional."
+    ],
+    "setup": [
+      {
+        "argv": [
+          "python3",
+          "-m",
+          "venv",
+          ".venv"
+        ]
+      },
+      {
+        "argv": [
+          ".venv/bin/python",
+          "-m",
+          "pip",
+          "install",
+          "-r",
+          "requirements-lock.txt"
+        ]
+      },
+      {
+        "argv": [
+          ".venv/bin/python",
+          "scripts/smoke_check.py"
+        ]
+      }
+    ],
+    "quick_start": {
+      "prompt": "Use Skill Builder to audit the attached skill. Report concrete problems and recommended fixes without editing its files.",
+      "expected_result": "You receive located findings, their consequences, and a recommendation to retain, modify, refactor, or rebuild the skill. The source files stay unchanged."
+    },
+    "scenarios": [
+      {
+        "title": "Create a new skill",
+        "prompt": "Create a skill that turns release notes and issue descriptions into a weekly engineering update. Preserve issue IDs, link each claim to its source, and include examples and evaluations.",
+        "expected_result": "The builder establishes the input/output contract and acceptance criteria, creates a candidate skill with the needed scripts and guidance, evaluates it, and delivers the accepted package with its README."
+      },
+      {
+        "title": "Build from input/output examples",
+        "prompt": "Build a bug-report skill from ../skill-data/paired-data. Preserve the supplied facts, use the report structure in expected.md, and mark missing relevant files without inventing paths. Agree acceptance criteria and a target before evaluating. Return the run directory with the results.",
+        "expected_result": "You receive a candidate skill, its README, evaluation results, and a run-directory path. Add more pairs for different behaviors and keep independent evaluation cases separate. One demonstration explains the task; it does not establish reliability on unseen inputs.",
+        "introduction": "Use this when you can show what the skill will receive and the result it should produce. This walkthrough builds a bug-report skill from one example. All commands start in the installed Skill Builder folder.\n\n| File | What you put in it |\n| --- | --- |\n| `input.json` | The original facts the future skill receives. |\n| `expected.md` | The complete report you want it to write from those facts. |\n| `pairs.json` | An index linking the input file to its desired-output file. |",
+        "steps": [
+          {
+            "title": "Create a folder for your examples",
+            "text": "Keep these files outside the installed skill. Save all three in the same folder:",
+            "command": {
+              "argv": [
+                "mkdir",
+                "-p",
+                "../skill-data"
+              ]
+            }
+          },
+          {
+            "title": "Save the input and the desired output",
+            "text": "`input.json` contains the source facts. `expected.md` is the exact report you want the new skill to produce, including its headings and wording. These are example data, not instructions for Skill Builder.",
+            "files": [
+              {
+                "path": "../skill-data/input.json",
+                "content": {
+                  "title": "Category changes are not saved",
+                  "steps": [
+                    "Open the review dialog.",
+                    "Choose a different category.",
+                    "Click Save."
+                  ],
+                  "expected": "The new category is saved.",
+                  "actual": "The dialog closes, but the previous category remains."
+                }
+              },
+              {
+                "path": "../skill-data/expected.md",
+                "content": "# Category changes are not saved\n\n## How to reproduce\n\n1. Open the review dialog.\n2. Choose a different category.\n3. Click Save.\n\n## Expected result\n\nThe new category is saved.\n\n## Actual result\n\nThe dialog closes, but the previous category remains.\n\n## Relevant files\n\nNot provided.\n"
+              }
+            ]
+          },
+          {
+            "title": "Link them in pairs.json",
+            "text": "Each row describes one input/output pair. The `input` and `output` values are file paths relative to `pairs.json`; they point to the two files you just saved.\n\n`id` identifies this pair. `source_family` groups related examples so they stay in the same data split. `split: development` allows this pair to guide skill creation. `provenance: synthetic` means this example was invented; use `real` for an actual case.",
+            "files": [
+              {
+                "path": "../skill-data/pairs.json",
+                "content": [
+                  {
+                    "id": "category-save",
+                    "source_family": "review-dialog",
+                    "input": "input.json",
+                    "output": "expected.md",
+                    "split": "development",
+                    "provenance": "synthetic"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Import the pair",
+            "text": "The command checks the file links and creates `../skill-data/paired-data/`, containing an `examples.json` index and copies of the original files. It leaves your three files unchanged.",
+            "command": {
+              "argv": [
+                ".venv/bin/python",
+                "scripts/skill_builder_cli.py",
+                "examples",
+                "--manifest",
+                "../skill-data/pairs.json",
+                "--output",
+                "../skill-data/paired-data"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "title": "Audit an existing skill",
+        "prompt": "Audit the attached documentation skill. Check its routing, writing guidance, executable checks, and output coverage. Do not change the source.",
+        "expected_result": "Findings identify actual files and affected behavior. Existing tests can be run in a separate copy, and results remain separate from claims about writing quality."
+      },
+      {
+        "title": "Make one focused improvement",
+        "prompt": "Improve the bug-report guidance so Expected result and Actual result are separate sections. Preserve unrelated references, examples, naming, and configuration.",
+        "expected_result": "The candidate changes only the authorized files. Relevant checks compare it with the baseline and preserve unrelated behavior."
+      },
+      {
+        "title": "Rebuild an existing skill",
+        "prompt": "Rebuild this skill around executable operations and bounded AI stages. Preserve its valid requirements, supported inputs and outputs, and existing metadata. Compare the replacement with the original.",
+        "expected_result": "The builder captures a baseline, reconciles requirements, creates a replacement candidate, compares matching cases, and retains a recovery copy."
+      },
+      {
+        "title": "Improve a skill after a failure",
+        "prompt": "This skill omitted a required section. Fix this output and improve the reusable skill so the same failure is covered by a regression case.",
+        "expected_result": "The builder records the observed failure, makes a scoped candidate change, and tests the original case plus relevant neighboring cases. If more effort is needed after the agreed limits, it asks before continuing."
+      }
+    ],
+    "verification": {
+      "command": {
+        "argv": [
+          ".venv/bin/python",
+          "scripts/smoke_check.py"
+        ]
+      },
+      "expected_result": "The result contains passed: true. This checks runtime files, the README contract, dependency-backed input validation, and a real temporary workflow transition. Use the development suite for broader regression testing."
+    },
+    "troubleshooting": [
+      {
+        "problem": "The host cannot find the skill",
+        "solution": "Confirm that the installed folder is named skill-builder and contains SKILL.md. Start a new session, then explicitly select or invoke the skill."
+      },
+      {
+        "problem": "A Python dependency is missing",
+        "solution": "Run the setup commands in the installed skill folder, or ask the host to install requirements-lock.txt in its execution environment. Use .venv/bin/python for the local runner."
+      },
+      {
+        "problem": "Installation reports that the destination exists",
+        "solution": "The installer preserves existing installations. Back up or rename the old folder, or pass --destination with a new path."
+      },
+      {
+        "problem": "Evaluation has not reached the target",
+        "solution": "Review failed cases and missing coverage. Authorize another bounded batch only when the results justify it. Do not change the target or expected answers to manufacture a pass."
+      },
+      {
+        "problem": "The chat has no code or file tools",
+        "solution": "Use a filesystem-enabled workspace or enable the host's code-execution capability. Executable stages cannot be verified in a text-only chat."
+      }
+    ],
+    "support": "For help with Skill Builder, email the author at **faton.sopa[at]manaferra.com** (replace `[at]` with `@`). Include your host, operation, reproduction steps, expected result, and actual result.",
+    "repository": {
+      "text": "After installing dependencies in the source checkout, run `.venv/bin/python tools/check_repository.py`. It runs the regression suite and checks the README, runtime installation, and distribution boundaries.",
+      "links": [
+        {
+          "label": "README conventions",
+          "path": "references/readme.md"
+        },
+        {
+          "label": "Testing and development",
+          "path": "tests/README.md"
+        }
+      ]
+    },
+    "repository_url": "https://github.com/fatonsopa/ai-skill-builder",
+    "testing": {
+      "prepare": "Use this after a create, modify, refactor, or rebuild operation has produced a candidate and an evaluation run. The builder returns the run-directory path; use it wherever RUN_DIR appears below. These steps apply whether the skill began from a brief, an existing skill, or paired examples. Audit, specification, and planning operations do not produce a candidate to evaluate.",
+      "run_command": {
+        "argv": [
+          ".venv/bin/python",
+          "scripts/skill_builder_cli.py",
+          "evaluate",
+          "--run",
+          "RUN_DIR",
+          "--allow-exec"
+        ]
+      },
+      "acceptance_criteria": [
+        "Define the required behavior, output structure, facts to preserve, and relevant invalid inputs before changing the candidate.",
+        "Map every requirement to an executable check or a documented semantic judgment. Include representative tasks, relevant variations, and failure cases.",
+        "Keep independent evaluation cases separate from examples used to create or tune the skill.",
+        "Choose the required task-success percentage, coverage, and critical checks before evaluation. A mandatory failure blocks acceptance even when the aggregate score is high."
+      ],
+      "improvement_steps": [
+        "Review executable candidate code before using --allow-exec. Read the report returned by the evaluation command.",
+        "Read each failed attempt, its actual output, source facts, and checker or review findings. Distinguish a skill defect from missing input, an environment failure, or a faulty evaluator.",
+        "Invoke /skill-builder with the failing input, expected output, actual output, and the requested reusable improvement. Keep the failure as a regression case.",
+        "Make one scoped change and rerun the same acceptance criteria, relevant neighboring cases, and shared regressions. Preserve the baseline and every attempt.",
+        "Accept the candidate only when the agreed gates pass. If the run reaches a limit below target, review the evidence and approve or decline a bounded extension."
+      ]
+    }
+  }
+}

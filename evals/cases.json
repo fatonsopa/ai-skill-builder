@@ -1,0 +1,24 @@
+[
+  {
+    "id": "installed-runtime-smoke",
+    "requirements": ["executable-workflow"],
+    "critical": true,
+    "kind": "command",
+    "command": ["{python}", "scripts/smoke_check.py"],
+    "stdin": "",
+    "expect": {"exit_code": 0},
+    "semantic": false,
+    "timeout_seconds": 60
+  },
+  {
+    "id": "exported-package-contract",
+    "requirements": ["usable-package"],
+    "critical": true,
+    "kind": "command",
+    "command": ["{python}", "scripts/skill_builder_cli.py", "check", "--package", "."],
+    "stdin": "",
+    "expect": {"exit_code": 0},
+    "semantic": false,
+    "timeout_seconds": 30
+  }
+]

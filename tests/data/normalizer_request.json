@@ -1,0 +1,12 @@
+{
+  "operation": "create",
+  "skill_name": "normalize-customers",
+  "brief": "Create a Python standard-library skill that reads a JSON object with a required string id and optional string or null name. Preserve id as customer_id, trim name as display_name, and emit null for missing names. Reject malformed JSON and wrong field types. Include useful instructions, examples, runnable evaluations, and a README.",
+  "target_success_percent": 100,
+  "limits": {
+    "max_experiments": 5,
+    "max_stagnant_experiments": 3,
+    "max_seconds": 600,
+    "max_live_calls": 0
+  }
+}
