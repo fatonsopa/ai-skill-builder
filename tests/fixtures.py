@@ -28,6 +28,7 @@ def case(identifier, requirements, raw, expected, exit_code=0, critical=True):
 
 
 PLAN = {
+    "domains": [{"name": "customer-normalization", "purpose": "Transform customer input without changing identifiers.", "owned_paths": ["scripts/normalize.py"], "depends_on": []}],
     "steps": ["Implement the fixed transformation.", "Evaluate unseen values and invalid input."],
     "automations": ["Python parses, validates, transforms, and emits JSON."],
     "ai_responsibilities": ["Interpret the requested contract during authoring."],

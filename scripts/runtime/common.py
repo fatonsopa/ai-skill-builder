@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 import tempfile
 
 from jsonschema import Draft202012Validator, FormatChecker
-from evaluate import hash_tree, copy_package
+from repository_files import inventory as hash_tree, copy_repository as copy_package
 
 
 class Invalid(ValueError):

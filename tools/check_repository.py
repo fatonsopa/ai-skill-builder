@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run repository regressions and validate both public distribution profiles."""
+"""Run repository regressions and validate an isolated complete installation."""
 import json
 from pathlib import Path
 import subprocess
@@ -18,23 +18,18 @@ def main():
     if suite.returncode:
         return suite.returncode
     findings = []
-    profiles = {}
     with tempfile.TemporaryDirectory(prefix="skill-repository-check-") as folder:
-        for profile in ("source", "runtime"):
-            stage = Path(folder) / profile
-            copy_package(ROOT, stage, profile=profile)
-            check = check_package(stage)
-            findings.extend(f"{profile}: {item}" for item in check["findings"])
-            files = hash_tree(stage)
-            forbidden = ("docs/internal/", ".git/", ".venv/", "dist/", "runs/", "validation/")
-            findings.extend(f"{profile}: private file selected: {name}" for name in files if name == "AGENTS.md" or name.startswith(forbidden))
-            if profile == "runtime":
-                findings.extend(f"runtime: development file selected: {name}" for name in files if name.startswith(("tests/", "tools/")))
-                process = subprocess.run([sys.executable, str(stage / "scripts/smoke_check.py")], capture_output=True, text=True)
-                if process.returncode:
-                    findings.append("Runtime self-check failed: " + process.stdout + process.stderr)
-            profiles[profile] = {"files": len(files), "package_passed": check["passed"]}
-    print(json.dumps({"passed": not findings, "profiles": profiles, "findings": findings}, indent=2))
+        stage = Path(folder) / "skill-builder"
+        copy_package(ROOT, stage)
+        check = check_package(stage)
+        findings.extend(check["findings"])
+        files = hash_tree(stage)
+        forbidden = ("docs/internal/", ".git/", ".venv/", "dist/", "runs/", "validation/")
+        findings.extend("Private file copied: " + name for name in files if name == "AGENTS.md" or name.startswith(forbidden))
+        process = subprocess.run([sys.executable, str(stage / "scripts/smoke_check.py")], capture_output=True, text=True)
+        if process.returncode:
+            findings.append("Installed self-check failed: " + process.stdout + process.stderr)
+        print(json.dumps({"passed": not findings, "repository_files": len(files), "findings": findings}, indent=2))
     return 1 if findings else 0
 
 

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "required_root_files": [
+    "SKILL.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "optional_root_files": [
+    ".gitignore",
+    ".gitattributes",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md"
+  ],
+  "resource_directories": {
+    "agents": "Host discovery metadata.",
+    "references": "Domain knowledge, formats and writing guidance.",
+    "scripts": "Executable mechanics, dependencies and modules grouped by responsibility.",
+    "assets": "Templates and static output resources.",
+    "evals": "Behavioral cases, fixtures, rubrics and assessment.",
+    "tests": "Development regression tests.",
+    "examples": "Authored teaching examples.",
+    "workflows": "Task coordination guidance.",
+    "contracts": "Task output schemas and constraints.",
+    "config": "Machine-readable configuration and generated bookkeeping.",
+    "docs": "Public user/developer documentation.",
+    "tools": "Repository development tools."
+  },
+  "local_only": [
+    ".git",
+    ".venv",
+    "__pycache__",
+    ".DS_Store",
+    ".pytest_cache",
+    "AGENTS.md"
+  ],
+  "relocate_root_files": {
+    "requirements.txt": "scripts/requirements.txt",
+    "requirements-lock.txt": "scripts/requirements-lock.txt",
+    "host_policy.json": "config/host_policy.json",
+    "documentation.json": "config/documentation.json",
+    ".skill-builder.json": "config/build_record.json"
+  },
+  "external_records": [
+    "REVIEW-PROMPT.md",
+    "MIGRATION.md",
+    "analysis",
+    "dist",
+    "runs",
+    "validation",
+    "docs/internal"
+  ],
+  "principles": [
+    "One installable skill at the repository root; no nested duplicate SKILL.md.",
+    "The repository is the distributable artifact; no dist directory or distribution manifest.",
+    "Use only folders the domain needs. Each rule and component has one owner.",
+    "Keep internal authoring records and run snapshots outside the repository.",
+    "Required structure is mechanical; domain fit and meaning also need source-grounded review."
+  ]
+}

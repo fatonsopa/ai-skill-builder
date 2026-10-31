@@ -36,6 +36,8 @@ def parser():
     apply = commands.add_parser("apply")
     apply.add_argument("--run", type=Path, required=True)
     apply.add_argument("--destination", type=Path)
+    layout = commands.add_parser("layout", help="Inspect the canonical repository structure and recommended moves.")
+    layout.add_argument("--package", type=Path, required=True)
     check = commands.add_parser("check")
     check.add_argument("--package", type=Path, required=True)
     check.add_argument("--legacy", action="store_true")
@@ -73,7 +75,6 @@ def parser():
     package = commands.add_parser("package")
     package.add_argument("--package", type=Path, required=True)
     package.add_argument("--output", type=Path, required=True)
-    package.add_argument("--profile", choices=["runtime", "source"], default="runtime")
     package.add_argument("--version", default="0.2.0")
     readme = commands.add_parser("readme")
     readme.add_argument("--package", type=Path, required=True)
@@ -121,7 +122,7 @@ def replay(root):
                     raise Invalid("Replayed artifacts differ from captured evaluation inputs.")
                 current_state.update(
                     evaluation=report,
-                    package_check=check_package(package, full=request["operation"] in {"create", "rebuild"}),
+                    package_check=check_package(package, full=request["operation"] in {"create", "rebuild"}, structure=request.get("repair_structure", False)),
                     phase="review", status="awaiting_ai",
                 )
                 save(target / "state.json", current_state)
@@ -145,7 +146,10 @@ def replay(root):
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
-        if args.command == "check":
+        if args.command == "layout":
+            from repository_layout import check as inspect_layout
+            value = inspect_layout(args.package)
+        elif args.command == "check":
             value = check_package(args.package, full=not args.legacy)
         elif args.command == "readme":
             from runtime.readme import check as check_readme, write as write_readme
@@ -164,7 +168,7 @@ def main(argv=None):
             value = grade(args.report, args.reviews)
         elif args.command == "package":
             from runtime.delivery import package
-            value = package(args.package, args.output, args.profile, args.version)
+            value = package(args.package, args.output, version=args.version)
         else:
             with locked(args.run):
                 if args.command == "start":

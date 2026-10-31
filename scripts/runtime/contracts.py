@@ -52,6 +52,8 @@ REQUEST = obj({
     "skill_name": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64},
     "brief": TEXT, "source": TEXT, "allowed_paths": STRINGS,
     "examples": TEXT,
+    "copyright_holder": TEXT,
+    "repair_structure": BOOL,
     "host": HOST,
     "preserve_literals": STRINGS,
     "target_success_percent": {"type": "number", "minimum": 0, "maximum": 100},
@@ -69,6 +71,7 @@ SPEC = obj({
     "assumptions": STRINGS, "ambiguities": STRINGS,
 })
 PLAN = obj({
+    "domains": array(obj({"name": TEXT, "purpose": TEXT, "owned_paths": array(TEXT, 1), "depends_on": STRINGS}), 1),
     "steps": array(TEXT, 1), "automations": array(TEXT, 1),
     "ai_responsibilities": STRINGS, "dependencies": STRINGS,
     "resources": array(RESOURCE),

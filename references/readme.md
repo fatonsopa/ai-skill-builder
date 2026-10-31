@@ -12,7 +12,7 @@ Keep setup for a particular usage scenario within that scenario. For creation fr
 
 Describe actual capabilities and interfaces. Separate host invocation from terminal commands. Use real file names, distinguish placeholders, and make input/output examples consistent with the task contract. Do not advertise commands, dependencies, installation methods, or outcomes that the package cannot support.
 
-The shared renderer creates the README from `documentation.json`. The builder uses the same renderer for its own README. The schema lives in `scripts/runtime/contracts.py`; public rendering and checks live in `scripts/runtime/readme.py`.
+The shared renderer creates the README from `config/documentation.json`. The builder uses the same renderer for its own README. The schema lives in `scripts/runtime/contracts.py`; public rendering and checks live in `scripts/runtime/readme.py`.
 
 Use `readme --package FOLDER --check` to check the generated content and documented script paths. Run relevant installation, setup, verification, and usage commands in an exported copy. Read the rendered guide as a new user; a complete heading list does not establish that the instructions work.
 
@@ -23,3 +23,5 @@ Public development instructions and worked examples can appear in the source REA
 Every public local link must resolve within the selected distribution. Excluding a private file from a ZIP while linking to it from the README still produces a broken guide.
 
 This is the project's documentation contract, based on [GitHub's README guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes). The [Agent Skills specification](https://agentskills.io/specification) defines the agent-facing `SKILL.md` and supporting resources; it does not mandate a universal README outline.
+
+The skill repository itself is installed. Show one root README, SKILL and LICENSE. Put Python dependency paths under scripts/; do not advertise separate source/runtime trees or a dist directory.

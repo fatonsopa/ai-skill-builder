@@ -47,97 +47,8 @@ def run_process(command, *, input, cwd, timeout):
     return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 
-def distribution(root, profile="source"):
-    path = Path(root) / "distribution.json"
-    if path.is_symlink():
-        raise ValueError("Distribution manifest must not be a symbolic link.")
-    if not path.is_file():
-        return None
-    data = json.loads(path.read_text())
-    if data.get("schema_version") != 1 or profile not in data.get("profiles", {}):
-        raise ValueError("Unsupported distribution manifest or profile.")
-    include = data["profiles"][profile].get("include")
-    exclude = data.get("exclude", [])
-    for values in [include, exclude]:
-        if not isinstance(values, list) or not all(
-            isinstance(value, str) and value and not value.startswith("/")
-            and ".." not in Path(value).parts and "\\" not in value
-            for value in values
-        ):
-            raise ValueError("Distribution paths must be explicit relative files or directory prefixes.")
-    if not include:
-        raise ValueError("A distribution profile needs explicit included paths.")
-    return {"include": include, "exclude": exclude}
+from repository_files import inventory as hash_tree, copy_repository as copy_package
 
-
-def selected(name, policy):
-    if policy is None:
-        return True
-    def matches(pattern):
-        return name.startswith(pattern) if pattern.endswith("/") else name == pattern
-    return any(matches(value) for value in policy["include"]) and not any(matches(value) for value in policy["exclude"])
-
-
-def hash_tree(root, profile="source"):
-    result = {}
-    root = Path(root)
-    if root.is_symlink() or not root.is_dir():
-        raise ValueError("Package must be an existing directory, not a symbolic link.")
-    policy = distribution(root, profile)
-    for folder, directories, filenames in os.walk(root):
-        directories[:] = sorted(name for name in directories if name not in {".git", "__pycache__", ".venv"})
-        if policy:
-            def visit(name):
-                prefix = (Path(folder) / name).relative_to(root).as_posix() + "/"
-                excluded = any(prefix.startswith(value) for value in policy["exclude"] if value.endswith("/"))
-                relevant = any(value.startswith(prefix) or prefix.startswith(value) for value in policy["include"])
-                return relevant and not excluded
-            directories[:] = [name for name in directories if visit(name)]
-        for name in [*directories, *filenames]:
-            path = Path(folder) / name
-            if path.is_symlink():
-                raise ValueError(f"Symbolic link in package: {path}")
-        for filename in sorted(filenames):
-            if filename == ".DS_Store":
-                continue
-            path = Path(folder) / filename
-            if not selected(path.relative_to(root).as_posix(), policy):
-                continue
-            result[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    return result
-
-
-def copy_package(source, destination, profile="source"):
-    source, destination = Path(source), Path(destination)
-    if destination.exists():
-        raise ValueError("Copy destination already exists.")
-    files = hash_tree(source, profile)
-    destination.mkdir(parents=True)
-    for name in files:
-        target = destination / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source / name, target)
-    readme = destination / "README.md"
-    if profile == "runtime" and readme.is_file() and (destination / "documentation.json").is_file():
-        text = readme.read_text()
-        start, end = "<!-- repository:start -->", "<!-- repository:end -->"
-        if start in text or end in text:
-            if text.count(start) != 1 or text.count(end) != 1 or text.index(start) >= text.index(end):
-                raise ValueError("Malformed repository-only README section.")
-            before, rest = text.split(start, 1)
-            _, after = rest.split(end, 1)
-            text = before.rstrip() + "\n\n" + after.lstrip()
-        readme.write_text(text.replace("<!-- skill-readme:source -->", "<!-- skill-readme:runtime -->"))
-        record = destination / ".skill-builder.json"
-        if record.exists():
-            metadata = json.loads(record.read_text())
-            for name in metadata.get("managed_hashes", {}):
-                path = destination / name
-                if not path.is_file():
-                    raise ValueError(f"Runtime profile omitted required managed file: {name}")
-                metadata["managed_hashes"][name] = hashlib.sha256(path.read_bytes()).hexdigest()
-            write_json(record, metadata)
-    return files
 
 
 def metrics(attempts, planned):
@@ -269,7 +180,7 @@ def maintenance(package, directory, suite, allow_exec=False, review=None, extens
             }) != state["objective_sha256"]:
                 raise ValueError("Frozen maintenance objective changed.")
         else:
-            policy = json.loads((package / "host_policy.json").read_text()).get("maintenance")
+            policy = json.loads((package / "config/host_policy.json").read_text()).get("maintenance")
             if not policy:
                 raise ValueError("Package needs a declared maintenance policy.")
             state = {

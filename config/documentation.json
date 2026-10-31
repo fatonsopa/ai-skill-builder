@@ -7,7 +7,7 @@
     "prerequisites": [
       "Python 3.11 or later on macOS, Linux, or WSL.",
       "A host with code execution and file access: ChatGPT desktop/Codex, Claude, or Claude Code.",
-      "The Python packages declared in requirements-lock.txt. External model CLIs are optional."
+      "The Python packages declared in scripts/requirements-lock.txt. External model CLIs are optional."
     ],
     "setup": [
       {
@@ -25,7 +25,7 @@
           "pip",
           "install",
           "-r",
-          "requirements-lock.txt"
+          "scripts/requirements-lock.txt"
         ]
       },
       {
@@ -140,6 +140,11 @@
         "title": "Improve a skill after a failure",
         "prompt": "This skill omitted a required section. Fix this output and improve the reusable skill so the same failure is covered by a regression case.",
         "expected_result": "The builder records the observed failure, makes a scoped candidate change, and tests the original case plus relevant neighboring cases. If more effort is needed after the agreed limits, it asks before continuing."
+      },
+      {
+        "title": "Repair a skill repository structure",
+        "prompt": "Refactor this skill into the canonical root layout. Preserve its behavior and existing license, move internal records outside the repository, and update every path consumer.",
+        "expected_result": "One root SKILL.md, README.md and LICENSE, with files assigned to their responsible folders, an explicit migration record, and passing installation and behavior checks."
       }
     ],
     "verification": {
@@ -149,7 +154,7 @@
           "scripts/smoke_check.py"
         ]
       },
-      "expected_result": "The result contains passed: true. This checks runtime files, the README contract, dependency-backed input validation, and a real temporary workflow transition. Use the development suite for broader regression testing."
+      "expected_result": "The result contains passed: true. This checks repository files, the README contract, dependency-backed input validation, and a real temporary workflow transition. Use the development suite for broader regression testing."
     },
     "troubleshooting": [
       {
@@ -158,7 +163,7 @@
       },
       {
         "problem": "A Python dependency is missing",
-        "solution": "Run the setup commands in the installed skill folder, or ask the host to install requirements-lock.txt in its execution environment. Use .venv/bin/python for the local runner."
+        "solution": "Run the setup commands in the installed skill folder, or ask the host to install scripts/requirements-lock.txt in its execution environment. Use .venv/bin/python for the local runner."
       },
       {
         "problem": "Installation reports that the destination exists",
@@ -175,7 +180,7 @@
     ],
     "support": "For help with Skill Builder, email the author at **faton.sopa[at]manaferra.com** (replace `[at]` with `@`). Include your host, operation, reproduction steps, expected result, and actual result.",
     "repository": {
-      "text": "After installing dependencies in the source checkout, run `.venv/bin/python tools/check_repository.py`. It runs the regression suite and checks the README, runtime installation, and distribution boundaries.",
+      "text": "The repository itself is the skill. Root SKILL.md, README.md and LICENSE define the entry point; references hold guidance, scripts own mechanics, evals/tests check results, and config holds machine contracts. Plans declare component ownership and dependencies. After installing scripts/requirements-lock.txt, run `.venv/bin/python tools/check_repository.py` to test the repository and a separate clean installation.",
       "links": [
         {
           "label": "README conventions",
@@ -213,6 +218,7 @@
         "Make one scoped change and rerun the same acceptance criteria, relevant neighboring cases, and shared regressions. Preserve the baseline and every attempt.",
         "Accept the candidate only when the agreed gates pass. If the run reaches a limit below target, review the evidence and approve or decline a bounded extension."
       ]
-    }
+    },
+    "license": "MIT. See [LICENSE](LICENSE)."
   }
 }

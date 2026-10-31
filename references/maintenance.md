@@ -33,3 +33,7 @@ Create a faithful regression and test relevant neighboring inputs. After validat
 `recover` restores recorded before-images only when the current file still matches the applied value. It preserves newer user changes and reports conflicts. Recovery can be repeated. Multi-file application is journaled, not atomic; inspect unresolved interruptions before continuing.
 
 `replay` rebuilds artifacts from captured phase responses and frozen inputs. It reuses recorded evaluation observations without rerunning commands, calling models, or repeating delivery. Changed runner/dependency versions can invalidate replay and must be reported.
+
+## Structure repairs
+
+Use the [canonical structure](skill_structure.md) for layout audits and authorized refactors. Report the runner's automatic structure findings. Include both sides of each move in allowed_paths, preserve private history externally, update all consumers and verify a fresh repository install. Narrow modifications do not authorize unrelated moves.

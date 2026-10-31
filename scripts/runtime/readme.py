@@ -49,7 +49,7 @@ def render(name, documentation, profile="source"):
         "### ChatGPT desktop and Codex", "",
         "For a filesystem-enabled ChatGPT desktop/Codex workspace, run:", "",
         "```sh\npython3 scripts/install_skill.py --host codex\n```", "",
-        f"The installer copies the runtime files to `~/.agents/skills/{name}/`. "
+        f"The installer copies the repository files to `~/.agents/skills/{name}/`. "
         f"Start a new chat and select `@{name}` in ChatGPT desktop or invoke `{chr(36)}{name}` in Codex. "
         "In the desktop app, Skills is available from the sidebar. "
         "This installation uses local skill support; it does not install a browser or mobile add-on.", "",
@@ -57,12 +57,9 @@ def render(name, documentation, profile="source"):
         "```sh\npython3 scripts/install_skill.py --host claude-code\n```", "",
         f"The destination is `~/.claude/skills/{name}/`. Start a new Claude Code session and invoke `/{name}`.", "",
         "### Claude", "",
-        "Create the upload ZIP from the extracted skill folder:", "",
-        code_command({"argv": ["python3", "scripts/install_skill.py", "--archive", f"../{name}.zip"]}), "",
-        f"Upload `../{name}.zip` through Claude's custom-skills settings: "
-        "Customize → Skills → Create skill → Upload a skill. Newer layouts may show Skills under Plugins. "
-        "Enable code execution and file creation, then enable the uploaded skill. "
-        "[Claude's upload instructions](https://support.claude.com/en/articles/12512180-use-skills-in-claude).", "",
+        "Download the repository ZIP, extract it, and use the folder containing SKILL.md as the skill. "
+        "For a custom-skill upload, compress that folder with your archive tool. "
+        "[Claude upload instructions](https://support.claude.com/en/articles/12512180-use-skills-in-claude).", "",
     ]
     if d["setup"]:
         rows += ["### Set up runtime dependencies", "",
@@ -142,8 +139,7 @@ def render(name, documentation, profile="source"):
     for item in d["troubleshooting"]:
         rows += ["### " + item["problem"], "", item["solution"], ""]
     rows += ["## Support", "", d["support"], ""]
-    if d.get("license"):
-        rows += ["## License", "", d["license"], ""]
+    rows += ["## License", "", d.get("license", "See [LICENSE](LICENSE)."), ""]
     if profile == "source" and d.get("repository"):
         rows += ["<!-- repository:start -->", "", "## Development", "", d["repository"]["text"], ""]
         for link in d["repository"]["links"]:
@@ -155,7 +151,7 @@ def render(name, documentation, profile="source"):
 
 
 def contract(root):
-    path = Path(root) / "documentation.json"
+    path = Path(root) / "config/documentation.json"
     data = load(path)
     if data.get("schema_version") != 1 or not isinstance(data.get("name"), str):
         raise Invalid("Invalid documentation contract.")
@@ -192,4 +188,4 @@ def check(root):
                 path = (root / value).resolve()
                 if not path.is_relative_to(root.resolve()) or not path.is_file():
                     errors.append(f"Documented command references missing file: {value}")
-    return {"passed": not errors, "findings": errors, "profile": profile}
+    return {"passed": not errors, "findings": errors}

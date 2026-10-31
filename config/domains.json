@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "domains": [
+    {
+      "name": "orchestration",
+      "purpose": "Coordinate typed skill-building stages and accepted changes.",
+      "owned_paths": [
+        "scripts/runtime/workflow.py",
+        "scripts/skill_builder_cli.py"
+      ],
+      "depends_on": [
+        "repository",
+        "evaluation",
+        "contracts"
+      ]
+    },
+    {
+      "name": "repository",
+      "purpose": "Validate layout, render public guides, and install the complete repository.",
+      "owned_paths": [
+        "scripts/repository_layout.py",
+        "scripts/install_skill.py",
+        "scripts/runtime/artifacts.py",
+        "scripts/runtime/readme.py",
+        "scripts/runtime/delivery.py"
+      ],
+      "depends_on": [
+        "contracts"
+      ]
+    },
+    {
+      "name": "evaluation",
+      "purpose": "Assess outputs, examples and bounded improvement evidence.",
+      "owned_paths": [
+        "scripts/evaluate.py",
+        "scripts/runtime/benchmark.py",
+        "scripts/runtime/examples.py",
+        "scripts/smoke_check.py"
+      ],
+      "depends_on": [
+        "contracts"
+      ]
+    },
+    {
+      "name": "contracts",
+      "purpose": "Typed values, common persistence and host policy.",
+      "owned_paths": [
+        "scripts/runtime/contracts.py",
+        "scripts/runtime/common.py",
+        "scripts/runtime/hosts.py",
+        "scripts/repository_files.py"
+      ],
+      "depends_on": []
+    },
+    {
+      "name": "host-adapters",
+      "purpose": "Translate approved native or optional provider invocations.",
+      "owned_paths": [
+        "scripts/runtime/adapters.py"
+      ],
+      "depends_on": [
+        "orchestration",
+        "contracts"
+      ]
+    }
+  ]
+}

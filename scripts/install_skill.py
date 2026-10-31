@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install runtime skill files or create a portable skill ZIP."""
+"""Install the skill repository or make a host-upload ZIP."""
 import argparse
 import json
 from pathlib import Path

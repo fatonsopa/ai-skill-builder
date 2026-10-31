@@ -6,7 +6,7 @@ Create and improve reusable AI skills with executable workflows, focused referen
 
 - Python 3.11 or later on macOS, Linux, or WSL.
 - A host with code execution and file access: ChatGPT desktop/Codex, Claude, or Claude Code.
-- The Python packages declared in requirements-lock.txt. External model CLIs are optional.
+- The Python packages declared in scripts/requirements-lock.txt. External model CLIs are optional.
 
 ## Installation
 
@@ -32,7 +32,7 @@ For a filesystem-enabled ChatGPT desktop/Codex workspace, run:
 python3 scripts/install_skill.py --host codex
 ```
 
-The installer copies the runtime files to `~/.agents/skills/skill-builder/`. Start a new chat and select `@skill-builder` in ChatGPT desktop or invoke `$skill-builder` in Codex. In the desktop app, Skills is available from the sidebar. This installation uses local skill support; it does not install a browser or mobile add-on.
+The installer copies the repository files to `~/.agents/skills/skill-builder/`. Start a new chat and select `@skill-builder` in ChatGPT desktop or invoke `$skill-builder` in Codex. In the desktop app, Skills is available from the sidebar. This installation uses local skill support; it does not install a browser or mobile add-on.
 
 ### Claude Code
 
@@ -44,13 +44,7 @@ The destination is `~/.claude/skills/skill-builder/`. Start a new Claude Code se
 
 ### Claude
 
-Create the upload ZIP from the extracted skill folder:
-
-```sh
-python3 scripts/install_skill.py --archive ../skill-builder.zip
-```
-
-Upload `../skill-builder.zip` through Claude's custom-skills settings: Customize → Skills → Create skill → Upload a skill. Newer layouts may show Skills under Plugins. Enable code execution and file creation, then enable the uploaded skill. [Claude's upload instructions](https://support.claude.com/en/articles/12512180-use-skills-in-claude).
+Download the repository ZIP, extract it, and use the folder containing SKILL.md as the skill. For a custom-skill upload, compress that folder with your archive tool. [Claude upload instructions](https://support.claude.com/en/articles/12512180-use-skills-in-claude).
 
 ### Set up runtime dependencies
 
@@ -61,7 +55,7 @@ python3 -m venv .venv
 ```
 
 ```sh
-.venv/bin/python -m pip install -r requirements-lock.txt
+.venv/bin/python -m pip install -r scripts/requirements-lock.txt
 ```
 
 ```sh
@@ -204,13 +198,19 @@ The builder captures a baseline, reconciles requirements, creates a replacement 
 
 The builder records the observed failure, makes a scoped candidate change, and tests the original case plus relevant neighboring cases. If more effort is needed after the agreed limits, it asks before continuing.
 
+### Repair a skill repository structure
+
+> /skill-builder Refactor this skill into the canonical root layout. Preserve its behavior and existing license, move internal records outside the repository, and update every path consumer.
+
+One root SKILL.md, README.md and LICENSE, with files assigned to their responsible folders, an explicit migration record, and passing installation and behavior checks.
+
 ## Verification
 
 ```sh
 .venv/bin/python scripts/smoke_check.py
 ```
 
-The result contains passed: true. This checks runtime files, the README contract, dependency-backed input validation, and a real temporary workflow transition. Use the development suite for broader regression testing.
+The result contains passed: true. This checks repository files, the README contract, dependency-backed input validation, and a real temporary workflow transition. Use the development suite for broader regression testing.
 
 ## Evaluate and improve results
 
@@ -266,7 +266,7 @@ Confirm that the installed folder is named skill-builder and contains SKILL.md. 
 
 ### A Python dependency is missing
 
-Run the setup commands in the installed skill folder, or ask the host to install requirements-lock.txt in its execution environment. Use .venv/bin/python for the local runner.
+Run the setup commands in the installed skill folder, or ask the host to install scripts/requirements-lock.txt in its execution environment. Use .venv/bin/python for the local runner.
 
 ### Installation reports that the destination exists
 
@@ -284,11 +284,15 @@ Use a filesystem-enabled workspace or enable the host's code-execution capabilit
 
 For help with Skill Builder, email the author at **faton.sopa[at]manaferra.com** (replace `[at]` with `@`). Include your host, operation, reproduction steps, expected result, and actual result.
 
+## License
+
+MIT. See [LICENSE](LICENSE).
+
 <!-- repository:start -->
 
 ## Development
 
-After installing dependencies in the source checkout, run `.venv/bin/python tools/check_repository.py`. It runs the regression suite and checks the README, runtime installation, and distribution boundaries.
+The repository itself is the skill. Root SKILL.md, README.md and LICENSE define the entry point; references hold guidance, scripts own mechanics, evals/tests check results, and config holds machine contracts. Plans declare component ownership and dependencies. After installing scripts/requirements-lock.txt, run `.venv/bin/python tools/check_repository.py` to test the repository and a separate clean installation.
 
 - [README conventions](references/readme.md)
 - [Testing and development](tests/README.md)

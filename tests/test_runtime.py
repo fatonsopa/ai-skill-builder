@@ -31,7 +31,7 @@ class RuntimeTests(unittest.TestCase):
         self.run = self.root / "run"
 
     def start(self, **changes):
-        request = {"operation": "create", "skill_name": "normalize-customers", "brief": "Normalize JSON records."}
+        request = {"operation": "create", "skill_name": "normalize-customers", "brief": "Normalize JSON records.", "copyright_holder": "Fixture Author"}
         request.update(changes)
         return workflow.start(self.run, request)
 
@@ -82,6 +82,65 @@ class RuntimeTests(unittest.TestCase):
         (source / "scripts").mkdir()
         (source / "scripts/normalize.py").write_text(PROGRAM)
         return source
+
+    def test_new_skill_has_mit_license_and_root_repository_contract(self):
+        self.produced()
+        target = self.run / "candidate"
+        self.assertIn("Copyright (c)", (target / "LICENSE").read_text())
+        self.assertIn("Fixture Author", (target / "LICENSE").read_text())
+        self.assertTrue((target / "config/domains.json").is_file())
+        self.assertTrue((target / "config/repository_layout.json").is_file())
+        self.assertFalse((target / "documentation.json").exists())
+        self.assertFalse((target / "host_policy.json").exists())
+        self.assertFalse((target / "distribution.json").exists())
+        self.assertFalse((target / "dist").exists())
+
+    def test_creation_requires_actual_copyright_holder(self):
+        self.start()
+        state = workflow.read_state(self.run)
+        del state["request"]["copyright_holder"]
+        save(self.run / "state.json", state)
+        self.submit("research")
+        self.submit("specify")
+        self.submit("plan")
+        with self.assertRaisesRegex(Invalid, "copyright_holder"):
+            self.submit("produce")
+
+    def test_audit_exposes_automatic_structure_findings(self):
+        source = self.legacy()
+        self.start(operation="audit", source=str(source))
+        packet = workflow.packet(self.run)
+        self.assertFalse(packet["structure_review"]["passed"])
+        self.assertIn("LICENSE", {row["path"] for row in packet["structure_review"]["findings"]})
+
+    def test_structural_refactor_migrates_files_and_removes_empty_old_directories(self):
+        source = self.legacy()
+        (source / "old").mkdir()
+        (source / "old/requirements.txt").write_text("# no third-party dependencies\n")
+        plan = deepcopy(PLAN)
+        plan["domains"][0]["owned_paths"].extend(["assets/keep.txt", "scripts/requirements.txt"])
+        files = {
+            "README.md": "# Normalize customers\n\nRun scripts/normalize.py.\n",
+            "LICENSE": (SCRIPTS.parent / "LICENSE").read_text(),
+            "assets/keep.txt": "original",
+            "scripts/requirements.txt": (source / "old/requirements.txt").read_text(),
+            "config/domains.json": json.dumps({"domains": plan["domains"]}),
+        }
+        removed = ["keep.txt", "old/requirements.txt"]
+        allowed = list(files) + removed
+        plan["allowed_candidate_paths"] = allowed
+        produce = deepcopy(PRODUCE)
+        produce["files"] = files
+        produce["remove"] = removed
+        self.produced(request={"operation": "refactor", "source": str(source), "allowed_paths": allowed, "repair_structure": True}, plan=plan, produce=produce)
+        workflow.run_evaluation(self.run, allow_exec=True)
+        self.assertEqual(self.submit("review", self.review())["status"], "ready")
+        workflow.apply(self.run)
+        self.assertFalse((source / "old").exists())
+        self.assertEqual((source / "scripts/requirements.txt").read_text(), "# no third-party dependencies\n")
+        self.assertTrue(check_package(source, full=False, structure=True)["passed"])
+        workflow.recover(self.run)
+        self.assertTrue((source / "old/requirements.txt").exists())
 
     def test_real_transformation_and_clean_export(self):
         self.ready()
@@ -377,6 +436,7 @@ class RuntimeTests(unittest.TestCase):
             "assumptions": [], "ambiguities": [],
         }
         plan = deepcopy(PLAN)
+        plan["domains"] = [{"name": "bug-reports", "purpose": "Render sourced bug reports.", "owned_paths": ["scripts/report.py", "references/bug_report.md"], "depends_on": []}]
         plan["resources"] = [{"path": "references/bug_report.md", "purpose": "Define report content and unknown values.", "when": "preparing report facts", "outputs": ["bug-report"]}]
         plan["cases"] = [{
             "id": "bug-report", "requirements": ["B-1"], "critical": True,
@@ -413,6 +473,7 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         allowed = ["SKILL.md", "references/old.md", "references/new.md"]
         plan = deepcopy(PLAN)
         plan["allowed_candidate_paths"] = allowed
+        plan["domains"][0]["owned_paths"].append("references/new.md")
         plan["resources"] = [{"path": "references/new.md", "purpose": "Explain this task.", "when": "needed", "outputs": ["normalized-record"]}]
         produce = deepcopy(PRODUCE)
         produce["files"] = {
@@ -653,7 +714,7 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
 
     def test_generated_skill_declares_host_native_policy(self):
         self.produced()
-        policy = load(self.run / "candidate/host_policy.json")
+        policy = load(self.run / "candidate/config/host_policy.json")
         self.assertEqual(policy["designed_hosts"], ["chatgpt", "claude", "codex", "claude-code"])
         self.assertFalse(policy["external_cli_required"])
         self.assertIn("ask the user", (self.run / "candidate/SKILL.md").read_text())
@@ -713,38 +774,26 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         with self.assertRaisesRegex(ValueError, "objective"):
             maintenance(package, records, PLAN["cases"], True)
 
-    def test_skill_profiles_keep_development_and_private_files_out_of_runtime(self):
-        import zipfile
-        from runtime.delivery import package
+    def test_repository_install_keeps_tests_and_excludes_local_records(self):
+        from evaluate import copy_package
         self.produced()
         source = self.run / "candidate"
-        runtime_files = list(inventory(source))
         (source / "tests").mkdir()
-        (source / "tests/test_extra.py").write_text("# Development-only control\n")
+        (source / "tests/test_extra.py").write_text("# Public regression control\n")
         (source / "docs/internal").mkdir(parents=True)
         (source / "docs/internal/private.txt").write_text("PRIVATE_SENTINEL")
         (source / ".venv").mkdir()
-        (source / ".venv/private.txt").write_text("not distributable")
-        save(source / "distribution.json", {
-            "schema_version": 1,
-            "profiles": {
-                "runtime": {"include": runtime_files + ["distribution.json"]},
-                "source": {"include": runtime_files + ["distribution.json", "tests/"]},
-            },
-            "exclude": ["docs/internal/", ".venv/"],
-        })
-        for profile in ["runtime", "source"]:
-            with self.subTest(profile=profile):
-                target = self.root / f"{profile}.zip"
-                result = package(source, target, profile)
-                with zipfile.ZipFile(target) as archive:
-                    names = archive.namelist()
-                    self.assertIn("normalize-customers/SKILL.md", names)
-                    self.assertFalse(any("internal" in name or ".venv" in name for name in names))
-                    self.assertEqual("normalize-customers/tests/test_extra.py" in names, profile == "source")
-                self.assertFalse(result["installed"])
-                with self.assertRaises(FileExistsError):
-                    package(source, target, profile)
+        (source / ".venv/private.txt").write_text("not public")
+        target = self.root / "copy"
+        copy_package(source, target)
+        self.assertTrue((target / "tests/test_extra.py").is_file())
+        self.assertTrue((target / "LICENSE").is_file())
+        self.assertFalse((target / "docs/internal").exists())
+        self.assertFalse((target / ".venv").exists())
+        self.assertFalse((target / "distribution.json").exists())
+        self.assertTrue(check_package(target)["passed"])
+        with self.assertRaises(ValueError):
+            copy_package(source, target)
 
     def test_artifact_literals_are_checked_in_the_file(self):
         self.produced()
@@ -803,7 +852,11 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         )
         produced = deepcopy(PRODUCE)
         produced["instructions"] += " Keep policy EXACT."
-        self.produced(request={"operation": "rebuild", "source": str(source), "preserve_literals": ["Keep policy EXACT."]}, produce=produced)
+        produced["files"]["assets/keep.txt"] = "original"
+        produced["remove"] = ["keep.txt"]
+        plan = deepcopy(PLAN)
+        plan["domains"][0]["owned_paths"].append("assets/keep.txt")
+        self.produced(request={"operation": "rebuild", "source": str(source), "preserve_literals": ["Keep policy EXACT."]}, plan=plan, produce=produced)
         metadata = yaml.safe_load((self.run / "candidate/SKILL.md").read_text().split("---\n", 2)[1])
         self.assertEqual(metadata["license"], "MIT")
         self.assertEqual(metadata["metadata"], {"owner": "example-team", "version": "2"})
@@ -843,16 +896,17 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         self.assertNotEqual(result["status"], "ready")
         self.assertTrue(any("missing.py" in item for item in result["package_check"]["findings"]))
 
-    def test_actual_runtime_install_works_without_development_files(self):
+    def test_actual_repository_install_is_complete_and_usable(self):
         from install_skill import install
         root = SCRIPTS.parent
         installed = self.root / "installed-skill"
         result = install(root, "codex", installed)
         self.assertEqual(result["status"], "installed")
-        for name in ["tests", "tools", "docs", "examples"]:
-            self.assertFalse((installed / name).exists(), name)
-        self.assertIn("skill-readme:runtime", (installed / "README.md").read_text())
-        self.assertNotIn("## Development", (installed / "README.md").read_text())
+        for name in ["tests", "tools", "config"]:
+            self.assertTrue((installed / name).exists(), name)
+        self.assertFalse((installed / "docs/internal").exists())
+        self.assertIn("skill-readme:source", (installed / "README.md").read_text())
+        self.assertIn("## Development", (installed / "README.md").read_text())
         self.assertTrue(check_package(installed)["passed"])
         process = subprocess.run([sys.executable, str(installed / "scripts/smoke_check.py")], cwd=self.root, capture_output=True, text=True)
         self.assertEqual(process.returncode, 0, process.stderr + process.stdout)
@@ -860,16 +914,16 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         with self.assertRaises(ValueError):
             install(root, "codex", installed)
 
-    def test_installed_readme_regeneration_retains_runtime_profile(self):
+    def test_installed_readme_regeneration_retains_repository_guide(self):
         from install_skill import install
         from runtime.readme import write, check
         installed = self.root / "installed-skill"
         install(SCRIPTS.parent, "claude-code", installed)
         write(installed)
         self.assertTrue(check(installed)["passed"])
-        self.assertNotIn("## Development", (installed / "README.md").read_text())
+        self.assertIn("## Development", (installed / "README.md").read_text())
 
-    def test_upload_zip_excludes_development_files_and_preserves_source(self):
+    def test_optional_upload_zip_contains_the_same_public_repository(self):
         from install_skill import make_archive
         from evaluate import hash_tree
         root = SCRIPTS.parent
@@ -881,8 +935,9 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
             names = archive.namelist()
             self.assertIn("skill-builder/SKILL.md", names)
             self.assertIn("skill-builder/scripts/install_skill.py", names)
-            self.assertFalse(any("/tests/" in name or "/docs/" in name or "/tools/" in name for name in names))
-            self.assertNotIn("## Development", archive.read("skill-builder/README.md").decode())
+            self.assertTrue(any("/tests/" in name for name in names))
+            self.assertFalse(any("/docs/internal/" in name or "/.git/" in name or "/.venv/" in name for name in names))
+            self.assertIn("## Development", archive.read("skill-builder/README.md").decode())
         self.assertEqual(hash_tree(root), before)
         with self.assertRaises(FileExistsError):
             make_archive(root, output)
@@ -891,9 +946,9 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         from runtime.readme import check, write
         self.produced()
         root = self.run / "candidate"
-        data = json.loads((root / "documentation.json").read_text())
+        data = json.loads((root / "config/documentation.json").read_text())
         data["name"] = "wrong-skill"
-        save(root / "documentation.json", data)
+        save(root / "config/documentation.json", data)
         write(root)
         result = check(root)
         self.assertFalse(result["passed"])
@@ -904,7 +959,7 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         from runtime.readme import render
         installed = self.root / "skill"
         install(SCRIPTS.parent, "codex", installed)
-        data = json.loads((installed / "documentation.json").read_text())
+        data = json.loads((installed / "config/documentation.json").read_text())
         doc = data["documentation"]
         scenario = next(row for row in doc["scenarios"] if row["title"] == "Build from input/output examples")
         for step in scenario["steps"]:

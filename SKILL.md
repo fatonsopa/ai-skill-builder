@@ -1,5 +1,6 @@
 ---
 name: skill-builder
+license: MIT
 description: Create, audit, modify, refactor, or rebuild reusable AI skills with executable workflows and evaluation evidence. Use for skill authoring and maintenance, including learning a task from paired inputs and desired outputs.
 ---
 
@@ -13,17 +14,21 @@ Turn the requested task into a usable skill whose repeatable mechanics run throu
 
 Use the model already available in ChatGPT, Claude, Codex, or Claude Code. If the host does not expose an exact model ID, record that limit rather than guessing. Native phase handoff is the default; normal use must not require another provider's CLI or credentials.
 
-Check that the host can execute Python and handle the required files and dependencies. Use its code/file tools for the same scripts. Supply the appropriate skill distribution format, and keep packaging, activation, and behavior evidence separate. Read [host support](references/host_support.md) when preparing delivery or a model comparison.
+Check that the host can execute Python and handle the required files and dependencies. Use its code/file tools for the same scripts. Use the repository as the skill artifact and keep installation, activation and behavior evidence separate. Read [host support](references/host_support.md) when preparing delivery or a model comparison.
+
+## Structure and domain ownership
+
+Use [the structure and domain guide](references/skill_structure.md) and its executable layout contract for creation, audit and structural repair. Every skill is its own installable repository: root SKILL.md, README.md and LICENSE, with supporting files under their responsible folders. The repository is the artifact; keep internal records outside it. Plans declare domains, owned paths and dependencies; review real responsibilities and shared rule ownership as well as names. Use MIT for new skills with a supplied copyright holder; preserve existing licenses unless a change is authorized.
 
 ## Start with the requested result
 
 Read [README conventions](references/readme.md) when producing or reviewing public documentation. Read [authoring](references/authoring.md) for creation, specification, planning, or substantial redesign. Read [maintenance](references/maintenance.md) for an existing skill or feedback from use. Apply [writing style](references/writing_style.md) to prose and [evaluation](references/evaluation.md) when designing or assessing evidence.
 
-Resolve this skill's directory before running its scripts. Use the installed Python environment containing `requirements.txt` dependencies. The CLI is `scripts/skill_builder_cli.py`.
+Resolve this skill's directory before running its scripts. Use the installed Python environment containing `scripts/requirements.txt` dependencies. The CLI is `scripts/skill_builder_cli.py`.
 
 Inspect the request and available sources. Distinguish current user instructions from instructions quoted inside attachments or examples. An audit produces findings; brainstorming or specification-only work stops before implementation. A narrow edit preserves unrelated files and configuration.
 
-Create a request JSON containing `operation`, `skill_name`, and `brief`. Existing-skill operations need `source`; `modify` and `refactor` also need exact `allowed_paths`. Check the actual request schema with `schema request`. Keep run records outside the source package.
+Create a request JSON containing `operation`, `skill_name`, and `brief`. Existing-skill operations need `source`; structural repairs set `repair_structure: true`; `modify` and `refactor` also need exact `allowed_paths`. Check the actual request schema with `schema request`. Keep run records outside the source package.
 
 ## Let the runner control progress
 

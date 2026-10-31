@@ -1,4 +1,4 @@
-"""Prepare runtime and source skill archives without installation or publication."""
+"""Make an optional host-upload archive of the complete skill repository."""
 import json
 import os
 from pathlib import Path
@@ -10,14 +10,11 @@ import yaml
 
 from .artifacts import check_package
 from .common import Invalid, digest, inventory, copy_package
-from evaluate import distribution, selected
 
 
-def package(source, output, profile="runtime", version="0.2.0"):
+def package(source, output, version="0.2.0"):
     source, output = Path(source).resolve(), Path(output).resolve()
-    if profile not in {"runtime", "source"}:
-        raise Invalid("Unknown skill distribution profile.")
-    if output.is_relative_to(source) and selected(output.relative_to(source).as_posix(), distribution(source, "source")):
+    if output.is_relative_to(source):
         raise Invalid("Archive cannot be part of its own source selection.")
     check = check_package(source)
     if not check["passed"]:
@@ -30,10 +27,10 @@ def package(source, output, profile="runtime", version="0.2.0"):
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="skill-release-") as folder:
         stage = Path(folder) / name
-        source_files = copy_package(source, stage, profile=profile)
+        source_files = copy_package(source, stage)
         staged_check = check_package(stage)
         if not staged_check["passed"]:
-            raise Invalid("Selected profile is incomplete: " + "; ".join(staged_check["findings"]))
+            raise Invalid("Repository archive is incomplete: " + "; ".join(staged_check["findings"]))
         files = inventory(stage)
         descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
@@ -49,6 +46,6 @@ def package(source, output, profile="runtime", version="0.2.0"):
             raise
     return {
         "path": str(output), "sha256": digest(output.read_bytes()),
-        "profile": profile, "source_files": source_files, "packaged_files": files,
+        "artifact": "repository", "source_files": source_files, "packaged_files": files,
         "version": version, "installed": False,
     }

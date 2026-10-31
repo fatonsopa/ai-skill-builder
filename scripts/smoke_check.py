@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check an installed Skill Builder without its development tests or worked example."""
+"""Check the installed Skill Builder entry point and typed workflow."""
 import json
 from pathlib import Path
 import tempfile
@@ -14,7 +14,7 @@ def check(root=None):
     package = check_package(root)
     if not package["passed"]:
         return {"passed": False, "checks": [], "errors": package["findings"]}
-    checks = ["runtime files and public README"]
+    checks = ["repository structure, MIT license and public README"]
     try:
         validate({"url": "not a uri", "checked": "2026-10-31", "decision": "check", "provenance": "user_supplied"}, contracts.SOURCE)
     except Invalid:
