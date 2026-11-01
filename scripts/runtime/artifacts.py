@@ -5,6 +5,8 @@ import re
 import shutil
 from datetime import datetime, timezone
 from repository_layout import check as check_layout
+from run_tests import broad_command
+from evaluate import grade_process
 from urllib.parse import unquote, urlsplit
 
 import yaml
@@ -13,11 +15,76 @@ from .common import Invalid, digest, inside, inventory, relative, save, copy_pac
 from .hosts import POLICY
 from .readme import render as render_readme, check as check_readme
 
-MANAGED = {"LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
+MANAGED = {"scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
 EVALUATOR = Path(__file__).resolve().parents[1] / "evaluate.py"
 
 
-def check_plan(spec, plan):
+
+def workflow_requirements(spec):
+    """Required test scenarios derived from the declared process, before tuning."""
+    result = {}
+    workflows = spec.get("workflows", [])
+    if not workflows:
+        raise Invalid("Inventory every workflow/process before planning its tests.")
+    for flow in workflows:
+        identifier, steps = flow["id"], flow["steps"]
+        if identifier in result or not steps or len(steps) != len(set(steps)):
+            raise Invalid("Workflow IDs and step IDs must be unique and nonempty.")
+        checks = {"success", "behavior"}
+        if len(steps) == 1:
+            checks.add("invalid_input")
+        else:
+            checks.update("omission:" + step for step in steps)
+            checks.update("order:" + a + "->" + b for a, b in zip(steps, steps[1:]))
+        for scenario, field in (("boundary", "boundaries"), ("branch", "branches"), ("recovery", "recovery")):
+            names = [item["id"] for item in flow[field]]
+            if len(names) != len(set(names)):
+                raise Invalid("Workflow condition IDs must be unique within their kind.")
+            checks.update(scenario + ":" + name for name in names)
+        result[identifier] = sorted(checks)
+    return result
+
+
+def check_workflow_coverage(spec, plan):
+    required = workflow_requirements(spec)
+    flows = {item["id"]: item for item in spec["workflows"]}
+    covered = {identifier: set() for identifier in required}
+    for case in plan["cases"]:
+        flow_case = case.get("workflow")
+        if not flow_case:
+            continue
+        identifier = flow_case["id"]
+        if identifier not in flows:
+            raise Invalid("A case names an unknown workflow: " + identifier)
+        if case["critical"] is not True:
+            raise Invalid("Workflow checks are mandatory; mark their cases critical.")
+        scenario = flow_case["scenario"]
+        labels = {scenario} if scenario in {"success", "invalid_input", "behavior"} else {scenario + ":" + value for value in flow_case["covers"]}
+        if not labels or labels - set(required[identifier]):
+            raise Invalid("Workflow case covers an undeclared or empty check: " + case["id"])
+        flow = flows[identifier]
+        if scenario == "behavior":
+            if case["kind"] != "behavior" or not case["semantic"] or "request" not in case or not case.get("resources"):
+                raise Invalid("Every workflow needs a real AI behavioral case, its task/resources, and semantic review.")
+        elif case["kind"] == "behavior":
+            raise Invalid("Classify model observations as behavioral coverage, not mechanical workflow proof.")
+        process = case["expect"].get("process")
+        if process:
+            if set(process["order"]) - set(flow["steps"]) or (set(process["visible"]) | set(process["evidence"])) - set(process["order"]):
+                raise Invalid("Trace assertions name unknown or absent workflow steps.")
+        if scenario == "success" and len(flow["steps"]) > 1:
+            if not process or process["order"] != flow["steps"] or not case["semantic"]:
+                raise Invalid("A multi-step success case needs its full ordered trace and semantic evidence review.")
+        covered[identifier].update(labels)
+    missing = {name: sorted(set(checks) - covered[name]) for name, checks in required.items() if set(checks) - covered[name]}
+    if missing:
+        raise Invalid("Missing workflow/process tests: " + json.dumps(missing, sort_keys=True))
+    return {name: {"required": checks, "covered": sorted(covered[name])} for name, checks in required.items()}
+
+
+def check_plan(spec, plan, require_workflows=False):
+    if require_workflows:
+        check_workflow_coverage(spec, plan)
     requirements = [item["id"] for item in spec["requirements"]]
     if len(set(requirements)) != len(requirements):
         raise Invalid("Requirement IDs must be unique.")
@@ -34,8 +101,20 @@ def check_plan(spec, plan):
     if not semantic.issubset(covered_semantic):
         raise Invalid("Every semantic requirement needs at least one semantic case.")
     for case in cases:
+        expected = case['expect']
+        process = expected.get('process')
+        if case['kind'] == 'command' and process and 'trace_file' not in process and ('stdout_json' in expected or 'stdout_text' in expected):
+            try:
+                trace = expected['stdout_json'] if 'stdout_json' in expected else json.loads(expected['stdout_text'])
+                compatible = grade_process(trace, process)['passed']
+            except (ValueError, TypeError):
+                compatible = False
+            if not compatible:
+                raise Invalid(f"Case {case['id']} has contradictory exact stdout and process-trace expectations. Use trace_file for a separate captured trace, or make the exact stdout contain the required trace.")
         if case["kind"] == "command" and not case.get("command"):
             raise Invalid(f"Case {case['id']} needs a command.")
+        if case["kind"] == "command" and broad_command(case.get("command", [])):
+            raise Invalid("Unrestricted test discovery is not an iterative check; use the scoped test runner.")
         if case["kind"] == "artifact" and "file" not in case["expect"]:
             raise Invalid(f"Artifact case {case['id']} needs an expected file.")
     domains = plan.get("domains", [])
@@ -112,11 +191,31 @@ def render(root, request, spec, plan, response, source=None):
         if not existing_license:
             template = EVALUATOR.parent.parent / "assets/MIT-LICENSE.txt"
             (root / "LICENSE").write_text(template.read_text().format(year=datetime.now(timezone.utc).year, copyright_holder=holder))
-        for name in ("repository_files.py", "repository_layout.py"):
+        shared = (EVALUATOR.parent.parent / "assets/AGENTS.md").read_text()
+        project_notes = response.get("repository_instructions")
+        if project_notes is None and (root / "AGENTS.md").is_file():
+            project_notes = (root / "AGENTS.md").read_text()
+        instructions = shared
+        if project_notes and project_notes.strip() != shared.strip():
+            instructions += "\n## Project guidance\n\nThe shared testing and approval rules above take precedence over conflicting project notes.\n\n" + project_notes.strip() + "\n"
+        (root / "AGENTS.md").write_text(instructions)
+        (root / "CLAUDE.md").write_text("@AGENTS.md\n")
+        for name in ("continuation.py", "repository_files.py", "repository_layout.py", "run_tests.py"):
             (root / "scripts").mkdir(exist_ok=True)
             shutil.copyfile(EVALUATOR.parent / name, root / "scripts" / name)
         save(root / "config/repository_layout.json", json.loads((EVALUATOR.parent.parent / "config/repository_layout.json").read_text()))
         save(root / "config/domains.json", {"schema_version": 1, "domains": plan["domains"]})
+        test_groups = {case["id"]: {"argv": ["{python}", "scripts/evaluate.py", "--package", ".", "--allow-exec", "--case", case["id"]]} for case in plan["cases"]}
+        impact_rules = []
+        for case in plan["cases"]:
+            paths = [value for value in case.get("command", [])[1:] if not value.startswith("-") and (root / value).is_file()]
+            if case["expect"].get("file"):
+                paths.append(case["expect"]["file"])
+            if paths:
+                impact_rules.append({"paths": sorted(set(paths)), "tests": [case["id"]]})
+        impact_rules.append({"paths": ["evals/cases.json", "scripts/evaluate.py"], "tests": list(test_groups)})
+        impact_rules.append({"paths": ["AGENTS.md", "CLAUDE.md", "README.md", "SKILL.md", "LICENSE"], "tests": [], "reason": "Review changed instructions; unrelated executable cases are not selected."})
+        save(root / "config/test_impact.json", {"schema_version": 1, "tests": test_groups, "rules": impact_rules, "final_checks": test_groups})
         data = {
             "name": request["skill_name"], "description": response["description"],
             "instructions": response["instructions"], "resources": plan["resources"],
@@ -142,7 +241,7 @@ def render(root, request, spec, plan, response, source=None):
             + (f"\n## Resources\n\n{routing}\n" if routing else "")
             + "\n## Host and improvement behavior\n\n"
             "Use the current host's model when AI judgment is needed. Keep shared mechanics portable across ChatGPT, Claude, Codex, and Claude Code; check the task's required execution and file tools. Do not require another provider's CLI for normal use.\n\n"
-            "If evaluation remains below target and the iteration or runtime allowance is exhausted, report the gap and ask the user whether to authorize another bounded batch. Recommend limits from observed progress and runtime. Preserve the target and scoring rules; never extend the budget silently.\n"
+            "Routine testing and necessary retries are part of the authorized task. Choose bounded batches from task complexity and observed runtime, and continue without asking for each extra test. Use scripts/continuation.py to enforce retry ceilings, record each reason and preserve failed attempts and frozen criteria. Stop and report stalled progress or exhausted retry ceilings. Respect explicit user hard limits, host permissions and paid-service restrictions; ask only when a material change requires a new decision.\n"
         )
         readme = render_readme(data["name"], data["documentation"])
         save(root / "config/documentation.json", {"schema_version": 1, "name": data["name"], "documentation": data["documentation"]})
@@ -160,9 +259,10 @@ def render(root, request, spec, plan, response, source=None):
                 "max_seconds": request.get("limits", {}).get("max_seconds", 600),
                 "target_success_percent": plan["target_success_percent"],
                 "allowed_candidate_paths": plan["allowed_candidate_paths"],
+                "hard_limits": request.get("hard_limits", {}),
             },
         })
-        managed = {name: digest((root / name).read_bytes()) for name in MANAGED if name != "config/build_record.json"}
+        managed = {name: digest((root / name).read_bytes()) for name in sorted(MANAGED) if name != "config/build_record.json"}
         save(root / "config/build_record.json", {"schema_version": 1, "source": data, "managed_hashes": managed})
     return inventory(root)
 
@@ -171,7 +271,7 @@ def check_package(root, full=True, literals=(), structure=False):
     root = Path(root)
     findings = []
     files = inventory(root)
-    required = ["SKILL.md"] + (["LICENSE", "README.md", "evals/cases.json", "scripts/evaluate.py", "config/host_policy.json"] if full else [])
+    required = ["SKILL.md"] + (["LICENSE", "README.md", "AGENTS.md", "CLAUDE.md", "evals/cases.json", "scripts/evaluate.py", "config/host_policy.json"] if full else [])
     for name in required:
         if name not in files:
             findings.append(f"Missing required file: {name}")

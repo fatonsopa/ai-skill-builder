@@ -19,6 +19,7 @@ from runtime.artifacts import check_package, check_plan
 from runtime.common import Invalid, digest, inventory, load, save, validate
 from runtime.examples import development_packet, ingest
 from evaluate import evaluate, metrics, run_process, maintenance
+from continuation import MAX_EXTENSIONS
 from skill_builder_cli import main, replay
 from fixtures import PLAN, PRODUCE, PROGRAM, SPEC, payload
 
@@ -33,7 +34,8 @@ class RuntimeTests(unittest.TestCase):
     def start(self, **changes):
         request = {"operation": "create", "skill_name": "normalize-customers", "brief": "Normalize JSON records.", "copyright_holder": "Fixture Author"}
         request.update(changes)
-        return workflow.start(self.run, request)
+        # These authored fixtures exercise the captured v1 protocol; v2 coverage is in test_workflow_coverage.
+        return workflow.start(self.run, request, protocol_version=1)
 
     def submit(self, phase, data=None):
         packet = workflow.packet(self.run)
@@ -53,7 +55,7 @@ class RuntimeTests(unittest.TestCase):
 
     def review(self, accepted=True):
         state = workflow.read_state(self.run)
-        resources = {"SKILL.md", "README.md"} | {r["path"] for r in state["data"]["plan"]["resources"]}
+        resources = {"SKILL.md", "README.md", "AGENTS.md", "CLAUDE.md"} | {r["path"] for r in state["data"]["plan"]["resources"]}
         if state["request"]["operation"] in {"modify", "refactor"}:
             resources &= set(inventory(self.run / "candidate"))
         return {
@@ -95,6 +97,45 @@ class RuntimeTests(unittest.TestCase):
         self.assertFalse((target / "distribution.json").exists())
         self.assertFalse((target / "dist").exists())
 
+    def test_generated_repository_keeps_testing_and_push_approval_rules(self):
+        self.produced()
+        root = self.run / "candidate"
+        instructions = (root / "AGENTS.md").read_text()
+        self.assertIn("scripts/run_tests.py --execute", instructions)
+        self.assertIn("Do not push to GitHub without the user's explicit approval", instructions)
+        self.assertEqual((root / "CLAUDE.md").read_text(), "@AGENTS.md\n")
+        self.assertTrue(check_package(root)["passed"])
+        workflow.run_evaluation(self.run, allow_exec=True)
+        report = self.review()
+        report["resource_findings"] = [row for row in report["resource_findings"] if row["path"] != "AGENTS.md"]
+        with self.assertRaisesRegex(Invalid, "every declared"):
+            self.submit("review", report)
+
+    def test_broad_development_tests_are_blocked_before_execution(self):
+        plan = deepcopy(PLAN)
+        plan["cases"][0]["command"] = ["{python}", "-m", "unittest", "discover", "-s", "tests"]
+        with self.assertRaisesRegex(Invalid, "Unrestricted test discovery"):
+            check_plan(SPEC, plan)
+        with patch("runtime.workflow.check_plan"):
+            self.produced(plan=plan)
+        with patch("runtime.workflow.evaluate") as execute:
+            with self.assertRaisesRegex(Invalid, "blocked during iteration"):
+                workflow.run_evaluation(self.run, allow_exec=True)
+            execute.assert_not_called()
+
+    def test_generated_impacted_runner_executes_selected_case_ids(self):
+        self.produced()
+        package = self.run / "candidate"
+        result = subprocess.run([sys.executable, "scripts/run_tests.py", "--changed", "scripts/normalize.py", "--execute"], cwd=package, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["mode"], "impacted")
+        self.assertEqual({row["id"] for row in report["checks"]}, {case["id"] for case in PLAN["cases"]})
+        self.assertTrue(all("--case" in row["argv"] for row in report["checks"]))
+        blocked = subprocess.run([sys.executable, "scripts/run_tests.py", "--changed", "scripts/normalize.py", "--full"], cwd=package, text=True, capture_output=True)
+        self.assertEqual(blocked.returncode, 2)
+        self.assertIn("Full suites are disabled", blocked.stderr)
+
     def test_creation_requires_actual_copyright_holder(self):
         self.start()
         state = workflow.read_state(self.run)
@@ -121,6 +162,8 @@ class RuntimeTests(unittest.TestCase):
         plan["domains"][0]["owned_paths"].extend(["assets/keep.txt", "scripts/requirements.txt"])
         files = {
             "README.md": "# Normalize customers\n\nRun scripts/normalize.py.\n",
+            "AGENTS.md": (SCRIPTS.parent / "assets/AGENTS.md").read_text(),
+            "CLAUDE.md": "@AGENTS.md\n",
             "LICENSE": (SCRIPTS.parent / "LICENSE").read_text(),
             "assets/keep.txt": "original",
             "scripts/requirements.txt": (source / "old/requirements.txt").read_text(),
@@ -693,7 +736,7 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         self.assertEqual(json.loads(stream.getvalue())["status"], "host_handoff")
         self.assertEqual(workflow.read_state(self.run)["model_invocations"], 0)
 
-    def test_exhausted_budget_proposes_bounded_user_extension(self):
+    def test_exhausted_budget_allows_bounded_routine_extension_without_new_approval(self):
         bad = deepcopy(PRODUCE)
         bad["files"]["scripts/normalize.py"] = "print('{}')"
         self.produced(request={"limits": {"max_experiments": 1}}, produce=bad)
@@ -701,15 +744,15 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         workflow.run_evaluation(self.run, allow_exec=True)
         self.submit("review", self.review())
         advice = workflow.budget(self.run)
-        self.assertTrue(advice["ask_user_for_extension"])
-        self.assertFalse(advice["automatic_extension"])
+        self.assertFalse(advice["ask_user_for_extension"])
+        self.assertTrue(advice["automatic_extension"])
         with self.assertRaises(Invalid):
             workflow.extend_budget(self.run, 2, 60, 0, "")
         old = workflow.read_state(self.run)["objective_sha256"]
-        state = workflow.extend_budget(self.run, 2, 60, 0, "User requested two more attempts and 60 seconds in the current chat.")
+        state = workflow.extend_budget(self.run, 2, 60, 0, "Retest the corrected transformation under the same task and criteria.")
         self.assertEqual(state["objective_sha256"], old)
         self.assertEqual(state["request"]["limits"]["max_experiments"], 3)
-        state = workflow.extend_budget(self.run, 2, 60, 0, "User requested two more attempts and 60 seconds in the current chat.")
+        state = workflow.extend_budget(self.run, 2, 60, 0, "Retest the corrected transformation under the same task and criteria.")
         self.assertEqual(state["request"]["limits"]["max_experiments"], 3)
 
     def test_generated_skill_declares_host_native_policy(self):
@@ -717,7 +760,31 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         policy = load(self.run / "candidate/config/host_policy.json")
         self.assertEqual(policy["designed_hosts"], ["chatgpt", "claude", "codex", "claude-code"])
         self.assertFalse(policy["external_cli_required"])
-        self.assertIn("ask the user", (self.run / "candidate/SKILL.md").read_text())
+        self.assertIn("without asking for each extra test", (self.run / "candidate/SKILL.md").read_text())
+        self.assertTrue((self.run / "candidate/scripts/continuation.py").is_file())
+
+    def test_routine_budget_extension_preserves_explicit_hard_limits(self):
+        bad = deepcopy(PRODUCE)
+        bad['files']['scripts/normalize.py'] = "print('{}')"
+        self.produced(request={'limits': {'max_experiments': 1}, 'hard_limits': {'attempts': 1}}, produce=bad)
+        workflow.run_evaluation(self.run, allow_exec=True)
+        self.submit('review', self.review())
+        original = workflow.read_state(self.run)
+        self.assertFalse(workflow.budget(self.run)['automatic_extension'])
+        with self.assertRaisesRegex(Invalid, 'hard limit'):
+            workflow.extend_budget(self.run, 1, 0, 0, 'Retest the scoped repair.')
+        self.assertEqual(workflow.read_state(self.run), original)
+
+    def test_routine_budget_extensions_stop_without_resetting_stagnation(self):
+        self.produced()
+        original = workflow.read_state(self.run)
+        for index in range(MAX_EXTENSIONS):
+            workflow.extend_budget(self.run, 1, 60, 1, f'Validate scoped repair {index + 1}.')
+        state = workflow.read_state(self.run)
+        self.assertEqual(state['request']['limits'].get('max_stagnant_experiments'), original['request'].get('limits', {}).get('max_stagnant_experiments'))
+        with self.assertRaisesRegex(Invalid, 'ceiling'):
+            workflow.extend_budget(self.run, 1, 60, 1, 'Try another routine repair.')
+        self.assertEqual(workflow.read_state(self.run), state)
 
     def test_declared_target_cannot_be_lowered_by_plan(self):
         self.start(target_success_percent=100)
@@ -748,16 +815,17 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         self.assertEqual(exported["status"], "exported")
         self.assertEqual(inventory(self.root / "repaired"), inventory(package))
 
-    def test_child_skill_budget_asks_before_extension(self):
+    def test_child_skill_budget_allows_routine_extension_without_builder_or_approval(self):
         self.produced(request={"limits": {"max_experiments": 1}})
         package = self.run / "candidate"
         (package / "scripts/normalize.py").write_text("print('{}')")
         records = self.root / "maintenance"
         maintenance(package, records, PLAN["cases"], True)
         paused = maintenance(package, records, PLAN["cases"], True)
-        self.assertEqual(paused["status"], "needs_user_extension")
-        self.assertFalse(paused["proposal"]["automatic_extension"])
-        extension = {"iterations": 1, "seconds": 60, "authorization_note": "User authorized one more attempt."}
+        self.assertEqual(paused["status"], "needs_continuation")
+        self.assertTrue(paused["proposal"]["automatic_extension"])
+        self.assertFalse(paused["proposal"]["ask_user"])
+        extension = {"iterations": 1, "seconds": 60, "authorization_note": "Recheck the repaired normalization under frozen criteria."}
         maintenance(package, records, PLAN["cases"], extension=extension)
         (package / "scripts/normalize.py").write_text(PROGRAM)
         self.assertEqual(maintenance(package, records, PLAN["cases"], True)["status"], "target_met")

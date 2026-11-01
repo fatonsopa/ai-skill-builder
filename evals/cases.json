@@ -1,24 +1,258 @@
 [
   {
-    "id": "installed-runtime-smoke",
-    "requirements": ["executable-workflow"],
-    "critical": true,
+    "id": "mechanical-test_process_evaluation",
     "kind": "command",
-    "command": ["{python}", "scripts/smoke_check.py"],
-    "stdin": "",
-    "expect": {"exit_code": 0},
+    "command": [
+      "{python}",
+      "scripts/run_tests.py",
+      "--execute",
+      "--changed",
+      "tests/test_process_evaluation.py"
+    ],
+    "requirements": [
+      "SB-WORKFLOW",
+      "SB-BEHAVIOR"
+    ],
+    "critical": true,
     "semantic": false,
-    "timeout_seconds": 60
+    "expect": {
+      "exit_code": 0,
+      "contains": [
+        "\"passed\": true"
+      ]
+    }
   },
   {
-    "id": "exported-package-contract",
-    "requirements": ["usable-package"],
-    "critical": true,
+    "id": "mechanical-test_workflow_coverage",
     "kind": "command",
-    "command": ["{python}", "scripts/skill_builder_cli.py", "check", "--package", "."],
-    "stdin": "",
-    "expect": {"exit_code": 0},
+    "command": [
+      "{python}",
+      "scripts/run_tests.py",
+      "--execute",
+      "--changed",
+      "tests/test_workflow_coverage.py"
+    ],
+    "requirements": [
+      "SB-WORKFLOW",
+      "SB-BEHAVIOR"
+    ],
+    "critical": true,
     "semantic": false,
-    "timeout_seconds": 30
+    "expect": {
+      "exit_code": 0,
+      "contains": [
+        "\"passed\": true"
+      ]
+    }
+  },
+  {
+    "id": "mechanical-test_behavior_evaluation",
+    "kind": "command",
+    "command": [
+      "{python}",
+      "scripts/run_tests.py",
+      "--execute",
+      "--changed",
+      "tests/test_behavior_evaluation.py"
+    ],
+    "requirements": [
+      "SB-WORKFLOW",
+      "SB-BEHAVIOR"
+    ],
+    "critical": true,
+    "semantic": false,
+    "expect": {
+      "exit_code": 0,
+      "contains": [
+        "\"passed\": true"
+      ]
+    }
+  },
+  {
+    "id": "builder-audit-before-edit",
+    "kind": "behavior",
+    "requirements": [
+      "SB-WORKFLOW",
+      "SB-BEHAVIOR"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Audit this existing skill. Report concrete problems and recommended fixes. Do not edit its files.",
+      "source": {
+        "SKILL.md": "---\nname: draft-writer\ndescription: Rewrite documents.\n---\nBefore rewriting, audit the source, research the document type, and present recommendations. Then rewrite and validate.\n",
+        "tests": "The only test checks whether the final output has an H1."
+      }
+    },
+    "resources": [
+      "references/maintenance.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "skill-maintenance",
+      "scenario": "behavior",
+      "covers": []
+    }
+  },
+  {
+    "id": "builder-plan-test-layers",
+    "kind": "behavior",
+    "requirements": [
+      "SB-WORKFLOW",
+      "SB-BEHAVIOR"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Plan a skill that reviews a document, proposes structural improvements, waits for an explicit user decision on substantive changes, rewrites approved content and validates it. Produce the specification and implementation/evaluation plan only.",
+      "constraints": [
+        "Every workflow has mechanical and AI behavioral tests.",
+        "Do not start production during this planning task.",
+        "Preserve commands and approval boundaries."
+      ]
+    },
+    "resources": [
+      "references/authoring.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "skill-maintenance",
+      "scenario": "behavior",
+      "covers": []
+    }
+  },
+  {
+    "id": "builder-feedback-process-miss",
+    "kind": "behavior",
+    "requirements": [
+      "SB-WORKFLOW",
+      "SB-BEHAVIOR"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Investigate this failure and propose a scoped repair before changing the skill.",
+      "reported_failure": "The writer produced an elegant final document but drafted it before showing the required source audit. Its final-document structural tests passed.",
+      "source_rules": "Research, audit, present recommendations, then rewrite.",
+      "existing_tests": "Only final heading and literal checks exist."
+    },
+    "resources": [
+      "references/maintenance.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "skill-maintenance",
+      "scenario": "behavior",
+      "covers": []
+    }
+  },
+  {
+    "id": "builder-no-mechanical-only-claim",
+    "kind": "behavior",
+    "requirements": [
+      "SB-BEHAVIOR"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Review this validation report and say whether the skill is ready.",
+      "report": {
+        "mechanical_tests": {
+          "passed": 18,
+          "failed": 0
+        },
+        "behavioral_evals": {
+          "planned": 5,
+          "executed": 0
+        },
+        "workflow": "research \u2192 audit \u2192 proposal \u2192 draft",
+        "claims": [
+          "The skill is 100% reliable because its unit tests passed."
+        ]
+      }
+    },
+    "resources": [
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "skill-maintenance",
+      "scenario": "behavior",
+      "covers": []
+    }
+  },
+  {
+    "id": "builder-routine-test-retry",
+    "kind": "behavior",
+    "requirements": [
+      "SB-WORKFLOW",
+      "SB-BEHAVIOR"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Review these results and give the concrete next validation action for the already-authorized repair. Keep the task and acceptance criteria fixed.",
+      "validation": {
+        "mechanical": "All affected checks pass.",
+        "behavioral": "Three cases passed; one planning case timed out at 300 seconds. All observations bind to the same unchanged candidate.",
+        "batch": "The four-call batch is spent.",
+        "diagnosis": "The planning trace is incomplete. No unsupported claim about its cause is established.",
+        "environment": "CLI preflight passes; no browser is required.",
+        "user_limits": "No absolute hard limit or separate paid service is specified."
+      }
+    },
+    "resources": [
+      "references/evaluation.md",
+      "references/host_support.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
+  },
+  {
+    "id": "builder-fifth-test-round",
+    "kind": "behavior",
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Recommend the next validation action for the already-authorized repair. The initial round and three bounded continuations are recorded; the target is unmet, progress continues and there is no explicit user hard cap. Explain the next round and the stopping boundary. Do not claim any new test ran."
+    },
+    "resources": [
+      "references/host_support.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "requirements": [
+      "SB-WORKFLOW",
+      "SB-BEHAVIOR"
+    ]
+  },
+  {
+    "id": "builder-late-observations",
+    "kind": "behavior",
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Recommend the next native-run action without changing files. The same candidate is in review after mechanical checks passed, with the actual AI case still not run in the report. Its captured actual observation has now arrived in observations.json and has the right frozen case/package hashes. No review has been submitted. Explain the supported import command, what must be reviewed next, and how this affects readiness and the stagnation budget. Do not invent a test result or reset any history. Also explain how an unchanged-candidate observation refresh is counted in a generated skill\u2019s portable maintenance session."
+    },
+    "resources": [
+      "references/maintenance.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
   }
 ]

@@ -13,6 +13,7 @@ import tempfile
 import time
 import math
 import fcntl
+from continuation import MAX_EXTENSIONS, extension as routine_extension
 
 
 def json_hash(value):
@@ -69,14 +70,114 @@ def metrics(attempts, planned):
     }
 
 
-def check_case(package, case, allow_exec, remaining=None):
+
+def grade_process(trace, expected):
+    """Check captured stages. Ordering is mechanical; evidence meaning needs review."""
+    errors, observed = [], []
+    allowed_provenance = {"authored_control", "historical_replay", "instrumented_execution", "host_observation"}
+    provenance = trace.get("provenance") if isinstance(trace, dict) else None
+    if not isinstance(provenance, dict) or provenance.get("kind") not in allowed_provenance or not isinstance(provenance.get("source"), str) or not provenance["source"].strip():
+        errors.append("Identify trace provenance and its actual source; do not imply a fresh model run.")
+    events = trace.get("events") if isinstance(trace, dict) else None
+    if not isinstance(events, list) or not events:
+        errors.append("A process check needs actual stage events, not just a final output or success flag.")
+        events = []
+    for event in events:
+        if not isinstance(event, dict) or not isinstance(event.get("phase"), str) or not event["phase"].strip():
+            errors.append("Malformed process event.")
+            continue
+        phase = event["phase"]
+        observed.append(phase)
+        if phase in expected["visible"] and event.get("visible") is not True:
+            errors.append("Required user-visible handoff is missing: " + phase)
+        if phase in expected["evidence"] and (not isinstance(event.get("evidence"), str) or not event["evidence"].strip()):
+            errors.append("Missing stage evidence: " + phase)
+    if observed != expected["order"]:
+        errors.append("Process phases were omitted, reordered, repeated or undeclared; expected " + repr(expected["order"]) + ", observed " + repr(observed))
+    return {"passed": not errors, "failures": errors, "observed_order": observed,
+            "provenance": provenance, "trace": trace,
+            "limits": "Checks recorded event order and declared evidence/visibility. Review actual artifacts and host observations for truth and completeness; authored controls and replay are not fresh model behavior."}
+
+
+def process_metrics(attempts, suite):
+    selected = {case["id"] for case in suite if case.get("workflow")}
+    rows = [row for row in attempts if row["id"] in selected]
+    valid = [row for row in rows if row["status"] in {"passed", "failed", "pending_review"}]
+    accepted = sum(row["status"] == "passed" for row in valid)
+    return {"planned": len(selected), "evaluated": len(valid), "accepted": accepted,
+            "success_percent": 100 * accepted / len(valid) if valid else None,
+            "coverage_percent": 100 * len(valid) / len(selected) if selected else None,
+            "trace_checks": sum("process" in row for row in rows),
+            "trace_failures": sum(row.get("process", {}).get("passed") is False for row in rows),
+            "pending_review": sum(row["status"] == "pending_review" for row in rows),
+            "limits": "Declared workflow-case results; not universal skill accuracy or proof of unobserved model behavior."}
+
+
+def behavior_packet(package, case):
+    """Inputs for a fresh performing context; expected answers are excluded."""
+    package = Path(package).resolve()
+    resources = {}
+    for name in case.get("resources", []):
+        path = (package / name).resolve()
+        if not path.is_relative_to(package) or not path.is_file():
+            raise ValueError("Behavioral resource is missing or outside the package: " + name)
+        relative = path.relative_to(package)
+        if relative.parts[0] in {'evals', 'tests', 'tools'} or relative.suffix == '.py' and (relative.name.startswith('test_') or relative.name.endswith('.test.py')):
+            raise ValueError('Performing resources cannot include evaluation answers or development controls: ' + name)
+        resources[name] = path.read_text()
+    return {"case_id": case["id"], "case_sha256": json_hash(case), "package_hashes": hash_tree(package),
+            "request": case["request"], "skill": (package / "SKILL.md").read_text(), "resources": resources,
+            "role": "performing_agent", "instructions": "Use the actual skill for this task in a fresh context. Capture public messages, tool calls and artifacts. Do not claim tools ran when unavailable. Return the requested result; this packet does not contain the grader's expected answer."}
+
+
+def observation_for(package, case, observations):
+    """Bind imported performing-model evidence to the exact case and skill bytes."""
+    if not observations:
+        return None
+    if not isinstance(observations, dict) or observations.get("package_hashes") != hash_tree(package):
+        raise ValueError("Behavior observations belong to another skill version.")
+    records = observations.get("observations", [])
+    if not isinstance(records, list) or any(not isinstance(row, dict) for row in records):
+        raise ValueError("Behavior observations must contain a list of captured records.")
+    matches = [row for row in records if row.get("case_id") == case["id"]]
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise ValueError("Duplicate behavioral observations for one case.")
+    row = matches[0]
+    provenance = row.get("provenance", {})
+    if row.get("case_sha256") != json_hash(case):
+        raise ValueError("Behavior observation belongs to a different frozen input/case.")
+    if not isinstance(provenance, dict) or provenance.get("kind") not in {"host_observation", "provider_cli"} or not isinstance(provenance.get("source"), str) or not provenance["source"].strip() or not isinstance(provenance.get("host"), str) or not provenance["host"].strip() or "model" not in provenance or (provenance["model"] is not None and (not isinstance(provenance["model"], str) or not provenance["model"].strip())):
+        raise ValueError("Behavior tests require actual model observations with host/model/source provenance; controls and historical replay do not qualify.")
+    if "output" not in row:
+        raise ValueError("Behavior observation has no actual output.")
+    if "execution_status" in row and row["execution_status"] != "completed":
+        raise ValueError("The captured AI task did not complete successfully: " + str(row["execution_status"]))
+    return row
+
+
+def check_case(package, case, allow_exec, remaining=None, observations=None):
     result = {
         "id": case["id"], "critical": case["critical"],
         "status": "failed", "failures": [], "stdout": "", "stderr": "",
         "requirements": case["requirements"], "semantic": case["semantic"],
+        "workflow": case.get("workflow"),
     }
     expected = case["expect"]
     exit_code = 0
+    if case["kind"] == "behavior":
+        try:
+            observation = observation_for(package, case, observations)
+        except (ValueError, TypeError, KeyError) as error:
+            result["failures"].append(str(error))
+            return result
+        if observation is None:
+            result.update(status="not_run", failures=["Run the actual AI task and capture its behavior; mechanical passes are not behavioral evidence."])
+            return result
+        output = observation["output"]
+        result["stdout"] = output if isinstance(output, str) else json.dumps(output, ensure_ascii=False)
+        result["observation"] = observation
     if case["kind"] == "command":
         if not allow_exec:
             result.update(status="not_run", failures=["Command execution requires --allow-exec after code review."])
@@ -126,12 +227,27 @@ def check_case(package, case, allow_exec, remaining=None):
                     result["failures"].append("File JSON differs from the expected value.")
             except (ValueError, OSError):
                 result["failures"].append("Expected file is not readable JSON.")
+    if "process" in expected:
+        contract = expected["process"]
+        try:
+            if "trace_file" in contract:
+                path = (package / contract["trace_file"]).resolve()
+                if not path.is_relative_to(package.resolve()) or not path.is_file():
+                    raise ValueError("The process trace must be a captured file inside the evaluated package.")
+                trace = json.loads(path.read_text())
+            else:
+                trace = result.get("observation", {}).get("trace") if case["kind"] == "behavior" else json.loads(result["stdout"])
+            result["process"] = grade_process(trace, contract)
+            result["failures"].extend(result["process"]["failures"])
+        except (OSError, ValueError, TypeError) as error:
+            result["process"] = {"passed": False, "failures": ["Missing or malformed process trace: " + str(error)]}
+            result["failures"].extend(result["process"]["failures"])
     if not result["failures"]:
         result["status"] = "pending_review" if case["semantic"] else "passed"
     return result
 
 
-def evaluate(package, suite, allow_exec=False, max_seconds=None):
+def evaluate(package, suite, allow_exec=False, max_seconds=None, observations=None):
     package = Path(package).resolve()
     suite_hash = hashlib.sha256(json.dumps(suite, sort_keys=True).encode()).hexdigest()
     original = hash_tree(package)
@@ -150,17 +266,20 @@ def evaluate(package, suite, allow_exec=False, max_seconds=None):
                 continue
             work = Path(folder) / str(index)
             copy_package(package, work)
-            attempts.append(check_case(work, case, allow_exec, remaining))
+            attempts.append(check_case(work, case, allow_exec, remaining, observations))
     return {
         "schema_version": 1, "mode": "fresh_processes" if allow_exec else "mechanical_only",
         "suite_sha256": suite_hash, "package_hashes": original,
         "elapsed_seconds": time.monotonic() - started,
         "attempts": attempts, "metrics": metrics(attempts, len(suite)),
+        "process_metrics": process_metrics(attempts, suite),
+        "mechanical_metrics": metrics([row for row in attempts if row["id"] in {case["id"] for case in suite if case["kind"] != "behavior"}], sum(case["kind"] != "behavior" for case in suite)),
+        "behavioral_metrics": metrics([row for row in attempts if row["id"] in {case["id"] for case in suite if case["kind"] == "behavior"}], sum(case["kind"] == "behavior" for case in suite)),
         "execution_boundary": "Disposable working directory; not an operating-system sandbox.",
     }
 
 
-def maintenance(package, directory, suite, allow_exec=False, review=None, extension=None, export=None):
+def maintenance(package, directory, suite, allow_exec=False, review=None, extension=None, export=None, observations=None):
     """A child skill can maintain itself without a provider CLI or installed builder."""
     package, directory = Path(package).resolve(), Path(directory).resolve()
     if directory.is_relative_to(package) or package.is_relative_to(directory):
@@ -198,15 +317,14 @@ def maintenance(package, directory, suite, allow_exec=False, review=None, extens
         if extension:
             if state["status"] == "target_met":
                 raise ValueError("Target already met.")
-            if not extension["authorization_note"].strip() or not any(extension[key] for key in ["iterations", "seconds"]):
-                raise ValueError("A positive extension needs the user's actual authorization.")
-            if any(extension[key] < 0 for key in ["iterations", "seconds"]):
-                raise ValueError("Extensions cannot decrease limits.")
-            if extension not in state["extensions"]:
+            repeated = any(all(row.get(key) == value for key, value in extension.items()) for row in state["extensions"])
+            if not repeated:
+                receipt = routine_extension(state["extensions"], {"attempts": extension["iterations"], "seconds": extension["seconds"]}, extension["authorization_note"],
+                    current={"attempts": state["policy"]["max_experiments"], "seconds": state["policy"]["max_seconds"]}, hard_limits=state["policy"].get("hard_limits"),
+                    stalled=state["stagnant_attempts"] >= state["policy"].get("max_stagnant_experiments", 3))
                 state["policy"]["max_experiments"] += extension["iterations"]
                 state["policy"]["max_seconds"] += extension["seconds"]
-                state["policy"]["max_stagnant_experiments"] = state["policy"].get("max_stagnant_experiments", 3) + extension["iterations"]
-                state["extensions"].append(extension)
+                state["extensions"].append({**extension, **receipt})
             write_json(state_path, state)
             return state
         if export:
@@ -250,27 +368,39 @@ def maintenance(package, directory, suite, allow_exec=False, review=None, extens
                     row["status"] = "passed" if label["accepted"] else "failed"
                     row["review"] = {"reviewer": review["reviewer"], **label}
             report["metrics"] = metrics(report["attempts"], len(state["suite"]))
+            report["process_metrics"] = process_metrics(report["attempts"], state["suite"])
+            for layer, behavior in (("mechanical_metrics", False), ("behavioral_metrics", True)):
+                ids = {case["id"] for case in state["suite"] if (case["kind"] == "behavior") == behavior}
+                report[layer] = metrics([row for row in report["attempts"] if row["id"] in ids], len(ids))
             write_json(directory / record["review"], {"judgment": review, "graded_report": report})
         else:
-            if state["status"] == "awaiting_review":
-                raise ValueError("Finish the pending review before another experiment.")
+            refresh = observations is not None and bool(state["attempts"]) and state["attempts"][-1]["files"] == files
+            if state["status"] == "awaiting_review" and not refresh:
+                raise ValueError("Finish the pending review or import bound observations for the unchanged candidate.")
             remaining = state["policy"]["max_seconds"] - state["elapsed_seconds"]
-            if len(state["attempts"]) >= state["policy"]["max_experiments"] or remaining <= 0 or state["stagnant_attempts"] >= state["policy"].get("max_stagnant_experiments", 3):
+            experiments = sum(not row.get("evidence_refresh", False) for row in state["attempts"])
+            if (not refresh and experiments >= state["policy"]["max_experiments"]) or remaining <= 0 or state["stagnant_attempts"] >= state["policy"].get("max_stagnant_experiments", 3):
                 state.update(
-                    status="needs_user_extension",
+                    status="needs_continuation",
                     proposal={
-                        "ask_user": True, "extra_iterations": 2,
-                        "extra_seconds": max(60, math.ceil(state["elapsed_seconds"] / max(1, len(state["attempts"])) * 2)),
+                        "ask_user": False, "extra_iterations": 2,
+                        "extra_seconds": min(900, max(60, math.ceil(state["elapsed_seconds"] / max(1, len(state["attempts"])) * 2))),
                         "basis": "Observed results and execution time; host-model time is not measured.",
-                        "automatic_extension": False,
+                        "automatic_extension": state["stagnant_attempts"] < state["policy"].get("max_stagnant_experiments", 3) and sum(row.get("automatic") is True for row in state["extensions"]) < MAX_EXTENSIONS,
                         "stagnant_attempts": state["stagnant_attempts"],
                     },
                 )
+                try:
+                    routine_extension(state['extensions'], {'attempts': state['proposal']['extra_iterations'], 'seconds': state['proposal']['extra_seconds']}, 'Continue the same validation task after inspecting its recorded failures.',
+                        current={'attempts': state['policy']['max_experiments'], 'seconds': state['policy']['max_seconds']}, hard_limits=state['policy'].get('hard_limits'),
+                        stalled=state['stagnant_attempts'] >= state['policy'].get('max_stagnant_experiments', 3))
+                except ValueError as error:
+                    state['proposal'].update(automatic_extension=False, reason=str(error))
                 write_json(state_path, state)
                 return state
-            report = evaluate(package, state["suite"], allow_exec, remaining)
+            report = evaluate(package, state["suite"], allow_exec, remaining, observations)
             index = len(state["attempts"])
-            record = {"report": f"attempts/{index:03}.json", "review": f"attempts/{index:03}-review.json", "files": files}
+            record = {"report": f"attempts/{index:03}.json", "review": f"attempts/{index:03}-review.json", "files": files, "evidence_refresh": refresh}
             state["attempts"].append(record)
             state["elapsed_seconds"] += report["elapsed_seconds"]
             write_json(directory / record["report"], report)
@@ -278,6 +408,9 @@ def maintenance(package, directory, suite, allow_exec=False, review=None, extens
         record["metrics"] = score
         if score["pending_review"]:
             state["status"] = "awaiting_review"
+        elif score["coverage_percent"] < 100:
+            # Retain incomplete checks without treating absent behavior as failed tuning.
+            state["status"] = "awaiting_observations"
         else:
             valid = score["coverage_percent"] == 100 and not score["critical_failures"]
             better = not state["best"] or score["task_success_percent"] > state["best"]["metrics"]["task_success_percent"]
@@ -299,23 +432,38 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--suite", type=Path)
+    parser.add_argument("--case", action="append", help="Run only these exact frozen case IDs.")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--behavior-packet", help="Export one performing-agent task without expected answers.")
+    parser.add_argument("--observations", type=Path, help="Captured fresh AI behavior, bound to case and artifact hashes.")
     parser.add_argument("--allow-exec", action="store_true")
     parser.add_argument("--session", type=Path, help="Bounded local maintenance records outside the package.")
     parser.add_argument("--review", type=Path)
     parser.add_argument("--extra-iterations", type=int, default=0)
     parser.add_argument("--extra-seconds", type=int, default=0)
-    parser.add_argument("--authorization-note", default="")
+    parser.add_argument("--reason", "--authorization-note", dest="authorization_note", default="", help="Reason for a bounded retry within the current task.")
     parser.add_argument("--export-best", type=Path)
     args = parser.parse_args()
     suite = json.loads((args.suite or args.package / "evals/cases.json").read_text())
+    if args.behavior_packet:
+        matches = [case for case in suite if case["id"] == args.behavior_packet and case["kind"] == "behavior"]
+        if len(matches) != 1:
+            parser.error("Select one declared behavioral case.")
+        print(json.dumps(behavior_packet(args.package, matches[0]), indent=2))
+        return 0
+    if args.case:
+        known = {case["id"] for case in suite}
+        if set(args.case) - known:
+            parser.error("Unknown selected case ID.")
+        suite = [case for case in suite if case["id"] in args.case]
     extension = None
     if args.extra_iterations or args.extra_seconds or args.authorization_note:
         extension = {"iterations": args.extra_iterations, "seconds": args.extra_seconds, "authorization_note": args.authorization_note}
     report = maintenance(
         args.package, args.session, suite, args.allow_exec,
         json.loads(args.review.read_text()) if args.review else None, extension, args.export_best,
-    ) if args.session else evaluate(args.package, suite, args.allow_exec)
+        observations=json.loads(args.observations.read_text()) if args.observations else None,
+    ) if args.session else evaluate(args.package, suite, args.allow_exec, observations=json.loads(args.observations.read_text()) if args.observations else None)
     rendered = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
     if args.output:
         args.output.write_text(rendered)

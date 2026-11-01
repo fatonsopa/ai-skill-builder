@@ -196,7 +196,7 @@ The builder captures a baseline, reconciles requirements, creates a replacement 
 
 > /skill-builder This skill omitted a required section. Fix this output and improve the reusable skill so the same failure is covered by a regression case.
 
-The builder records the observed failure, makes a scoped candidate change, and tests the original case plus relevant neighboring cases. If more effort is needed after the agreed limits, it asks before continuing.
+The builder records the observed failure, makes a scoped candidate change, and tests the original case plus relevant neighboring cases. Routine retries continue in recorded bounded batches without another approval; stalled progress or exhausted retry ceilings are reported.
 
 ### Repair a skill repository structure
 
@@ -244,19 +244,22 @@ For example, 8 accepted attempts out of 10 evaluated attempts gives 80% task suc
 
 A candidate is accepted only when its declared target, coverage, critical checks, and required reviews pass. An installation self-check is not a complete quality assessment of a generated skill.
 
+Missing actual AI observations remain unrun. Import the captured results with `--observations PATH` on the evaluation command and review the refreshed evidence before acceptance. Generated maintenance sessions report incomplete coverage as `awaiting_observations`; refreshing the unchanged candidate retains earlier reports without spending another tuning experiment. Complete failures and runtime limits still apply.
+
 ### Improve and retest
 
 1. Review executable candidate code before using --allow-exec. Read the report returned by the evaluation command.
-2. Read each failed attempt, its actual output, source facts, and checker or review findings. Distinguish a skill defect from missing input, an environment failure, or a faulty evaluator.
-3. Invoke /skill-builder with the failing input, expected output, actual output, and the requested reusable improvement. Keep the failure as a regression case.
-4. Make one scoped change and rerun the same acceptance criteria, relevant neighboring cases, and shared regressions. Preserve the baseline and every attempt.
-5. Accept the candidate only when the agreed gates pass. If the run reaches a limit below target, review the evidence and approve or decline a bounded extension.
+2. If actual AI results arrive after mechanical checks, use evaluate --run RUN_DIR --observations OBSERVATIONS.json directly, even while the runner is in review. Keep the same candidate and frozen cases; then review the refreshed packet. Do not create a failing placeholder review or reset stagnation. Missing observations remain unrun.
+3. Read each failed attempt, its actual output, source facts, and checker or review findings. Distinguish a skill defect from missing input, an environment failure, or a faulty evaluator.
+4. Invoke /skill-builder with the failing input, expected output, actual output, and the requested reusable improvement. Keep the failure as a regression case.
+5. Make one scoped change and rerun the same acceptance criteria, relevant neighboring cases, and shared regressions. Preserve the baseline and every attempt.
+6. Accept the candidate only when the agreed gates pass. Diagnose failures and run necessary bounded retries; preserve criteria and earlier attempts, honor explicit hard limits, and report any remaining gap when the retry policy stops.
 
 ## Models and run limits
 
 AI work uses the model already available in the current host. The skill records an unknown model identity rather than guessing one. Mechanical operations run through the packaged scripts.
 
-If evaluation remains below target when a run limit is reached, the skill reports the gap and recommends a bounded continuation. Additional iterations or runtime require your approval. Requirements and scoring stay fixed.
+Routine testing includes necessary bounded retries without approval for each extra test. The skill records the reason, preserves earlier attempts and stops when progress stalls or retry ceilings are reached. Explicit user hard limits still apply. Requirements and scoring stay fixed.
 
 ## Troubleshooting
 
@@ -292,7 +295,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Development
 
-The repository itself is the skill. Root SKILL.md, README.md and LICENSE define the entry point; references hold guidance, scripts own mechanics, evals/tests check results, and config holds machine contracts. Plans declare component ownership and dependencies. After installing scripts/requirements-lock.txt, run `.venv/bin/python tools/check_repository.py` to test the repository and a separate clean installation.
+The repository itself is the skill. Root SKILL.md, README.md and LICENSE define the entry point; references hold guidance, scripts own mechanics, evals/tests check results, and config holds machine contracts. Plans declare component ownership and dependencies. After installing scripts/requirements-lock.txt, preview `.venv/bin/python scripts/run_tests.py`, then add `--execute` to run the selected impacted checks. Full testing requires final-batch authorization; see references/maintenance.md. AGENTS.md contains repository collaboration rules; CLAUDE.md imports it for Claude Code.
 
 - [README conventions](references/readme.md)
 - [Testing and development](tests/README.md)

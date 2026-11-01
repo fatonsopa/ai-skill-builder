@@ -29,6 +29,9 @@ def check(root, policy=None):
         if relative == Path("SKILL.md") or any(part in {".git", ".venv", "__pycache__"} for part in relative.parts):
             continue
         issue(relative.as_posix(), "Nested skill entry point can cause duplicate discovery.", "Keep one canonical root SKILL.md; move snapshots outside the repository.")
+    claude = root / "CLAUDE.md"
+    if claude.is_file() and "@AGENTS.md" not in claude.read_text().splitlines():
+        issue("CLAUDE.md", "Claude instructions do not import the shared rules.", "Include @AGENTS.md on its own line and keep shared rules in AGENTS.md.")
     domains_file = root / "config/domains.json"
     if domains_file.is_file():
         try:

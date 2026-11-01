@@ -9,7 +9,7 @@ POLICY = {
     "external_cli_required": False,
     "execution_requirements": ["Python 3", "file access", "declared dependencies"],
     "tested_host_activation": [],
-    "budget_policy": "Ask the user before extending an exhausted iteration or runtime allowance; preserve the objective.",
+    "budget_policy": "Routine testing includes bounded retries without repeated approval; preserve criteria and attempts, honor explicit hard limits, and stop on stalled progress or retry ceilings.",
 }
 
 

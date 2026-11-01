@@ -19,8 +19,9 @@ class RepositoryStructureTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for name in ("SKILL.md", "README.md", "LICENSE"):
+        for name in ("SKILL.md", "README.md", "LICENSE", "AGENTS.md"):
             (self.root / name).write_text("A nonempty authored control.\n")
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n")
 
     def test_minimal_root_uses_only_needed_folders(self):
         self.assertTrue(check(self.root)["passed"])
@@ -84,3 +85,24 @@ class RepositoryStructureTests(unittest.TestCase):
             copy_repository(self.root, alias / "new-copy")
         self.assertEqual(before, inventory(self.root))
         self.assertFalse((self.root / "new-copy").exists())
+
+    def test_claude_import_and_shared_instructions_are_required(self):
+        (self.root / "CLAUDE.md").write_text("A separate set of rules.\n")
+        self.assertTrue(any(row["path"] == "CLAUDE.md" for row in check(self.root)["findings"]))
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n")
+        (self.root / "AGENTS.md").unlink()
+        self.assertFalse(check(self.root)["passed"])
+
+    def test_repository_copy_keeps_both_instruction_entry_points(self):
+        from repository_files import copy_repository
+        target = self.root.parent / (self.root.name + "-copy")
+        import shutil
+        self.addCleanup(shutil.rmtree, target, True)
+        copy_repository(self.root, target)
+        self.assertEqual((target / "AGENTS.md").read_text(), (self.root / "AGENTS.md").read_text())
+        self.assertEqual((target / "CLAUDE.md").read_text(), "@AGENTS.md\n")
+
+    def test_shared_root_rules_match_the_generation_template(self):
+        template = (ROOT / "assets/AGENTS.md").read_text()
+        self.assertTrue((ROOT / "AGENTS.md").read_text().startswith(template))
+        self.assertEqual((ROOT / "CLAUDE.md").read_text(), "@AGENTS.md\n")

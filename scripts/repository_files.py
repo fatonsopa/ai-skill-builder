@@ -22,11 +22,28 @@ def inventory(root, profile=None):
             if path.is_symlink():
                 raise ValueError("Unexpected symbolic link inside the repository: " + str(path))
         for name in sorted(files):
-            if name in {".DS_Store", ".lock"} or name.endswith(".pyc") or relative == Path(".") and (name == "AGENTS.md" or name.startswith(".env")):
+            if name in {".DS_Store", ".lock"} or name.endswith(".pyc") or relative == Path(".") and name.startswith(".env"):
                 continue
             path = Path(folder) / name
             result[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     return result
+
+
+def compare_installation(source, installed):
+    source = Path(source).expanduser().resolve()
+    active = Path(installed).expanduser().absolute()
+    resolved = active.resolve()
+    expected = inventory(source)
+    if "SKILL.md" not in expected:
+        raise ValueError("Installation comparison needs a source with root SKILL.md.")
+    actual = inventory(resolved) if resolved.is_dir() else {}
+    missing = sorted(set(expected) - set(actual))
+    extra = sorted(set(actual) - set(expected))
+    changed = sorted(name for name in set(expected) & set(actual) if expected[name] != actual[name])
+    return {"passed": not (missing or extra or changed), "source": str(source),
+            "installed_path": str(active), "resolved_path": str(resolved), "linked": active.is_symlink(),
+            "missing": missing, "unexpected": extra, "changed": changed,
+            "limits": "Compares public artifact files; does not establish host activation or task behavior."}
 
 
 def copy_repository(root, destination, profile=None):

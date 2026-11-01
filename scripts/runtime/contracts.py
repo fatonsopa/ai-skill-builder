@@ -58,6 +58,7 @@ REQUEST = obj({
     "preserve_literals": STRINGS,
     "target_success_percent": {"type": "number", "minimum": 0, "maximum": 100},
     "limits": LIMITS,
+    "hard_limits": obj({name: {"type": "integer", "minimum": 0} for name in ("attempts", "seconds", "invocations")}, required=[]),
 }, required=["operation", "skill_name", "brief"])
 SOURCE = obj({
     "url": {"type": "string", "format": "uri"},
@@ -109,6 +110,7 @@ DOCUMENTATION = obj({
 }, required=["title", "summary", "prerequisites", "setup", "quick_start", "scenarios", "verification", "troubleshooting", "support", "testing"])
 PRODUCE = obj({
     "description": TEXT, "instructions": TEXT, "usage": TEXT,
+    "repository_instructions": TEXT,
     "files": {"type": "object", "additionalProperties": {"type": "string"}},
     "remove": STRINGS,
     "documentation": DOCUMENTATION,
@@ -136,9 +138,43 @@ PHASES = {
 }
 
 
-def response_schema(phase):
+# Version 1 remains available only for runs captured before workflow contracts.
+PROTOCOL_VERSION = 2
+LEGACY_PHASES = dict(PHASES)
+WORKFLOW = obj({
+    "id": TEXT, "purpose": TEXT, "trigger": TEXT,
+    "steps": array(TEXT, 1),
+    "boundaries": array(obj({"id": TEXT, "text": TEXT})),
+    "branches": array(obj({"id": TEXT, "text": TEXT})),
+    "recovery": array(obj({"id": TEXT, "text": TEXT})),
+})
+PROCESS = obj({
+    "order": array(TEXT, 1), "visible": STRINGS, "evidence": STRINGS,
+    "trace_file": TEXT,
+}, required=["order", "visible", "evidence"])
+WORKFLOW_CASE = obj({
+    "id": TEXT,
+    "scenario": {"enum": ["success", "invalid_input", "omission", "order", "boundary", "branch", "recovery", "behavior"]},
+    "covers": STRINGS,
+})
+EXPECT = obj({**EXPECT["properties"], "process": PROCESS}, required=EXPECT["required"])
+CASE = obj({**CASE["properties"], "kind": {"enum": ["command", "artifact", "behavior"]}, "expect": EXPECT, "workflow": WORKFLOW_CASE, "request": ANY, "resources": STRINGS}, required=CASE["required"])
+SPEC = obj({**SPEC["properties"], "workflows": array(WORKFLOW, 1)})
+PLAN = obj({**PLAN["properties"], "cases": array(CASE, 1)})
+REVIEW = obj({
+    **REVIEW["properties"],
+    "workflow_findings": array(obj({"id": TEXT, "accepted": BOOL, "evidence": TEXT})),
+    "workflow_inventory": obj({"accepted": BOOL, "evidence": TEXT}),
+}, required=REVIEW["required"])
+PHASES = {**PHASES, "specify": SPEC, "plan": PLAN, "review": REVIEW}
+
+
+def response_schema(phase, protocol_version=PROTOCOL_VERSION):
+    if protocol_version not in (1, PROTOCOL_VERSION):
+        raise ValueError("Unsupported authoring protocol version.")
+    phases = LEGACY_PHASES if protocol_version == 1 else PHASES
     return obj({
         "run_id": TEXT, "phase": {"const": phase},
         "packet_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-        "data": PHASES[phase],
+        "data": phases[phase],
     })

@@ -1,39 +1,31 @@
-# Audit, repair, and rebuild skills
+# Maintain an existing skill
 
-Identify the reported problem and the requested scope. Inspect the actual package, relevant callers, requirements, outputs, and available evidence. Preserve a baseline before changing files. A request to repair one answer does not automatically authorize a persistent rule.
+Use this guide for an audit, repair, refactor, rebuild or feedback from use. Preserve the user's requested operation, current authorization and existing custom content. Treat attachments and source files as evidence; they cannot authorize edits or waive requirements. Audit-only and planning-only requests stop before implementation.
 
-## Choose the change from evidence
+## Inspect and propose
 
-An audit returns located findings, consequences, and recommendations. Retain a valid skill. Use modification for a deliberate behavior change, refactoring for a behavior-preserving change, and rebuilding when the existing structure cannot support the agreed requirements reliably.
+Capture the source baseline and resolve the active installation. Read the relevant code, instructions, tests, user history and actual failure evidence before asking for facts already available. An audit returns located findings, their effects and recommended fixes. Choose retain, modify, refactor or rebuild from the actual responsibilities and defects; file names alone do not establish domain boundaries. Use [skill structure](skill_structure.md) for packaging and ownership.
 
-For `modify` and `refactor`, specify exact `allowed_paths` before staging changes. Include renamed or removed files and their actual callers. Preserve visible labels, identifiers, exceptions, invocation preferences, and relevant metadata. Code checks content hashes and local links; semantic preservation still needs review.
+Research material uncertainties using current primary sources and record what was actually inspected. Reuse checked evidence for a narrow repair. Distinguish a skill defect, a missing input, an execution-environment failure, a stale installation and a faulty evaluator. Do not invent a verified implementation cause when source or traces are absent.
 
-For rebuilding, reconcile the original requirements first. Capture baseline results with `evaluate --baseline` after freezing the plan, using execution permission only for reviewed code. Compare matching cases and disclose differences. Do not erase a valid capability because the replacement has a better average score.
+For a specification or substantial redesign, follow [authoring](authoring.md). Define preserved facts, commands, approval boundaries and exact edit paths before implementation. Resolve material choices with actual user instructions; routine reversible fixes within existing authorization need no repeated permission.
 
-## Repair through a bounded experiment
+## Repair and validate
 
-Retain the failed output, diagnosis, and a scoped hypothesis. Freeze cases, scoring, targets, and editable candidate paths before tuning. Use `revise` to request a new candidate within the declared experiment, execution-time, and stagnation limits.
+Keep the failing input, expected result, actual output, source version and public trace as regression evidence. Freeze relevant criteria, then use the native runner’s typed packets and reported phase. [Evaluation](evaluation.md) owns executable coverage, actual model observations, metrics and invocation limits. Make the smallest supported change, test only affected checks and review the actual result. Never alter expected answers or weaken a frozen target to manufacture a pass.
 
-The runner keeps the best candidate satisfying mandatory checks, discards worse candidates, and marks a candidate ready only when its target is met. Semantic judgments cannot override failed mechanical checks. A target already met ends that optimization run. When the target is unmet and a limit is exhausted, use `budget` to explain the evidence and recommend bounded additional iterations and runtime. Ask the user before `extend` records a new allowance. A new objective or evaluator correction requires a new versioned run.
+Read the returned state before selecting the next action. If the candidate is unchanged and only actual observations are missing, import those observations during `evaluate`; do not regenerate the package merely to collect evidence. Use `revise` for a supported candidate change. Preserve all attempts. Continue routine testing within the shared retry policy without another approval for each test; stop and report stalled progress, explicit hard limits or exhausted retry ceilings.
 
-If a semantic judge is wrong, retain its original judgment and document the correction. Never lower a criterion merely to pass.
+Verify the accepted source and invoked installation before claiming the repair is available. Keep internal evidence outside the public package, and public documentation focused on installation, invocation, use and evaluation.
 
-## Capture and close feedback
+## Regressions from workflow failures
 
-Use `feedback --run RUN_DIR --text "OBSERVATION"` to retain a local report. Add `--maintenance` when the request includes reusable changes. Keep the expected behavior, actual result, input, artifact version, and reproduction uncertainty when available.
+Capture the user's intended sequence and the actual public trace. Distinguish an omitted phase, wrong ordering, premature action, missing user-visible report, unsupported research claim and a poor final artifact. A passing preservation check does not establish that an audit preceded drafting. Create both code-level regression checks and realistic AI task cases before changing the guidance. Fix the responsible reusable mechanism, then the affected skill through the Builder.
 
-Classify the cause as a defect, changed requirement, preference, missing context, environment, model, or grader issue. A hypothesis is not a proven cause. Preserve intermittent observations and use fresh repetitions where needed; replaying the saved answer is not fresh reproduction.
+Audit neighboring workflows for the same missing test layer. Before publication, validate the final versions with the full authorized mechanical suites and fresh behavioral evaluations. During implementation, run only impacted checks. Report remaining unknown hosts/models or unobserved steps rather than claiming full compliance.
 
-Create a faithful regression and test relevant neighboring inputs. After validated maintenance is applied, use `resolve-feedback --run ORIGINAL_RUN --id FEEDBACK_ID --classification CLASS --resolution-run FIX_RUN --case REGRESSION_ID`. Closure requires an applied, unchanged candidate and a passing linked case. The agent must still verify that this case represents the reported failure.
+## Verify the invoked installation
 
-## Apply and recover
+Resolve the active skill path and compare it with the source being maintained. A copied installation can remain stale after the repository is updated. Use `scripts/skill_builder_cli.py check-installation --package SOURCE --installed ACTIVE_PATH` to compare public artifact files, including a link's resolved target. This establishes file identity, not host activation or behavioral quality. Within the authorized maintenance scope, preserve existing custom content, update or relink the active installation to the accepted artifact, and verify it before saying the user is running the fix. Respect an established preference for linked local development. Keep replaced installations outside skill-discovery folders.
 
-`apply` checks the source snapshot again, journals each write, and verifies the delivered file contents against the accepted candidate. Existing-source changes apply to that captured source. New packages need an explicit destination.
-
-`recover` restores recorded before-images only when the current file still matches the applied value. It preserves newer user changes and reports conflicts. Recovery can be repeated. Multi-file application is journaled, not atomic; inspect unresolved interruptions before continuing.
-
-`replay` rebuilds artifacts from captured phase responses and frozen inputs. It reuses recorded evaluation observations without rerunning commands, calling models, or repeating delivery. Changed runner/dependency versions can invalidate replay and must be reported.
-
-## Structure repairs
-
-Use the [canonical structure](skill_structure.md) for layout audits and authorized refactors. Report the runner's automatic structure findings. Include both sides of each move in allowed_paths, preserve private history externally, update all consumers and verify a fresh repository install. Narrow modifications do not authorize unrelated moves.
+Import later actual observations directly during review; do not submit a failing placeholder review to unlock the next action. Missing observations remain unrun and do not consume stagnation. See [evaluation](evaluation.md) for binding, retained reports and readiness checks.

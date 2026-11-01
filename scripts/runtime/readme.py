@@ -123,6 +123,11 @@ def render(name, documentation, profile="source"):
         "A quality rubric score is reported separately from truth-based accuracy.", "",
         "A candidate is accepted only when its declared target, coverage, critical checks, and required reviews pass. "
         "An installation self-check is not a complete quality assessment of a generated skill.", "",
+        "Missing actual AI observations remain unrun. Import the captured results with `--observations PATH` "
+        "on the evaluation command and review the refreshed evidence before acceptance. "
+        "Generated maintenance sessions report incomplete coverage as `awaiting_observations`; "
+        "refreshing the unchanged candidate retains earlier reports without spending another tuning experiment. "
+        "Complete failures and runtime limits still apply.", "",
         "### Improve and retest", "",
     ]
     rows += [f"{index}. {step}" for index, step in enumerate(d["testing"]["improvement_steps"], 1)]
@@ -131,9 +136,9 @@ def render(name, documentation, profile="source"):
         "AI work uses the model already available in the current host. "
         "The skill records an unknown model identity rather than guessing one. "
         "Mechanical operations run through the packaged scripts.", "",
-        "If evaluation remains below target when a run limit is reached, the skill reports the gap "
-        "and recommends a bounded continuation. Additional iterations or runtime require your approval. "
-        "Requirements and scoring stay fixed.", "",
+        "Routine testing includes necessary bounded retries without approval for each extra test. "
+        "The skill records the reason, preserves earlier attempts and stops when progress stalls or retry ceilings are reached. "
+        "Explicit user hard limits still apply. Requirements and scoring stay fixed.", "",
         "## Troubleshooting", "",
     ]
     for item in d["troubleshooting"]:

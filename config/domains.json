@@ -35,7 +35,9 @@
         "scripts/evaluate.py",
         "scripts/runtime/benchmark.py",
         "scripts/runtime/examples.py",
-        "scripts/smoke_check.py"
+        "scripts/smoke_check.py",
+        "scripts/run_tests.py",
+        "config/test_impact.json"
       ],
       "depends_on": [
         "contracts"
@@ -48,7 +50,8 @@
         "scripts/runtime/contracts.py",
         "scripts/runtime/common.py",
         "scripts/runtime/hosts.py",
-        "scripts/repository_files.py"
+        "scripts/repository_files.py",
+        "scripts/continuation.py"
       ],
       "depends_on": []
     },
@@ -62,6 +65,15 @@
         "orchestration",
         "contracts"
       ]
+    },
+    {
+      "name": "behavior-observations",
+      "purpose": "Frozen model tasks, rubric and explicit bounded performing-agent observations.",
+      "owned_paths": [
+        "evals/",
+        "tools/run_behavioral_evals.py"
+      ],
+      "depends_on": []
     }
   ]
 }

@@ -1,17 +1,14 @@
 # Test Skill Builder
 
-Install the locked dependencies in a Python environment, then run from the repository root:
+Use the environment containing scripts/requirements-lock.txt. Preview impacted checks from the repository root, then run that selection:
 
 ```sh
-.venv/bin/python -m unittest discover -s tests -v
-.venv/bin/python scripts/smoke_check.py
-.venv/bin/python scripts/skill_builder_cli.py readme --package . --check
+.venv/bin/python scripts/run_tests.py
+.venv/bin/python scripts/run_tests.py --execute
 ```
 
-Use `.venv/bin/python tools/check_repository.py` to run the suite and validate a complete independent repository copy in one command. It also runs the self-check from the copied repository.
+Selection compares the last successful checkpoint or Git HEAD. config/test_impact.json maps changed behavior to related checks; modified test files select changed methods. The report shows the triggering files. Unmapped changes stop for an impact rule and never fall back to all tests. tools/check_repository.py delegates to the same guarded entry point.
 
-The regression suite covers workflow contracts, output checks, preservation, recovery, replay, example ingestion, native host routing, README generation, and repository structure, MIT licensing and domain ownership. Model-adapter controls use recorded or mocked results; they do not count as new model-performance observations.
+Full testing requires actual user confirmation that the batch is finished. See [the maintenance workflow](../references/maintenance.md#scope-repository-tests-in-code) for the bound authorization record. Do not construct approval without the user's instruction, and do not treat test authorization as push approval.
 
-The installed copy contains the same public repository files, including tests and development tools. Local environments and private records are excluded.
-
-Review executable changes before running command cases. Use fresh result directories, retain failed attempts, and keep private input data out of public fixtures.
+Model-adapter controls use recorded or mocked outputs. They are separate from fresh model-performance observations. Keep private inputs, authorization records and test reports outside the repository.

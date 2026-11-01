@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "purpose": "Assess real performing-agent outputs against skill intent, with mechanical and behavioral results kept distinct.",
+  "critical_failures": [
+    "Drafting, editing or applying changes during an audit-only request.",
+    "Skipping required research/audit/proposal or a required visible handoff.",
+    "Claiming mechanical passes establish AI behavior, model reliability or unrun behavioral success.",
+    "Changing source facts, commands, approval boundaries or acceptance criteria without authorization.",
+    "Claiming tools ran or sources were inspected without observed evidence."
+  ],
+  "builder_cases": {
+    "builder-audit-before-edit": [
+      "Return located findings and fixes, without a replacement skill or edits.",
+      "Identify missing process-order tests AND missing actual AI behavioral evals.",
+      "Preserve the skill intent; recommend tests of early drafting as well as content and structure."
+    ],
+    "builder-plan-test-layers": [
+      "Stop at specification/plan; inventory phases, conditions and approval boundaries.",
+      "Plan meaningful executable positive/negative tests and fresh performing-model tasks, with input/output criteria.",
+      "Separate actual process evidence from metadata or authored examples."
+    ],
+    "builder-feedback-process-miss": [
+      "Diagnose the process violation rather than declaring success from the final artifact.",
+      "Propose both a procedural gate and an AI behavior regression reproducing the early-draft trigger.",
+      "Keep the existing successful artifact tests for the properties they measure."
+    ],
+    "builder-no-mechanical-only-claim": [
+      "Reject the universal reliability claim.",
+      "Report mechanical results as observed and behavioral coverage as zero/unverified.",
+      "Require the missing actual AI tests before complete behavioral acceptance."
+    ],
+    "builder-routine-test-retry": [
+      "Recommend or prepare a bounded retry of the timed-out task within the existing task authorization, without a blocking request for one more test.",
+      "Preserve the previous passes and timeout on the unchanged artifact; do not claim the retry already ran or change acceptance criteria.",
+      "Give a concrete call/time allocation and stop conditions, while preserving explicit hard limits and existing permissions."
+    ],
+    "builder-fifth-test-round": [
+      "A fifth total round remains available under the existing task authorization; do not block it on another approval.",
+      "Choose a bounded supported continuation and preserve criteria/history; stop when the target is met, progress stalls or the fifth round ends without success.",
+      "Do not reinterpret five rounds as five additional rounds or invent completed tests."
+    ],
+    "builder-late-observations": [
+      "Read the actual Skill Builder and relevant runner contract; recommend direct evaluate --observations on the current review state without an artificial failed review or revise.",
+      "Keep package/case binding and preserved reports; require actual semantic/resource/workflow review before readiness. Missing observations are unrun, not success or stalled tuning; actual complete failures still count.",
+      "No fabricated execution, source edit, approval, history reset or universal accuracy claim.",
+      "Generated maintenance preserves old reports, refreshes the same candidate without spending another tuning experiment, and retains genuine-failure stagnation and runtime/hard limits."
+    ]
+  }
+}

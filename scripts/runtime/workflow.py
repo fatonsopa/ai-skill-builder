@@ -9,16 +9,22 @@ import uuid
 import math
 
 from . import contracts
-from .artifacts import MANAGED, check_package, check_plan, render
+from .artifacts import MANAGED, check_package, check_plan, render, workflow_requirements
 from .common import Invalid, digest, inside, inventory, load, relative, save, validate, copy_package
 from .examples import development_packet
 from .hosts import route
 from repository_layout import check as check_layout
-from evaluate import evaluate, metrics
+from run_tests import broad_command
+from evaluate import evaluate, metrics, process_metrics
+from continuation import MAX_EXTENSIONS, check_totals, extension as routine_extension
 
 
-def start(root, request):
+def start(root, request, *, protocol_version=contracts.PROTOCOL_VERSION):
+    if protocol_version not in (1, contracts.PROTOCOL_VERSION):
+        raise Invalid("Unsupported authoring protocol version.")
     validate(request, contracts.REQUEST)
+    limits = request.get('limits', {})
+    check_totals({'attempts': limits.get('max_experiments', 5), 'seconds': limits.get('max_seconds', 600), 'invocations': limits.get('max_live_calls', 0)}, request.get('hard_limits'))
     root = Path(root).resolve()
     if (root / "state.json").exists():
         raise Invalid("Run already exists.")
@@ -39,7 +45,7 @@ def start(root, request):
     if source:
         copy_package(source, root / "baseline")
     state = {
-        "schema_version": 1, "run_id": str(uuid.uuid4()),
+        "schema_version": 1, "protocol_version": protocol_version, "run_id": str(uuid.uuid4()),
         "request": request, "source": str(source) if source else None,
         "source_snapshot": before, "phase": "research", "status": "awaiting_ai",
         "data": {}, "accepted_responses": [], "history": [],
@@ -61,6 +67,15 @@ def read_state(root):
         if actual != state["objective_sha256"]:
             raise Invalid("Frozen objective changed; start a separately versioned run.")
     return state
+
+
+def review_resource_names(state):
+    names = {"SKILL.md", "README.md", "AGENTS.md", "CLAUDE.md"} | {
+        item["path"] for item in state["data"]["plan"]["resources"]
+    }
+    if state["request"]["operation"] in {"modify", "refactor"}:
+        names &= set(state["evaluation"]["package_hashes"])
+    return names
 
 
 def event(root, name, data):
@@ -94,7 +109,7 @@ def packet(root):
             "Supply only the phase response. Never invent executed checks or alter the frozen objective. "
             "For review, inspect actual outputs and resources; valid shape is not proof of useful content."
         ),
-        "response_schema": contracts.response_schema(phase),
+        "response_schema": contracts.response_schema(phase, state.get("protocol_version", 1)),
         "host_route": route(state["request"].get("host")),
         "artifact_contract": {
             "managed_files": sorted(MANAGED),
@@ -105,6 +120,8 @@ def packet(root):
             "reusable_content": "Write stable runtime instructions and usage. Keep production-stage reports and pending-test statements in run evidence, not in the installed skill. Dependencies describe the produced skill's runtime.",
         },
     }
+    if phase == "plan" and state.get("protocol_version", 1) >= 2:
+        value["required_workflow_tests"] = workflow_requirements(state["data"]["specify"])
     guides = ["writing_style.md"]
     guides += {
         "research": ["authoring.md"], "specify": ["authoring.md"],
@@ -119,9 +136,7 @@ def packet(root):
             raise Invalid("Example bundle changed; start a new versioned run.")
         value["examples"] = examples
     if phase == "review":
-        names = {"SKILL.md", "README.md"} | {
-            item["path"] for item in state["data"]["plan"]["resources"]
-        }
+        names = review_resource_names(state)
         value["candidate_resources"] = {}
         for name in sorted(names):
             path = inside(root / "candidate", name)
@@ -130,6 +145,8 @@ def packet(root):
                     value["candidate_resources"][name] = {"text": path.read_text()}
                 except UnicodeError:
                     value["candidate_resources"][name] = {"binary_sha256": digest(path.read_bytes()), "review_limit": "Needs an appropriate visual/binary inspection."}
+            else:
+                value["candidate_resources"][name] = {"missing": True, "review_limit": "Required resource is missing."}
     value["packet_sha256"] = digest(value)
     archive = root / "packets" / f"{value['packet_sha256']}.json"
     if archive.exists() and load(archive) != value:
@@ -158,7 +175,7 @@ def submit(root, response):
     if response_hash in state["accepted_responses"]:
         return state
     current = packet(root)
-    validate(response, contracts.response_schema(state["phase"]))
+    validate(response, contracts.response_schema(state["phase"], state.get("protocol_version", 1)))
     if response["run_id"] != state["run_id"] or response["packet_sha256"] != current["packet_sha256"]:
         raise Invalid("Response belongs to a different run or stale packet.")
     phase = state["phase"]
@@ -172,7 +189,7 @@ def submit(root, response):
             raise Invalid("Resolve material ambiguities before accepting the specification.")
         next_phase = None if operation == "specify" else "plan"
     elif phase == "plan":
-        check_plan(state["data"]["specify"], data)
+        check_plan(state["data"]["specify"], data, require_workflows=state.get("protocol_version", 1) >= 2)
         target = state["request"].get("target_success_percent")
         if target is not None and data["target_success_percent"] != target:
             raise Invalid("Plan changes the user's declared target.")
@@ -222,13 +239,16 @@ def submit(root, response):
     return state
 
 
-def run_evaluation(root, allow_exec=False, baseline=False):
+def run_evaluation(root, allow_exec=False, baseline=False, observations=None):
     root = Path(root)
     state = read_state(root)
     if state["request"]["operation"] in {"audit", "specify", "plan"}:
         raise Invalid("This operation does not execute candidate evaluations.")
-    if "plan" not in state["data"] or (not baseline and state["phase"] != "evaluate"):
+    observation_refresh = state["phase"] == "review" and observations is not None and "evaluation" in state
+    if "plan" not in state["data"] or (not baseline and state["phase"] != "evaluate" and not observation_refresh):
         raise Invalid("Evaluation prerequisites are not met.")
+    if any(case["kind"] == "command" and broad_command(case.get("command", [])) for case in state["data"]["plan"]["cases"]):
+        raise Invalid("Full test discovery is blocked during iteration; use scripts/run_tests.py and obtain final-batch authorization for full testing.")
     package = root / ("baseline" if baseline else "candidate")
     if not package.is_dir():
         raise Invalid("No package to evaluate.")
@@ -244,33 +264,53 @@ def run_evaluation(root, allow_exec=False, baseline=False):
         checks["findings"].append("Skill name differs from the request.")
     enforce_scope(state, inventory(package)) if not baseline else None
     started = time.monotonic()
-    report = evaluate(package, state["data"]["plan"]["cases"], allow_exec, max_seconds=remaining)
+    report = evaluate(package, state["data"]["plan"]["cases"], allow_exec, max_seconds=remaining, observations=load(observations) if observations else None)
     state["elapsed_seconds"] += time.monotonic() - started
-    save(root / ("baseline-evaluation.json" if baseline else f"evaluations/{state['experiment']:03}.json"), report)
+    records = root / ("baseline-evaluations" if baseline else "evaluations")
+    records.mkdir(parents=True, exist_ok=True, mode=0o700)
+    ordinal = max((int(path.stem) for path in records.glob("*.json") if path.stem.isdigit()), default=-1) + 1
+    while True:
+        record = records / f"{ordinal:03}.json"
+        try:
+            with record.open("x") as stream:
+                json.dump(report, stream, ensure_ascii=False, indent=2)
+                stream.write("\n")
+            break
+        except FileExistsError:
+            ordinal += 1
     if baseline:
+        save(root / "baseline-evaluation.json", report)
         state["baseline_evaluation"] = report
+        state["baseline_evaluation_record"] = record.relative_to(root).as_posix()
     else:
         state.update(evaluation=report, package_check=checks, phase="review", status="awaiting_ai")
+        state["evaluation_record"] = record.relative_to(root).as_posix()
     save(root / "state.json", state)
-    event(root, "baseline_evaluated" if baseline else "candidate_evaluated", {"metrics": report["metrics"]})
+    event(root, "baseline_evaluated" if baseline else "candidate_evaluated", {"metrics": report["metrics"], "record": record.relative_to(root).as_posix()})
     return report
 
 
 def merge_review(root, state, review):
     if inventory(Path(root) / "candidate") != state["evaluation"]["package_hashes"]:
         raise Invalid("Candidate changed after evaluation; reevaluate it.")
+    flows = state["data"]["specify"].get("workflows", [])
+    if state.get("protocol_version", 1) >= 2:
+        judgments = review.get("workflow_findings", [])
+        if len(judgments) != len(flows) or {row["id"] for row in judgments} != {flow["id"] for flow in flows}:
+            raise Invalid("Review every workflow's actual stage evidence and visibility, not just its final artifact.")
+        inventory_review = review.get("workflow_inventory", {})
+        if type(inventory_review.get("accepted")) is not bool or not inventory_review.get("evidence"):
+            raise Invalid("Review the completeness of the workflow inventory against the actual skill.")
+        state["workflow_review_passed"] = inventory_review["accepted"] and all(row["accepted"] for row in judgments)
+    else:
+        state["workflow_review_passed"] = True
     expected = {
         item["id"] for item in state["evaluation"]["attempts"] if item["semantic"]
     }
     rows = review["cases"]
     if len({item["id"] for item in rows}) != len(rows) or {item["id"] for item in rows} != expected:
         raise Invalid("Review must cover each semantic case exactly once.")
-    resources = {"SKILL.md", "README.md"} | {
-        item["path"] for item in state["data"]["plan"]["resources"]
-    }
-    # Legacy narrow changes do not acquire unrelated new-document obligations.
-    if state["request"]["operation"] in {"modify", "refactor"}:
-        resources &= set(state["evaluation"]["package_hashes"])
+    resources = review_resource_names(state)
     findings = review["resource_findings"]
     if len({item["path"] for item in findings}) != len(findings) or {item["path"] for item in findings} != resources:
         raise Invalid("Review must cover every declared instruction resource and README exactly once.")
@@ -282,6 +322,10 @@ def merge_review(root, state, review):
             if attempt["status"] == "pending_review":
                 attempt["status"] = "passed" if row["accepted"] else "failed"
     state["evaluation"]["metrics"] = metrics(state["evaluation"]["attempts"], len(state["data"]["plan"]["cases"]))
+    state["evaluation"]["process_metrics"] = process_metrics(state["evaluation"]["attempts"], state["data"]["plan"]["cases"])
+    for layer, behavior in (("mechanical_metrics", False), ("behavioral_metrics", True)):
+        ids = {case["id"] for case in state["data"]["plan"]["cases"] if (case["kind"] == "behavior") == behavior}
+        state["evaluation"][layer] = metrics([row for row in state["evaluation"]["attempts"] if row["id"] in ids], len(ids))
     state["resource_review_passed"] = all(item["accepted"] for item in findings)
 
 
@@ -289,7 +333,7 @@ def decide(root, state):
     report = state["evaluation"]
     score = report["metrics"]
     valid = (
-        state["package_check"]["passed"] and state["resource_review_passed"]
+        state["package_check"]["passed"] and state["resource_review_passed"] and state.get("workflow_review_passed", True)
         and score["coverage_percent"] == 100 and not score["critical_failures"]
         and not score["pending_review"]
         and score["task_success_percent"] is not None
@@ -301,10 +345,22 @@ def decide(root, state):
     improved = not best or score["task_success_percent"] > best["metrics"]["task_success_percent"]
     keep = valid and improved
     passed = valid and score["task_success_percent"] >= state["data"]["plan"]["target_success_percent"]
-    version = root / "experiments" / f"{state['experiment']:03}"
-    version.mkdir(parents=True, exist_ok=True)
+    versions = root / "experiments" / f"{state['experiment']:03}"
+    versions.mkdir(parents=True, exist_ok=True)
+    ordinal = max((int(path.name) for path in versions.iterdir() if path.is_dir() and path.name.isdigit()), default=-1) + 1
+    while True:
+        version = versions / f"{ordinal:03}"
+        try:
+            version.mkdir()
+            break
+        except FileExistsError:
+            ordinal += 1
     save(version / "evaluation.json", report)
     save(version / "decision.json", {"keep": keep, "accepted": passed, "hypothesis": state.get("hypothesis")})
+    # Keep legacy first-decision paths; each review still has an immutable snapshot.
+    for name in ("evaluation.json", "decision.json"):
+        if not (versions / name).exists():
+            shutil.copy2(version / name, versions / name)
     copy_package(root / "candidate", version / "candidate")
     if keep:
         state["best"] = {"path": str((version / "candidate").resolve()), "files": inventory(version / "candidate"), "metrics": score}
@@ -312,7 +368,9 @@ def decide(root, state):
     elif best:
         shutil.rmtree(root / "candidate")
         copy_package(best["path"], root / "candidate")
-    if not keep:
+    # Missing observations are incomplete evidence, not an unsuccessful tuning
+    # round. A complete failed result still consumes stagnation normally.
+    if not keep and score["coverage_percent"] == 100 and not score["pending_review"]:
         state["stagnant_experiments"] += 1
     best = state.get("best")
     target_met = best and best["metrics"]["task_success_percent"] >= state["data"]["plan"]["target_success_percent"]
@@ -505,19 +563,26 @@ def budget(root):
     target_met = state["status"] in {"ready", "applied"}
     best = state.get("best")
     measured_per_trial = state["elapsed_seconds"] / (state["experiment"] + 1)
-    return {
+    advice = {
         "run_id": state["run_id"], "target_met": target_met,
         "best_metrics": best["metrics"] if best else None,
         "last_metrics": state.get("evaluation", {}).get("metrics"),
         "exhausted": exhausted,
         "completed_evaluation_available": bool(state.get("last_decision")),
-        "ask_user_for_extension": bool(exhausted and not target_met and state.get("last_decision")),
+        "ask_user_for_extension": False,
         "suggested_extra_experiments": 1 if "stagnation" in exhausted else 2,
-        "suggested_extra_seconds": max(60, math.ceil(measured_per_trial * 2)),
+        "suggested_extra_seconds": min(900, max(60, math.ceil(measured_per_trial * 2))),
         "estimate_basis": "Observed execution time per attempted candidate; excludes unmeasured host-model time.",
         "reason": "Diagnose stalled results before spending more." if "stagnation" in exhausted else "Use observed failures and progress to justify another bounded batch.",
-        "automatic_extension": False,
+        "automatic_extension": bool(exhausted and not target_met and state.get("last_decision") and "stagnation" not in exhausted and sum(row.get("automatic") is True for row in state.get("budget_changes", {}).values()) < MAX_EXTENSIONS),
     }
+    if advice["automatic_extension"]:
+        try:
+            routine_extension(list(state.get("budget_changes", {}).values()), {"attempts": advice["suggested_extra_experiments"], "seconds": advice["suggested_extra_seconds"]}, advice["reason"],
+                current={"attempts": limits.get("max_experiments", 5), "seconds": limits.get("max_seconds", 600)}, hard_limits=state["request"].get("hard_limits"))
+        except ValueError as error:
+            advice.update(automatic_extension=False, reason=str(error))
+    return advice
 
 
 def extend_budget(root, iterations, seconds, invocations, authorization_note):
@@ -527,8 +592,6 @@ def extend_budget(root, iterations, seconds, invocations, authorization_note):
         raise Invalid("Target is met; there is no unresolved optimization budget to extend.")
     if any(value < 0 for value in [iterations, seconds, invocations]) or not any([iterations, seconds, invocations]):
         raise Invalid("Specify a positive bounded extension.")
-    if not authorization_note.strip():
-        raise Invalid("Record the user's actual authorization before extending the budget.")
     change = {
         "iterations": iterations, "seconds": seconds, "invocations": invocations,
         "authorization_note": authorization_note,
@@ -538,11 +601,18 @@ def extend_budget(root, iterations, seconds, invocations, authorization_note):
         return state
     limits = state["request"].setdefault("limits", {})
     previous = dict(limits)
+    try:
+        receipt = routine_extension(list(state.get("budget_changes", {}).values()),
+            {"attempts": iterations, "seconds": seconds, "invocations": invocations}, authorization_note,
+            current={"attempts": limits.get("max_experiments", 5), "seconds": limits.get("max_seconds", 600), "invocations": limits.get("max_live_calls", 0)},
+            hard_limits=state["request"].get("hard_limits"),
+            stalled=state["stagnant_experiments"] >= limits.get("max_stagnant_experiments", 3))
+    except ValueError as error:
+        raise Invalid(str(error)) from error
     limits["max_experiments"] = limits.get("max_experiments", 5) + iterations
-    limits["max_stagnant_experiments"] = limits.get("max_stagnant_experiments", 3) + iterations
     limits["max_seconds"] = limits.get("max_seconds", 600) + seconds
     limits["max_live_calls"] = limits.get("max_live_calls", 0) + invocations
-    state.setdefault("budget_changes", {})[identifier] = {"before": previous, "after": dict(limits), **change}
+    state.setdefault("budget_changes", {})[identifier] = {"before": previous, "after": dict(limits), **change, **receipt}
     save(root / "state.json", state)
     event(root, "budget_extended", {"id": identifier, **change})
     return state

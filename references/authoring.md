@@ -6,7 +6,7 @@ Start with the task's users, triggering requests, inputs, expected results, cons
 
 Inspect an existing package before proposing replacements. Research current official host documentation and domain uncertainties that affect this task. Record the source, date, relevant decision, and whether it was actually opened. Report unsupported claims as unverified. The runner records these statements; it does not independently prove that browsing occurred.
 
-The research response leads to a specification containing purpose, inputs, outputs, stable requirement IDs, assumptions, and material ambiguities. Resolve the ambiguities before advancing. Then plan executable mechanics, residual AI responsibilities, dependencies, resource purposes, acceptance cases, and the permitted candidate edit surface.
+The research response leads to a specification containing purpose, inputs, outputs, stable requirement IDs, a workflow inventory, assumptions, and material ambiguities. Resolve the ambiguities before advancing. Then plan executable mechanics, residual AI responsibilities, dependencies, resource purposes, acceptance cases, and the permitted candidate edit surface.
 
 Use `schema PHASE` for exact fields. Each response includes the packet's `run_id`, `phase`, `packet_sha256`, and typed `data`. A response for a stale packet cannot advance the run.
 
@@ -50,3 +50,13 @@ Check complete output examples where depth matters, and use a different scenario
 ## Repository and domain contract
 
 Apply [skill structure](skill_structure.md). Declare focused domains, responsibilities, owned paths and dependencies in the plan. Code owns file mechanics; source-grounded review judges cohesion and coupling. New skills need the supplied copyright holder before the approved MIT template is rendered. The repository must install and test independently of Builder.
+
+## Inventory processes and build their tests
+
+Each new skill declares its workflows with triggers, steps and applicable boundaries, branches and recovery paths. During maintenance, inventory the workflows affected by the change and preserve unrelated contracts and cases. During a whole-skill audit or rebuild, inspect the complete inventory against the actual instructions; listing one broad phase cannot hide a multi-step process.
+
+Each workflow needs a valid execution test and an AI behavioral case tied to its intent. A multi-step process also needs an omission test for every step and order tests for adjacent phases, plus checks for each declared boundary, branch and recovery path. One case may cover several related checks when its actual execution supports that coverage. Simple one-step transformations use meaningful valid/invalid-input tests without artificial phases. Every process case is mandatory.
+
+Command or artifact tests establish mechanical properties. Behavioral cases use `kind: behavior`, a realistic `request`, relevant `resources`, and semantic assessment. They must evaluate what the skill should accomplish, not merely repeat its instructions or look for keywords. A multi-step mechanical success case also captures its full event order and required evidence/visibility, then receives semantic review of those actual artifacts.
+
+Prepare and review the cases and graders before running them. Deliberately wrong paths must be detectable. Fresh task outputs come from a performing AI, not from the skill author writing a desired answer. Keep expected answers and grading criteria out of the performing packet. Preserve each attempt, including malformed output and workflow violations; do not rename these as infrastructure failures.

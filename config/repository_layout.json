@@ -3,7 +3,9 @@
   "required_root_files": [
     "SKILL.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "AGENTS.md",
+    "CLAUDE.md"
   ],
   "optional_root_files": [
     ".gitignore",
@@ -31,8 +33,7 @@
     ".venv",
     "__pycache__",
     ".DS_Store",
-    ".pytest_cache",
-    "AGENTS.md"
+    ".pytest_cache"
   ],
   "relocate_root_files": {
     "requirements.txt": "scripts/requirements.txt",
@@ -55,6 +56,7 @@
     "The repository is the distributable artifact; no dist directory or distribution manifest.",
     "Use only folders the domain needs. Each rule and component has one owner.",
     "Keep internal authoring records and run snapshots outside the repository.",
-    "Required structure is mechanical; domain fit and meaning also need source-grounded review."
+    "Required structure is mechanical; domain fit and meaning also need source-grounded review.",
+    "Repository work rules live in AGENTS.md; CLAUDE.md imports them. Run impacted tests while editing and obtain explicit approval before every push."
   ]
 }

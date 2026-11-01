@@ -12,6 +12,7 @@ from runtime.artifacts import check_package
 from runtime.common import Invalid, load, locked, save
 from runtime.examples import ingest
 from runtime.hosts import route
+from repository_files import compare_installation
 
 
 def parser():
@@ -30,6 +31,7 @@ def parser():
     evaluate.add_argument("--run", type=Path, required=True)
     evaluate.add_argument("--allow-exec", action="store_true", help="Execute reviewed candidate code; this is not a sandbox.")
     evaluate.add_argument("--baseline", action="store_true")
+    evaluate.add_argument("--observations", type=Path, help="Actual performing-model observations bound to this candidate and cases.")
     revise = commands.add_parser("revise")
     revise.add_argument("--run", type=Path, required=True)
     revise.add_argument("--hypothesis", required=True)
@@ -41,8 +43,14 @@ def parser():
     check = commands.add_parser("check")
     check.add_argument("--package", type=Path, required=True)
     check.add_argument("--legacy", action="store_true")
+    installation = commands.add_parser("check-installation", help="Compare the active installation with its reviewed source.")
+    installation.add_argument("--package", type=Path, required=True)
+    installation.add_argument("--installed", type=Path, required=True)
     schema = commands.add_parser("schema")
     schema.add_argument("phase", choices=["request", *contracts.PHASES])
+    trace = commands.add_parser("check-process", help="Grade captured workflow stages separately from final output.")
+    trace.add_argument("--trace", type=Path, required=True)
+    trace.add_argument("--expect", type=Path, required=True)
     feedback = commands.add_parser("feedback")
     feedback.add_argument("--run", type=Path, required=True)
     feedback.add_argument("--text", required=True)
@@ -71,7 +79,7 @@ def parser():
     extend.add_argument("--iterations", type=int, default=0)
     extend.add_argument("--seconds", type=int, default=0)
     extend.add_argument("--invocations", type=int, default=0)
-    extend.add_argument("--authorization-note", required=True)
+    extend.add_argument("--reason", "--authorization-note", dest="authorization_note", required=True, help="Concrete reason for a bounded retry within the authorized task.")
     package = commands.add_parser("package")
     package.add_argument("--package", type=Path, required=True)
     package.add_argument("--output", type=Path, required=True)
@@ -97,7 +105,7 @@ def replay(root):
     responses = []
     for path in sorted((Path(root) / "responses").glob("*.json")):
         response = load(path)
-        validate(response, contracts.response_schema(response["phase"]))
+        validate(response, contracts.response_schema(response["phase"], state.get("protocol_version", 1)))
         if response["run_id"] != state["run_id"] or digest(response) not in state["accepted_responses"]:
             raise Invalid("Captured response does not match the recorded run.")
         responses.append({"phase": response["phase"], "sha256": digest(response)})
@@ -108,7 +116,7 @@ def replay(root):
         request = dict(state["request"])
         if request.get("source"):
             request["source"] = str((Path(root) / "baseline").resolve())
-        workflow.start(target, request)
+        workflow.start(target, request, protocol_version=state.get("protocol_version", 1))
         for path in sorted((Path(root) / "responses").glob("*.json")):
             original = load(path)
             current_state = workflow.read_state(target)
@@ -116,10 +124,22 @@ def replay(root):
                 workflow.revise(target, "Replay of recorded experiment.")
             if original["phase"] == "review":
                 current_state = workflow.read_state(target)
-                report = load(Path(root) / "evaluations" / f"{current_state['experiment']:03}.json")
+                archive = Path(root) / "packets" / (original["packet_sha256"] + ".json")
+                captured = load(archive) if archive.is_file() else None
+                if captured is None and state.get("evaluation_record"):
+                    raise Invalid("Archived review packet is missing.")
+                if captured is not None:
+                    actual = digest({key: value for key, value in captured.items() if key != "packet_sha256"})
+                    if actual != original["packet_sha256"] or captured.get("packet_sha256") != actual:
+                        raise Invalid("Archived review packet changed.")
+                report = captured.get("evaluation") if captured else None
+                if report is None:
+                    report = load(Path(root) / "evaluations" / f"{current_state['experiment']:03}.json")
                 package = target / "candidate"
-                if workflow.inventory(package) != report["package_hashes"]:
-                    raise Invalid("Replayed artifacts differ from captured evaluation inputs.")
+                actual_files = workflow.inventory(package)
+                if actual_files != report["package_hashes"]:
+                    changed = sorted(name for name in set(actual_files) | set(report["package_hashes"]) if actual_files.get(name) != report["package_hashes"].get(name))
+                    raise Invalid("Replayed artifacts differ from captured evaluation inputs: " + repr(changed))
                 current_state.update(
                     evaluation=report,
                     package_check=check_package(package, full=request["operation"] in {"create", "rebuild"}, structure=request.get("repair_structure", False)),
@@ -143,14 +163,35 @@ def replay(root):
     }
 
 
+def state_summary(state, root):
+    """Keep full evidence on disk; repeated lifecycle output needs only progress."""
+    result = {key: state[key] for key in ('run_id', 'phase', 'status', 'experiment', 'objective_sha256', 'elapsed_seconds', 'model_invocations', 'evaluation_record', 'baseline_evaluation_record', 'delivered', 'last_decision') if key in state}
+    result.update(run=str(Path(root).resolve()), state_file=str((Path(root) / 'state.json').resolve()), operation=state['request']['operation'])
+    if state.get('evaluation'):
+        for name in ('metrics', 'mechanical_metrics', 'behavioral_metrics', 'process_metrics'):
+            if name in state['evaluation']:
+                result[name] = state['evaluation'][name]
+    if state.get('package_check'):
+        result['package_check'] = {key: state['package_check'][key] for key in ('passed', 'findings')}
+    return result
+
+
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
-        if args.command == "layout":
+        if args.command == "check-process":
+            from evaluate import grade_process
+            from runtime.common import validate
+            expected = load(args.expect)
+            validate(expected, contracts.PROCESS)
+            value = grade_process(load(args.trace), expected)
+        elif args.command == "layout":
             from repository_layout import check as inspect_layout
             value = inspect_layout(args.package)
         elif args.command == "check":
             value = check_package(args.package, full=not args.legacy)
+        elif args.command == "check-installation":
+            value = compare_installation(args.package, args.installed)
         elif args.command == "readme":
             from runtime.readme import check as check_readme, write as write_readme
             if not args.check:
@@ -180,7 +221,7 @@ def main(argv=None):
                 elif args.command == "submit":
                     value = workflow.submit(args.run, load(args.response))
                 elif args.command == "evaluate":
-                    value = workflow.run_evaluation(args.run, args.allow_exec, args.baseline)
+                    value = workflow.run_evaluation(args.run, args.allow_exec, args.baseline, args.observations)
                 elif args.command == "revise":
                     value = workflow.revise(args.run, args.hypothesis)
                 elif args.command == "apply":
@@ -204,8 +245,10 @@ def main(argv=None):
                     value = workflow.budget(args.run)
                 elif args.command == "extend":
                     value = workflow.extend_budget(args.run, args.iterations, args.seconds, args.invocations, args.authorization_note)
+        if args.command not in {'packet', 'model', 'schema'} and isinstance(value, dict) and {'request', 'run_id', 'phase', 'status'} <= set(value):
+            value = state_summary(value, args.run)
         print(json.dumps(value, ensure_ascii=False, indent=2))
-        if args.command in {"check", "readme"} and not value["passed"]:
+        if args.command in {"check", "readme", "check-process", "check-installation"} and not value["passed"]:
             return 1
         if args.command == "model" and value["status"] not in {"response_validated", "host_handoff"}:
             return 1

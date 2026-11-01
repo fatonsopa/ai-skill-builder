@@ -1,0 +1,551 @@
+{
+  "schema_version": 1,
+  "tests": {
+    "test-scope": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_test_scope.py"
+      ]
+    },
+    "repository-structure": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_repository_structure.py"
+      ]
+    },
+    "generation": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_runtime.py",
+        "-k",
+        "new_skill_has_mit",
+        "-k",
+        "generated_repository_keeps",
+        "-k",
+        "real_transformation_and_clean_export",
+        "-k",
+        "rebuild_preserves_existing_frontmatter",
+        "-k",
+        "actual_repository_install"
+      ]
+    },
+    "workflow": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_runtime.py",
+        "-k",
+        "command_execution_is_explicit",
+        "-k",
+        "semantic_review_is_required",
+        "-k",
+        "structural_refactor_migrates",
+        "-k",
+        "revision_repairs_failure",
+        "-k",
+        "broad_development_tests_are_blocked"
+      ]
+    },
+    "readme": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_runtime.py",
+        "-k",
+        "readme"
+      ]
+    },
+    "host-adapters": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_runtime.py",
+        "-k",
+        "model",
+        "-k",
+        "provider",
+        "-k",
+        "native"
+      ]
+    },
+    "examples": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_runtime.py",
+        "-k",
+        "example",
+        "-k",
+        "document",
+        "-k",
+        "pair"
+      ]
+    },
+    "smoke": {
+      "argv": [
+        "{python}",
+        "scripts/smoke_check.py"
+      ]
+    },
+    "layout": {
+      "argv": [
+        "{python}",
+        "scripts/repository_layout.py"
+      ]
+    },
+    "instructions": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_repository_structure.py",
+        "-k",
+        "shared_root_rules_match"
+      ]
+    },
+    "readme-contract": {
+      "argv": [
+        "{python}",
+        "scripts/skill_builder_cli.py",
+        "readme",
+        "--package",
+        ".",
+        "--check"
+      ]
+    },
+    "process-evaluation": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_process_evaluation.py"
+      ]
+    },
+    "workflow-coverage": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_workflow_coverage.py"
+      ]
+    },
+    "behavior-evaluation": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_behavior_evaluation.py"
+      ]
+    },
+    "behavior-harness": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_behavior_harness.py"
+      ]
+    },
+    "cli-output": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cli_output.py"
+      ]
+    },
+    "replay": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_runtime.py",
+        "-k",
+        "replay"
+      ]
+    },
+    "continuation": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_continuation.py"
+      ]
+    },
+    "retry-integration": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_runtime.py",
+        "-k",
+        "budget",
+        "-k",
+        "generated_skill_declares_host_native_policy",
+        "-k",
+        "generated_repository_keeps_testing",
+        "-k",
+        "readme"
+      ]
+    },
+    "plan-consistency": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_plan_consistency.py"
+      ]
+    },
+    "pending-observations": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_pending_observations.py"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "paths": [
+        "scripts/run_tests.py",
+        "config/test_impact.json"
+      ],
+      "tests": [
+        "test-scope"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/repository_files.py",
+        "scripts/repository_layout.py",
+        "config/repository_layout.json"
+      ],
+      "tests": [
+        "repository-structure",
+        "generation"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/artifacts.py",
+        "scripts/runtime/contracts.py",
+        "assets/*"
+      ],
+      "tests": [
+        "generation"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/workflow.py",
+        "scripts/runtime/common.py",
+        "scripts/skill_builder_cli.py"
+      ],
+      "tests": [
+        "workflow"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/evaluate.py"
+      ],
+      "tests": [
+        "workflow",
+        "generation"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/readme.py"
+      ],
+      "tests": [
+        "readme"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/adapters.py",
+        "scripts/runtime/hosts.py",
+        "config/host_policy.json"
+      ],
+      "tests": [
+        "host-adapters"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/examples.py",
+        "scripts/runtime/benchmark.py",
+        "tests/fixtures.py",
+        "tests/data/*"
+      ],
+      "tests": [
+        "examples",
+        "workflow"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/install_skill.py",
+        "scripts/runtime/delivery.py"
+      ],
+      "tests": [
+        "generation"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/smoke_check.py"
+      ],
+      "tests": [
+        "smoke"
+      ]
+    },
+    {
+      "paths": [
+        "tools/check_repository.py"
+      ],
+      "tests": [
+        "test-scope"
+      ]
+    },
+    {
+      "paths": [
+        "AGENTS.md",
+        "CLAUDE.md"
+      ],
+      "tests": [
+        "instructions"
+      ]
+    },
+    {
+      "paths": [
+        "README.md",
+        "SKILL.md",
+        "references/*.md",
+        "tests/README.md",
+        "agents/*",
+        "LICENSE",
+        ".gitignore",
+        ".gitattributes",
+        "scripts/requirements*.txt"
+      ],
+      "tests": [],
+      "reason": "Documentation or metadata: review changed instructions and links; no unrelated behavioral suite."
+    },
+    {
+      "paths": [
+        "config/domains.json"
+      ],
+      "tests": [
+        "layout"
+      ]
+    },
+    {
+      "paths": [
+        "config/documentation.json"
+      ],
+      "tests": [
+        "readme-contract"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/evaluate.py"
+      ],
+      "tests": [
+        "process-evaluation",
+        "behavior-evaluation"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/contracts.py",
+        "scripts/runtime/artifacts.py",
+        "scripts/runtime/workflow.py",
+        "scripts/skill_builder_cli.py"
+      ],
+      "tests": [
+        "workflow-coverage",
+        "process-evaluation",
+        "behavior-evaluation"
+      ]
+    },
+    {
+      "paths": [
+        "tools/run_behavioral_evals.py"
+      ],
+      "tests": [
+        "behavior-harness"
+      ]
+    },
+    {
+      "paths": [
+        "evals/cases.json",
+        "evals/behavior_rubric.json"
+      ],
+      "tests": [
+        "behavior-evaluation"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/skill_builder_cli.py"
+      ],
+      "tests": [
+        "cli-output"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/workflow.py",
+        "scripts/repository_files.py",
+        "scripts/runtime/artifacts.py"
+      ],
+      "tests": [
+        "cli-output"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/workflow.py",
+        "scripts/skill_builder_cli.py"
+      ],
+      "tests": [
+        "replay"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/continuation.py",
+        "scripts/runtime/workflow.py",
+        "scripts/runtime/artifacts.py",
+        "scripts/runtime/hosts.py",
+        "scripts/evaluate.py"
+      ],
+      "tests": [
+        "continuation",
+        "retry-integration"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/artifacts.py"
+      ],
+      "tests": [
+        "plan-consistency"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/workflow.py",
+        "scripts/evaluate.py"
+      ],
+      "tests": [
+        "pending-observations"
+      ]
+    }
+  ],
+  "final_checks": {
+    "full-regression-suite": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_*.py"
+      ]
+    },
+    "installed-self-check": {
+      "argv": [
+        "{python}",
+        "scripts/smoke_check.py"
+      ]
+    }
+  }
+}

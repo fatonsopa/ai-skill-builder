@@ -18,7 +18,7 @@ Check that the host can execute Python and handle the required files and depende
 
 ## Structure and domain ownership
 
-Use [the structure and domain guide](references/skill_structure.md) and its executable layout contract for creation, audit and structural repair. Every skill is its own installable repository: root SKILL.md, README.md and LICENSE, with supporting files under their responsible folders. The repository is the artifact; keep internal records outside it. Plans declare domains, owned paths and dependencies; review real responsibilities and shared rule ownership as well as names. Use MIT for new skills with a supplied copyright holder; preserve existing licenses unless a change is authorized.
+Use [the structure and domain guide](references/skill_structure.md) and its executable layout contract for creation, audit and structural repair. Every skill is its own installable repository: root SKILL.md, README.md and LICENSE, with AGENTS.md shared through a CLAUDE.md import, with supporting files under their responsible folders. The repository is the artifact; keep internal records outside it. Plans declare domains, owned paths and dependencies; review real responsibilities and shared rule ownership as well as names. Use MIT for new skills with a supplied copyright holder; preserve existing licenses unless a change is authorized.
 
 ## Start with the requested result
 
@@ -30,6 +30,12 @@ Inspect the request and available sources. Distinguish current user instructions
 
 Create a request JSON containing `operation`, `skill_name`, and `brief`. Existing-skill operations need `source`; structural repairs set `repair_structure: true`; `modify` and `refactor` also need exact `allowed_paths`. Check the actual request schema with `schema request`. Keep run records outside the source package.
 
+## Require both test layers
+
+For every workflow the skill creates or changes, inventory its steps, conditions, boundaries and recovery paths. Build executable tests for the valid path and relevant omissions, wrong order and premature actions. Also build behavioral cases that give a performing AI realistic inputs through the actual skill and assess its outputs and observable process against the intended result. Freeze cases and criteria before tuning. Review the tests before executing them.
+
+Mechanical passes do not establish AI behavior. Use `scripts/evaluate.py --behavior-packet CASE_ID --package PACKAGE` to prepare a performing task without expected answers. Capture actual model observations with host/model/source provenance; unknown model identities stay null. Import them with `evaluate --observations PATH`. Missing observations remain not run; controls and historical replay cannot count as fresh model performance. Assess actual artifacts and public messages/tool calls, including required user-visible handoffs. Report mechanical and behavioral results separately.
+
 ## Let the runner control progress
 
 1. Run `start --request REQUEST.json --run RUN_DIR` to capture the request and baseline.
@@ -40,7 +46,9 @@ Create a request JSON containing `operation`, `skill_name`, and `brief`. Existin
 6. If the target remains unmet, use `revise --run RUN_DIR --hypothesis "SUPPORTED CHANGE"` and repeat within the frozen objective and limits.
 7. Apply a ready candidate with `apply --run RUN_DIR` for an existing source, or add `--destination TARGET` for creation within the user's authorization. Verify delivery. Use `recover` if restoration is needed.
 
-If evaluated results remain below target and a limit is reached, run `budget --run RUN_DIR`. Explain the remaining gap and recommend a bounded number of iterations and runtime from the evidence. Ask the user whether to continue. Only then use `extend` with the authorized amounts and a note identifying the actual instruction. Preserve the objective and previous attempts. Do not ask for more iterations after the target is met.
+If evaluation remains below target, inspect `budget --run RUN_DIR` and diagnose the failure. Routine test retries are included in the authorized task; choose a bounded continuation from the evidence and use `extend --run RUN_DIR --iterations N --seconds N --invocations N --reason "CONCRETE REASON"` without asking for each extra test. The shared continuation guard caps each extension and the number of extensions; it preserves explicit user hard limits and stops stalled runs. Record user-specified absolute caps in request.hard_limits. Preserve the objective, criteria and every attempt. Stop when the target is met or retry limits are reached, and report remaining gaps. Ask only when a material scope, permission or cost decision needs the user.
+
+Use scripts/run_tests.py for repository tests: impacted checks during iteration, with full suites gated by actual final-batch authorization. Unmapped changes stop for an impact rule; never fall back to full discovery.
 
 Code controls files, prerequisites, metrics, scope, and keep/discard decisions. Never edit state, case answers, scoring rules, or journals to make a run pass. A justified requirement or evaluator change starts a separately versioned run.
 
@@ -50,4 +58,6 @@ Every newly created skill includes a README, executable mechanics where applicab
 
 Use `check --package PACKAGE` on an exported copy. Review purpose, meaning, exceptions, factual support, and each resource's contribution as well as structure. Existing narrow changes may retain legacy packaging without acquiring unrelated new files; disclose the limits.
 
-Report actual versions, checks, task-success counts, coverage, critical failures, and unverified work. Captured-response replay and authored test controls are not fresh model-performance evidence. Live model adapters require an explicit model and a configured invocation/time allowance; default allowance is zero.
+Report actual versions, checks, task-success counts, coverage, critical failures, and unverified work. Captured-response replay and authored test controls are not fresh model-performance evidence. Optional live model adapters need an exact available model and configured call/time bounds. Choose those bounds within the authorized testing task; ordinary extra tests do not require another approval. Native handoff remains the default, and explicit user hard limits remain binding.
+
+Import later actual observations directly during review; do not submit a failing placeholder review to unlock the next action. Missing observations remain unrun and do not consume stagnation. See [evaluation](references/evaluation.md) for binding, retained reports and readiness checks.

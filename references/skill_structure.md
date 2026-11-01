@@ -1,6 +1,6 @@
 # Skill structure and domain boundaries
 
-The source of truth is [the repository layout contract](../config/repository_layout.json). This project requires more than the minimum Agent Skills format: every skill is its own repository, directly installable from its root, with one `SKILL.md`, one `README.md` and a `LICENSE`. The repository is the artifact. Create only resource folders the task needs; do not create a separate distribution or duplicate runtime tree.
+The source of truth is [the repository layout contract](../config/repository_layout.json). This project requires more than the minimum Agent Skills format: every skill is its own repository, directly installable from its root, with one `SKILL.md`, one `README.md`, a `LICENSE`, and shared repository instructions in `AGENTS.md` imported by `CLAUDE.md`. The repository is the artifact. Create only resource folders the task needs; do not create a separate distribution or duplicate runtime tree.
 
 ## Assign responsibilities
 
@@ -28,3 +28,9 @@ Use MIT by default for new skills, with the supplied copyright holder and curren
 The [Agent Skills specification](https://agentskills.io/specification) defines the interoperable skill format. The root README/LICENSE, repository layout and domain declarations above are this Builder's delivery contract. [MIT license text](https://opensource.org/license/mit).
 
 [OpenAI skill structure](https://learn.chatgpt.com/docs/build-skills) and [Anthropic authoring guidance](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) both support concise instructions and resources loaded as needed. Add only folders with a concrete responsibility; schema and evaluation files below config/ are Builder implementation choices, not host requirements. Reusable output templates belong in assets/.
+
+## Repository collaboration rules
+
+Generate AGENTS.md and CLAUDE.md for every new skill. AGENTS.md owns the shared rules; CLAUDE.md imports it with `@AGENTS.md`, following [Claude Code's documented import pattern](https://code.claude.com/docs/en/memory#share-one-file-with-other-coding-tools). These are repository maintenance instructions, separate from SKILL.md's task workflow.
+
+Run impacted tests during editing and the full relevant suite for the final candidate before commit/push. Push only after the user's explicit approval covering the completed batch. Preserve project-specific instructions when rebuilding, reconcile conflicts with current authorization, and review both instruction files before accepting delivery.
