@@ -974,7 +974,7 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
             self.assertTrue((installed / name).exists(), name)
         self.assertFalse((installed / "docs/internal").exists())
         self.assertIn("skill-readme:source", (installed / "README.md").read_text())
-        self.assertIn("## Development", (installed / "README.md").read_text())
+        self.assertIn("## Documentation", (installed / "README.md").read_text())
         self.assertTrue(check_package(installed)["passed"])
         process = subprocess.run([sys.executable, str(installed / "scripts/smoke_check.py")], cwd=self.root, capture_output=True, text=True)
         self.assertEqual(process.returncode, 0, process.stderr + process.stdout)
@@ -989,7 +989,7 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         install(SCRIPTS.parent, "claude-code", installed)
         write(installed)
         self.assertTrue(check(installed)["passed"])
-        self.assertIn("## Development", (installed / "README.md").read_text())
+        self.assertIn("## Documentation", (installed / "README.md").read_text())
 
     def test_optional_upload_zip_contains_the_same_public_repository(self):
         from install_skill import make_archive
@@ -1005,7 +1005,7 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
             self.assertIn("skill-builder/scripts/install_skill.py", names)
             self.assertTrue(any("/tests/" in name for name in names))
             self.assertFalse(any("/docs/internal/" in name or "/.git/" in name or "/.venv/" in name for name in names))
-            self.assertIn("## Development", archive.read("skill-builder/README.md").decode())
+            self.assertIn("## Documentation", archive.read("skill-builder/README.md").decode())
         self.assertEqual(hash_tree(root), before)
         with self.assertRaises(FileExistsError):
             make_archive(root, output)

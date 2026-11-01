@@ -296,7 +296,7 @@ MIT. See [LICENSE](LICENSE).
 
 <!-- repository:start -->
 
-## Development
+## Documentation
 
 The repository itself is the skill. Root SKILL.md, README.md and LICENSE define the entry point; references hold guidance, scripts own mechanics, evals/tests check results, and config holds machine contracts. Plans declare component ownership and dependencies. After installing scripts/requirements-lock.txt, preview `.venv/bin/python scripts/run_tests.py`, then add `--execute` to run the selected impacted checks. Full testing requires final-batch authorization; see references/maintenance.md. AGENTS.md contains repository collaboration rules; CLAUDE.md imports it for Claude Code.
 

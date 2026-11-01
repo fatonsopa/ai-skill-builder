@@ -146,7 +146,7 @@ def render(name, documentation, profile="source"):
     rows += ["## Support", "", d["support"], ""]
     rows += ["## License", "", d.get("license", "See [LICENSE](LICENSE)."), ""]
     if profile == "source" and d.get("repository"):
-        rows += ["<!-- repository:start -->", "", "## Development", "", d["repository"]["text"], ""]
+        rows += ["<!-- repository:start -->", "", "## Documentation", "", d["repository"]["text"], ""]
         for link in d["repository"]["links"]:
             rows += [f"- [{link['label']}]({link['path']})"]
         rows.append("")

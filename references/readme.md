@@ -18,7 +18,7 @@ Use `readme --package FOLDER --check` to check the generated content and documen
 
 ## Source and installed copies
 
-Public development instructions and worked examples can appear in the source README's Development section. The runtime build omits that section and the files it references. Keep the actual skill instructions, needed scripts and references, declared dependencies, the user guide, and appropriate runtime checks in the installed package.
+Use the README's `## Documentation` section for repository navigation, public development instructions, and worked examples. Preserve that section and its linked files in installed copies and upload ZIPs: the complete repository is the artifact. Apply grader filtering only in disposable evaluation staging; it must not change the source repository or installed artifact.
 
 Every public local link must resolve within the selected distribution. Excluding a private file from a ZIP while linking to it from the README still produces a broken guide.
 
