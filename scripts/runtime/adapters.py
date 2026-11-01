@@ -12,6 +12,7 @@ from .common import Invalid, load, save, validate
 from .contracts import TEXT, obj
 from .workflow import packet, read_state, event
 from evaluate import run_process
+from provider_results import claude_stdout_error
 from .hosts import route
 
 ENVELOPE = obj({"response_json": TEXT})
@@ -42,7 +43,12 @@ def decode(provider, stdout, output_path):
             raise Invalid("Codex did not produce a final structured response.")
         value = load(output_path)
     else:
+        failure = claude_stdout_error(stdout)
+        if failure:
+            raise Invalid(failure["error"])
         outer = json.loads(stdout)
+        if not isinstance(outer, dict):
+            raise Invalid("Claude result must be an object.")
         value = outer.get("structured_output")
         if value is None:
             raise Invalid("Claude did not produce structured_output.")
@@ -65,12 +71,20 @@ def sample(provider, model, payload, timeout):
                 cwd=work, timeout=timeout,
             )
             record.update(exit_code=process.returncode, stdout=process.stdout, stderr=process.stderr)
-            if process.returncode:
+            failure = claude_stdout_error(process.stdout) if provider == "claude" else None
+            if failure:
+                record.update(failure)
+            elif process.returncode:
                 record.update(status="infrastructure_failure", error="CLI failed; inspect the captured result.")
             else:
                 record.update(response=decode(provider, process.stdout, output), status="response_validated")
-    except subprocess.TimeoutExpired:
-        record.update(error="Model invocation exceeded its limit.", timed_out=True)
+    except subprocess.TimeoutExpired as error:
+        partial = error.output or ""
+        failure = claude_stdout_error(partial) if provider == "claude" else None
+        if failure:
+            record.update(failure)
+        record.update(status="failed", error="Model invocation exceeded its limit.", timed_out=True,
+                      stdout=partial.decode(errors="replace") if isinstance(partial, bytes) else partial)
     except OSError as error:
         record.update(status="infrastructure_failure", error=str(error))
     except ValueError as error:
@@ -117,6 +131,10 @@ def invoke(root, provider, model):
             )
             process = run_process(argv, input=prompt, cwd=work, timeout=min(remaining, 300))
             record.update(exit_code=process.returncode, stdout=process.stdout, stderr=process.stderr)
+            failure = claude_stdout_error(process.stdout) if provider == "claude" else None
+            if failure:
+                record.update(failure)
+                raise Invalid(failure["error"])
             if process.returncode:
                 raise Invalid(f"{provider} exited with status {process.returncode}.")
             value = decode(provider, process.stdout, output)
@@ -136,6 +154,13 @@ def invoke(root, provider, model):
             record.update(status="response_validated", response=value)
     except (OSError, ValueError, subprocess.TimeoutExpired) as error:
         record["error"] = str(error)
+        if isinstance(error, subprocess.TimeoutExpired):
+            partial = error.output or ""
+            failure = claude_stdout_error(partial) if provider == "claude" else None
+            if failure:
+                record.update(failure)
+            record.update(status="failed", timed_out=True, error=str(error),
+                          stdout=partial.decode(errors="replace") if isinstance(partial, bytes) else partial)
     finally:
         record["elapsed_seconds"] = time.monotonic() - started
         state = read_state(root)

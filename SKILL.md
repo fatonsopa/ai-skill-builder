@@ -30,6 +30,10 @@ Inspect the request and available sources. Distinguish current user instructions
 
 Create a request JSON containing `operation`, `skill_name`, and `brief`. Existing-skill operations need `source`; structural repairs set `repair_structure: true`; `modify` and `refactor` also need exact `allowed_paths`. Check the actual request schema with `schema request`. Keep run records outside the source package.
 
+## Distinguish failed attempts from missing observations
+
+An actual attempted task that times out is failed, even if its public trace is partial or its cause is unknown. Keep that failure in history. “Not run” means the task was not attempted or no actual observation was supplied; it must not replace an observed timeout. Incomplete diagnostic evidence does not erase an execution outcome. Retry the unchanged case when evidence supports more runtime; a retry does not itself require a code change. Five rounds means one initial round and at most four continuations. After the fifth round, stop and report any remaining gap. Inspect the shared guard and current budget rather than inventing a stagnation threshold.
+
 ## Require both test layers
 
 For every workflow the skill creates or changes, inventory its steps, conditions, boundaries and recovery paths. Build executable tests for the valid path and relevant omissions, wrong order and premature actions. Also build behavioral cases that give a performing AI realistic inputs through the actual skill and assess its outputs and observable process against the intended result. Freeze cases and criteria before tuning. Review the tests before executing them.
@@ -61,3 +65,9 @@ Use `check --package PACKAGE` on an exported copy. Review purpose, meaning, exce
 Report actual versions, checks, task-success counts, coverage, critical failures, and unverified work. Captured-response replay and authored test controls are not fresh model-performance evidence. Optional live model adapters need an exact available model and configured call/time bounds. Choose those bounds within the authorized testing task; ordinary extra tests do not require another approval. Native handoff remains the default, and explicit user hard limits remain binding.
 
 Import later actual observations directly during review; do not submit a failing placeholder review to unlock the next action. Missing observations remain unrun and do not consume stagnation. See [evaluation](references/evaluation.md) for binding, retained reports and readiness checks.
+
+## Validate each required execution host
+
+Before claiming multi-host readiness, freeze the intended host/case matrix with `scripts/host_coverage.py freeze --package PACKAGE --config config/host_validation.json --output PLAN.json`. The shared matrix requires Codex and Claude Code as execution hosts; it does not establish browser/mobile or every model support. Run each selected task through its actual skill with tools on each declared host. Keep the same task criteria, source artifact, public trace and actual outputs; record requested and observed model identity separately. Capture a source-grounded review bound to each report, attempt and public trace, then use `scripts/host_coverage.py assess --package PACKAGE --plan PLAN.json --bundles BUNDLES.json --output NEW_REPORT.json`. Missing hosts, unreviewed outputs, stale artifacts and failed critical cells prevent matrix acceptance. Native use and single-host testing remain available with their scope stated.
+
+Freeze the intended model and reasoning settings as well as the execution hosts. The matrix config accepts `profiles`, with one `{host, model, reasoning_effort}` object per required host; unavailable identities stay null. Assessment rejects different configurations in one host result. Keep each model/effort profile separate rather than selecting passing subsets from different models. Before a broad batch, pilot an actual task matching the skill's intended output; for Skill Builder that includes creating a usable skill from supplied input/output examples, not only explaining an audit or plan.

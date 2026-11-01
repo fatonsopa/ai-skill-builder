@@ -15,7 +15,7 @@ from .common import Invalid, digest, inside, inventory, relative, save, copy_pac
 from .hosts import POLICY
 from .readme import render as render_readme, check as check_readme
 
-MANAGED = {"scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
+MANAGED = {"scripts/provider_results.py", "scripts/host_coverage.py", "config/host_validation.json", "scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
 EVALUATOR = Path(__file__).resolve().parents[1] / "evaluate.py"
 
 
@@ -200,9 +200,10 @@ def render(root, request, spec, plan, response, source=None):
             instructions += "\n## Project guidance\n\nThe shared testing and approval rules above take precedence over conflicting project notes.\n\n" + project_notes.strip() + "\n"
         (root / "AGENTS.md").write_text(instructions)
         (root / "CLAUDE.md").write_text("@AGENTS.md\n")
-        for name in ("continuation.py", "repository_files.py", "repository_layout.py", "run_tests.py"):
+        for name in ("continuation.py", "repository_files.py", "repository_layout.py", "run_tests.py", "host_coverage.py", "provider_results.py"):
             (root / "scripts").mkdir(exist_ok=True)
             shutil.copyfile(EVALUATOR.parent / name, root / "scripts" / name)
+        save(root / "config/host_validation.json", {"schema_version": 1, "required_hosts": ["codex", "claude-code"], "case_files": [{"path": "evals/cases.json"}]})
         save(root / "config/repository_layout.json", json.loads((EVALUATOR.parent.parent / "config/repository_layout.json").read_text()))
         save(root / "config/domains.json", {"schema_version": 1, "domains": plan["domains"]})
         test_groups = {case["id"]: {"argv": ["{python}", "scripts/evaluate.py", "--package", ".", "--allow-exec", "--case", case["id"]]} for case in plan["cases"]}
@@ -241,6 +242,8 @@ def render(root, request, spec, plan, response, source=None):
             + (f"\n## Resources\n\n{routing}\n" if routing else "")
             + "\n## Host and improvement behavior\n\n"
             "Use the current host's model when AI judgment is needed. Keep shared mechanics portable across ChatGPT, Claude, Codex, and Claude Code; check the task's required execution and file tools. Do not require another provider's CLI for normal use.\n\n"
+            "Before claiming multi-host validation, freeze config/host_validation.json with scripts/host_coverage.py, collect actual tasks and public traces on each required host, and assess their bound reviews. A missing host or unreviewed result prevents acceptance of that claim; installation or a mechanical pass is not behavioral evidence. Native use still requires only the current host.\n\n"
+            "An observed task timeout is failed even with an incomplete trace; missing observations are not run. Preserve both the failed attempt and uncertainty about its cause. Do not relabel a timeout as unrun or require a code change merely to retry an unchanged task.\n\n"
             "Routine testing and necessary retries are part of the authorized task. Choose bounded batches from task complexity and observed runtime, and continue without asking for each extra test. Use scripts/continuation.py to enforce retry ceilings, record each reason and preserve failed attempts and frozen criteria. Stop and report stalled progress or exhausted retry ceilings. Respect explicit user hard limits, host permissions and paid-service restrictions; ask only when a material change requires a new decision.\n"
         )
         readme = render_readme(data["name"], data["documentation"])

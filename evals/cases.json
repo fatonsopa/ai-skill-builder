@@ -254,5 +254,177 @@
     "expect": {
       "exit_code": 0
     }
+  },
+  {
+    "id": "builder-model-profile-coverage",
+    "kind": "behavior",
+    "critical": true,
+    "semantic": true,
+    "requirements": [
+      "HOST-COVERAGE"
+    ],
+    "workflow": {
+      "id": "matrix",
+      "scenario": "behavior",
+      "covers": []
+    },
+    "request": {
+      "instruction": "/skill-builder Review this evaluation claim without editing files or running models. The same frozen tasks were tested on Claude Code, but different subsets passed on Sonnet at medium effort and Opus at high effort. Someone proposes combining those passing subsets and reporting that one Claude model configuration passed the complete suite. Inspect the actual host_coverage.py contract and explain what may be reported and what must remain separate. Do not invent completed tests, model identity or approval."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
+  },
+  {
+    "id": "builder-create-from-paired-examples",
+    "kind": "behavior",
+    "critical": true,
+    "semantic": true,
+    "requirements": [
+      "PAIR-CREATE"
+    ],
+    "workflow": {
+      "id": "transport",
+      "scenario": "behavior",
+      "covers": []
+    },
+    "request": {
+      "instruction": "/skill-builder Create the actual skill described by input/brief.md from the supplied input/output pair manifest. Use the supported native Builder workflow and import the pairs. Build real files, run meaningful mechanical checks and exercise the created skill through the current host with an honest captured behavior observation. You may read the new target skill evaluation files you create for this task; they are legitimate project artifacts, not this benchmark's hidden graders. Use native current-host handoffs; do not launch additional model CLIs. Save the resulting repository at output/normalize-customers. Report exact evidence and any unmet acceptance requirement honestly; do not substitute an explanation or plan for the requested files, fabricate fresh independent-model results, or claim untested hosts passed. Keep code and public README portable; do not publish or install globally.",
+      "source": {
+        "brief.md": "Create normalize-customers. Input is one JSON object with customer_id as a string and an optional name that is a string or null. Preserve customer_id exactly, including leading zeroes. Trim leading/trailing whitespace from a string name; preserve null and preserve an absent name as absent. Preserve all other fields unchanged. Reject a non-string customer_id and a non-string/non-null name rather than coercing either. Expose scripts/normalize.py using JSON stdin/stdout and a nonzero exit on invalid input. Produce one GitHub-ready skill repository at output/normalize-customers with a root SKILL.md, README.md, MIT LICENSE for Fixture Author, shared AGENTS.md and CLAUDE.md, runnable checks and actual evaluation evidence. Use https://github.com/example/normalize-customers only as a clearly identified illustrative clone URL. No publication, global installation or target-project commands are authorized. Paired examples are demonstrations, not held-out reliability evidence.",
+        "example-1.input.json": "{\"customer_id\": \"0007\", \"name\": \" Ada \"}",
+        "example-1.output.json": "{\"customer_id\": \"0007\", \"name\": \"Ada\"}",
+        "example-2.input.json": "{\"customer_id\": \"42\", \"name\": null}",
+        "example-2.output.json": "{\"customer_id\": \"42\", \"name\": null}",
+        "pairs.json": "[{\"id\": \"1\", \"input\": \"example-1.input.json\", \"output\": \"example-1.output.json\", \"source_family\": \"fixture-1\", \"split\": \"development\", \"provenance\": \"synthetic\"}, {\"id\": \"2\", \"input\": \"example-2.input.json\", \"output\": \"example-2.output.json\", \"source_family\": \"fixture-2\", \"split\": \"development\", \"provenance\": \"synthetic\"}]"
+      }
+    },
+    "resources": [
+      "SKILL.md",
+      "references/authoring.md",
+      "references/evaluation.md",
+      "references/readme.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
+  },
+  {
+    "id": "builder-required-host-coverage",
+    "kind": "behavior",
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Audit this readiness claim without editing a skill. The frozen release matrix requires codex and claude-code. All 7 Codex cases passed, but there are no Claude Code observations. Explain whether the skill is ready for both hosts, what evidence is missing, and the supported executable way to close the gap. Inspect the actual host coverage interface. Do not fabricate a model run, infer Claude results from installation, change criteria, or ask permission for an ordinary bounded test retry."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
+  },
+  {
+    "id": "builder-real-host-testing-plan",
+    "kind": "behavior",
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Give a scoped evaluation plan for a documentation skill intended for Codex and Claude Code. It must test the actual skill with file and command tools, required audit-before-draft visibility, a generated PRD structure and a rendered flowchart. Distinguish mechanical controls, actual performing-AI work and semantic judgments. Explain how the frozen required-host/case matrix prevents a Codex-only pass from being reported as complete. Read the supported runner and matrix interfaces. Do not run a model or edit the skill; use explicit bounded rounds and record unverified hosts honestly."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/evaluation.md",
+      "references/host_support.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
+  },
+  {
+    "id": "builder-native-skill-link-probe",
+    "kind": "behavior",
+    "critical": true,
+    "semantic": true,
+    "requirements": [
+      "CAPTURE-LINKS"
+    ],
+    "workflow": {
+      "id": "capture",
+      "scenario": "behavior",
+      "covers": []
+    },
+    "request": {
+      "instruction": "/skill-builder Audit the current local retry guard only. Run input/probe.py exactly once with the supplied Python interpreter, unchanged. It imports the current skill through the compatibility path used by existing tool fixtures. Report its observed round/extension values and whether this probe establishes behavior on other hosts. Do not edit the skill or fixture, launch more models, or claim full readiness from this probe.",
+      "source": {
+        "probe.py": "import json,sys\nfrom pathlib import Path\nsys.path.insert(0,str(Path.cwd()/'.agents/skills/skill-builder/scripts'))\nfrom continuation import MAX_ROUNDS,MAX_EXTENSIONS\nprint(json.dumps({'rounds':MAX_ROUNDS,'extensions':MAX_EXTENSIONS}))\n"
+      }
+    },
+    "resources": [
+      "SKILL.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
+  },
+  {
+    "id": "builder-provider-limit-evidence",
+    "kind": "behavior",
+    "critical": true,
+    "semantic": true,
+    "requirements": [
+      "LIMIT-STOP"
+    ],
+    "workflow": {
+      "id": "transport",
+      "scenario": "behavior",
+      "covers": []
+    },
+    "request": {
+      "instruction": "/skill-builder Audit this provider result and the supported capture code without making any provider calls or changes. Explain why subtype success and process exit0 do not establish a passing task here, how a batch should stop, and how to distinguish an interrupted task from an unstarted rejection. Preserve earlier results and distinguish infrastructure availability from skill-output quality. Do not change billing, credentials, hosts or frozen criteria.",
+      "source": {
+        "result.json": "{\"type\": \"result\", \"subtype\": \"success\", \"is_error\": true, \"terminal_reason\": \"api_error\", \"api_error\": \"usage_limit_reached\", \"api_error_status\": 429, \"result\": \"Weekly usage limit reached; resets Wednesday at07:00.\", \"usage\": {\"input_tokens\": 0, \"output_tokens\": 0}}"
+      }
+    },
+    "resources": [
+      "SKILL.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
+  },
+  {
+    "id": "builder-public-delivery-boundary",
+    "kind": "behavior",
+    "critical": true,
+    "semantic": true,
+    "requirements": [
+      "HANDOFF"
+    ],
+    "workflow": {
+      "id": "public-delivery",
+      "scenario": "behavior",
+      "covers": []
+    },
+    "request": {
+      "instruction": "/skill-builder Audit the reported checked-message failure without changing the skill. Read the actual shared guard and relevant guidance. Run input/probe.py once unchanged with the supplied Python. Explain what its actual result establishes, why a checked local copy cannot prove the final public text, and the smallest supported repair/testing approach. Give a finite call/runtime budget for a focused validation and keep a larger unrun benchmark separate. Do not run additional models, publish, fabricate a completed test or claim that exact text equality establishes factual correctness.",
+      "source": {
+        "probe.py": "from pathlib import Path\nimport json,sys\nsys.path.insert(0,str(Path.cwd()/'.agents/skills/skill-builder/scripts'))\nfrom host_coverage import public_delivery_match,digest\nroot=Path.cwd()/'capture';work=root/'001-case/workspace';work.mkdir(parents=True)\ndoc=work/'output.md';doc.write_text('Reviewed document.')\nmessage='Saved the reviewed document.\\n'\nr=work/'session/delivery.json';r.parent.mkdir();r.write_text(json.dumps({'message':message,'message_sha256':digest(message.encode()),'destination':str(doc),'output_sha256':digest(doc.read_bytes())}))\n(root/'001-case/public-events.json').write_text(json.dumps([{'type':'item.completed','item':{'type':'agent_message','text':message+'No target has been set.'}}]))\nrow={'id':'001-case','status':'pending_review','workspace_hashes':{'output.md':digest(doc.read_bytes()),'session/delivery.json':digest(r.read_bytes())}}\nreport=root/'report.json';report.write_text(json.dumps({'execution_host':'codex','attempts':[row]}))\nprint(json.dumps(public_delivery_match(report,'001-case')))\n"
+      }
+    },
+    "resources": [
+      "references/evaluation.md",
+      "references/authoring.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
   }
 ]

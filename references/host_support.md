@@ -16,6 +16,10 @@ The repository root is the installable skill. Its README, SKILL, LICENSE, refere
 
 An optional host-upload ZIP contains those same public files and must be written outside the repository. It does not create a dist directory or a separate maintained copy. Installation and publishing remain distinct actions.
 
+## Distinguish failed attempts from missing observations
+
+An actual attempted task that times out is failed, even if its public trace is partial or its cause is unknown. Keep that failure in history. “Not run” means the task was not attempted or no actual observation was supplied; it must not replace an observed timeout. Incomplete diagnostic evidence does not erase an execution outcome. Retry the unchanged case when evidence supports more runtime; a retry does not itself require a code change.
+
 ## Evaluation and continuation
 
 Use explicit model configurations for optional external comparisons. A cross-provider route needs a configured choice. Preserve model-specific results, missing coverage, and failed attempts.
@@ -23,3 +27,9 @@ Use explicit model configurations for optional external comparisons. A cross-pro
 Routine testing includes necessary retries. Select bounded batches from task complexity and observed runtime, preserve failed attempts and criteria, and continue without asking for each extra test. Use the shared continuation guard for extensions and record the concrete reason. Use up to five testing rounds, including the initial round and at most four bounded continuations, each adding up to two attempts, four handoffs, four model invocations or fifteen minutes as applicable. These are local defaults; explicit user hard limits take precedence. Stop and report stalled progress or exhausted retry ceilings. A different scope, permission or paid-service arrangement still needs the appropriate user decision.
 
 Generated skills have a portable evaluator and bounded maintenance session. Store its records outside the skill folder, review pending semantic cases, and export an accepted version to a new destination. Do not silently modify the installed skill during ordinary use.
+
+## Validate each required execution host
+
+Before claiming multi-host readiness, freeze the intended host/case matrix with `scripts/host_coverage.py freeze --package PACKAGE --config config/host_validation.json --output PLAN.json`. The shared matrix requires Codex and Claude Code as execution hosts; it does not establish browser/mobile or every model support. Run each selected task through its actual skill with tools on each declared host. Keep the same task criteria, source artifact, public trace and actual outputs; record requested and observed model identity separately. Capture a source-grounded review bound to each report, attempt and public trace, then use `scripts/host_coverage.py assess --package PACKAGE --plan PLAN.json --bundles BUNDLES.json --output NEW_REPORT.json`. Missing hosts, unreviewed outputs, stale artifacts and failed critical cells prevent matrix acceptance. Native use and single-host testing remain available with their scope stated.
+
+Freeze the intended model and reasoning settings as well as the execution hosts. The matrix config accepts `profiles`, with one `{host, model, reasoning_effort}` object per required host; unavailable identities stay null. Assessment rejects different configurations in one host result. Keep each model/effort profile separate rather than selecting passing subsets from different models. Before a broad batch, pilot an actual task matching the skill's intended output; for Skill Builder that includes creating a usable skill from supplied input/output examples, not only explaining an audit or plan.

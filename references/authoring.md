@@ -37,7 +37,7 @@ The current adapters support JSON, UTF-8 text, and Markdown. They preserve origi
 
 Set the request's `examples` field to the bundle directory. Authoring packets omit protected pairs. The runner rejects cross-split family labels and exact duplicate content; semantic near duplicates still need review. Keep protected material out of candidate resources and use verified external isolation where confidentiality matters.
 
-Infer transformations, invariant values, acceptable variation, and unknowns. Test new values and boundary conditions. A synthetic variant is not independent ground truth. One pair cannot establish broad generalization or justify an invented target.
+Infer transformations, invariant values, acceptable variation, and unknowns. Test new values and boundary conditions. For structured data, turn preservation promises into typed invariants before selecting a parser or serializer. Exercise retained fields, null and absent values, nesting, Unicode and numeric precision where the contract permits them. A parse-and-write round trip can change a value even when the main transformation is correct. Check value preservation separately from formatting, using a comparator that does not lose the same information as the implementation. A synthetic variant is not independent ground truth. One pair cannot establish broad generalization or justify an invented target.
 
 ## Assemble and verify
 
@@ -60,3 +60,5 @@ Each workflow needs a valid execution test and an AI behavioral case tied to its
 Command or artifact tests establish mechanical properties. Behavioral cases use `kind: behavior`, a realistic `request`, relevant `resources`, and semantic assessment. They must evaluate what the skill should accomplish, not merely repeat its instructions or look for keywords. A multi-step mechanical success case also captures its full event order and required evidence/visibility, then receives semantic review of those actual artifacts.
 
 Prepare and review the cases and graders before running them. Deliberately wrong paths must be detectable. Fresh task outputs come from a performing AI, not from the skill author writing a desired answer. Keep expected answers and grading criteria out of the performing packet. Preserve each attempt, including malformed output and workflow violations; do not rename these as infrastructure failures.
+
+For an output workflow whose final summary can introduce unchecked facts, return a concise checked handoff from the delivery code. Keep the substantive explanation in the reviewed artifact. Test a matching actual handoff, an altered final message, missing evidence and changed delivered bytes; inspect the real host trace as well as any saved copy. Apply this boundary where it serves the task rather than prescribing a canned response for every skill.

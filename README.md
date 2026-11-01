@@ -222,6 +222,8 @@ Use this after a create, modify, refactor, or rebuild operation has produced a c
 - Map every requirement to an executable check or a documented semantic judgment. Include representative tasks, relevant variations, and failure cases.
 - Keep independent evaluation cases separate from examples used to create or tune the skill.
 - Choose the required task-success percentage, coverage, and critical checks before evaluation. A mandatory failure blocks acceptance even when the aggregate score is high.
+- For a multi-host readiness claim, freeze config/host_validation.json and use scripts/host_coverage.py to require actual reviewed results for every declared host/case. A Codex pass cannot establish Claude behavior.
+- An observed task timeout is a failed attempt even when its trace is incomplete. Missing observations remain not run; retain both the failed result and diagnostic uncertainty.
 
 ### Run the evaluations
 
@@ -254,6 +256,7 @@ Missing actual AI observations remain unrun. Import the captured results with `-
 4. Invoke /skill-builder with the failing input, expected output, actual output, and the requested reusable improvement. Keep the failure as a regression case.
 5. Make one scoped change and rerun the same acceptance criteria, relevant neighboring cases, and shared regressions. Preserve the baseline and every attempt.
 6. Accept the candidate only when the agreed gates pass. Diagnose failures and run necessary bounded retries; preserve criteria and earlier attempts, honor explicit hard limits, and report any remaining gap when the retry policy stops.
+7. Keep host results separate. Use the shared host coverage checker before claiming a tested host matrix; missing hosts or stale and unreviewed captures prevent acceptance.
 
 ## Models and run limits
 

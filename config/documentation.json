@@ -209,7 +209,9 @@
         "Define the required behavior, output structure, facts to preserve, and relevant invalid inputs before changing the candidate.",
         "Map every requirement to an executable check or a documented semantic judgment. Include representative tasks, relevant variations, and failure cases.",
         "Keep independent evaluation cases separate from examples used to create or tune the skill.",
-        "Choose the required task-success percentage, coverage, and critical checks before evaluation. A mandatory failure blocks acceptance even when the aggregate score is high."
+        "Choose the required task-success percentage, coverage, and critical checks before evaluation. A mandatory failure blocks acceptance even when the aggregate score is high.",
+        "For a multi-host readiness claim, freeze config/host_validation.json and use scripts/host_coverage.py to require actual reviewed results for every declared host/case. A Codex pass cannot establish Claude behavior.",
+        "An observed task timeout is a failed attempt even when its trace is incomplete. Missing observations remain not run; retain both the failed result and diagnostic uncertainty."
       ],
       "improvement_steps": [
         "Review executable candidate code before using --allow-exec. Read the report returned by the evaluation command.",
@@ -217,7 +219,8 @@
         "Read each failed attempt, its actual output, source facts, and checker or review findings. Distinguish a skill defect from missing input, an environment failure, or a faulty evaluator.",
         "Invoke /skill-builder with the failing input, expected output, actual output, and the requested reusable improvement. Keep the failure as a regression case.",
         "Make one scoped change and rerun the same acceptance criteria, relevant neighboring cases, and shared regressions. Preserve the baseline and every attempt.",
-        "Accept the candidate only when the agreed gates pass. Diagnose failures and run necessary bounded retries; preserve criteria and earlier attempts, honor explicit hard limits, and report any remaining gap when the retry policy stops."
+        "Accept the candidate only when the agreed gates pass. Diagnose failures and run necessary bounded retries; preserve criteria and earlier attempts, honor explicit hard limits, and report any remaining gap when the retry policy stops.",
+        "Keep host results separate. Use the shared host coverage checker before claiming a tested host matrix; missing hosts or stale and unreviewed captures prevent acceptance."
       ]
     },
     "license": "MIT. See [LICENSE](LICENSE)."

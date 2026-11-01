@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "required_hosts": [
+    "codex",
+    "claude-code"
+  ],
+  "case_files": [
+    {
+      "path": "evals/cases.json"
+    }
+  ]
+}

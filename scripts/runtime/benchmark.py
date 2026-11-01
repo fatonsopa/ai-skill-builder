@@ -77,7 +77,7 @@ def benchmark(config_path, output):
         for condition in conditions
         for repetition in range(1, model["repetitions"] + 1)
     ]
-    attempts, calls = [], 0
+    attempts, calls, execution_block = [], 0, None
     started = time.monotonic()
     for index, (model, case, condition, repetition) in enumerate(planned, 1):
         row = {
@@ -86,7 +86,10 @@ def benchmark(config_path, output):
             "critical": case["critical"], "semantic": case["semantic"], "status": "not_run",
         }
         remaining = config["max_seconds"] - (time.monotonic() - started)
-        if calls < config["max_invocations"] and remaining > 0:
+        if execution_block:
+            row.update(reason="Provider usage limit stopped this batch; no further invocation or fallback.",
+                       provider_error=execution_block)
+        elif calls < config["max_invocations"] and remaining > 0:
             payload = {"request": case["request"]}
             if condition == "with_skill":
                 payload["skill"] = (subject / "SKILL.md").read_text()
@@ -94,6 +97,10 @@ def benchmark(config_path, output):
             calls += 1
             result = sample(model["provider"], model["model"], payload, min(remaining, 300))
             row["observation"] = result
+            if result.get("provider_error"):
+                row.update(provider_error=result["provider_error"], failure_kind=result.get("failure_kind", "provider_error"))
+                if result["provider_error"]["kind"] == "usage_limit":
+                    execution_block = result["provider_error"]
             if result["status"] == "response_validated":
                 row["status"] = "pending_review" if case["semantic"] else (
                     "passed" if result["response"] == case["expected"] else "failed"
@@ -109,6 +116,7 @@ def benchmark(config_path, output):
         "mode": "explicit_instruction_use", "models": config["models"],
         "attempts": attempts, "by_model_and_condition": aggregate(attempts),
         "model_invocations": calls, "elapsed_seconds": time.monotonic() - started,
+        "execution_block": execution_block,
         "limits": [
             "Explicit instruction loading is not host discovery.",
             "Requested model IDs are recorded; aliases are not independently resolved.",

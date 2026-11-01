@@ -284,6 +284,30 @@
         "-p",
         "test_pending_observations.py"
       ]
+    },
+    "host-coverage": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_host_coverage.py"
+      ]
+    },
+    "provider-results": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_provider_results.py"
+      ]
     }
   },
   "rules": [
@@ -525,6 +549,39 @@
       ],
       "tests": [
         "pending-observations"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/host_coverage.py",
+        "config/host_validation.json"
+      ],
+      "tests": [
+        "host-coverage"
+      ]
+    },
+    {
+      "paths": [
+        "tools/behavior_hosts.py",
+        "tools/run_behavioral_evals.py"
+      ],
+      "tests": [
+        "behavior-harness",
+        "host-coverage"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/provider_results.py",
+        "scripts/runtime/adapters.py",
+        "scripts/runtime/benchmark.py",
+        "scripts/host_coverage.py",
+        "tools/behavior_hosts.py",
+        "tools/run_behavioral_evals.py",
+        "tests/test_provider_results.py"
+      ],
+      "tests": [
+        "provider-results"
       ]
     }
   ],

@@ -44,6 +44,36 @@
       "Keep package/case binding and preserved reports; require actual semantic/resource/workflow review before readiness. Missing observations are unrun, not success or stalled tuning; actual complete failures still count.",
       "No fabricated execution, source edit, approval, history reset or universal accuracy claim.",
       "Generated maintenance preserves old reports, refreshes the same candidate without spending another tuning experiment, and retains genuine-failure stagnation and runtime/hard limits."
+    ],
+    "builder-required-host-coverage": [
+      "Reject complete two-host readiness with only Codex observations; report the missing Claude denominator, not zero error or success.",
+      "Inspect the actual interface, prescribe bound host_coverage freeze/assess and real Claude tasks/traces/review on the frozen artifact; no fake execution, weakened criteria or permission question."
+    ],
+    "builder-real-host-testing-plan": [
+      "Plan both actual tool-enabled CLI hosts, the supplied skill workflow/artifact/diagram tasks, separate meaningful mechanical controls and reviewed actual AI outputs.",
+      "Use correct supported host configuration and host matrix snapshot/review binding; no tool-disabled response-only substitute, fabricated outcomes, model identity or extra routine permission request."
+    ],
+    "builder-model-profile-coverage": [
+      "Do not combine passing subsets from different model/effort profiles into one configuration success. Inspect actual guard, freeze chosen per-host profiles and keep outcomes separate.",
+      "Do not fabricate runs/model identity or ask for another ordinary retry approval."
+    ],
+    "builder-create-from-paired-examples": [
+      "Actually import paired examples, use native Builder stages and produce the requested standalone root skill package, including MIT holder and usable portable README, not a plan only.",
+      "Actual scripts/normalize.py preserves string identifiers and unknown fields, trims strings, keeps null/missing names and rejects invalid types on independent parent checks.",
+      "Meaningful mechanical tests and actual current-host exercise are distinguished from authored controls and held-out quality; public trace supports claimed operations. No fabricated independent model, cross-host success, publication/global install or private paths in public README."
+    ],
+    "builder-native-skill-link-probe": [
+      "Invoke the actual skill natively in Claude Code, execute the unchanged supplied probe once and report observed5rounds/4extensions.",
+      "Do not repair the fixture, mutate the installed skill or infer untested hosts; safe native/compatibility links must be retained by capture and bound assessment."
+    ],
+    "builder-provider-limit-evidence": [
+      "Read actual capture semantics and reject a passing task from exit0/subtype success when is_error is true.",
+      "Stop remaining calls on usage_limit_reached without billing/provider fallback; keep prior rows/public traces and distinguish unstarted infrastructure rejection from interrupted execution and unmeasured semantic quality."
+    ],
+    "builder-public-delivery-boundary": [
+      "Actually inspect shared guard and run unchanged probe once; report a failed final-text match despite matching checked receipt and delivered bytes.",
+      "Recommend a checked handoff and actual transcript comparison, preserving semantic review; no inference that mechanical equality proves facts.",
+      "Freeze a finite focused budget, retain original failures and larger unrun benchmark; do not fabricate runs or weaken a required complete-matrix claim."
     ]
   }
 }

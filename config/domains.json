@@ -37,7 +37,9 @@
         "scripts/runtime/examples.py",
         "scripts/smoke_check.py",
         "scripts/run_tests.py",
-        "config/test_impact.json"
+        "config/test_impact.json",
+        "scripts/host_coverage.py",
+        "config/host_validation.json"
       ],
       "depends_on": [
         "contracts"
@@ -51,7 +53,8 @@
         "scripts/runtime/common.py",
         "scripts/runtime/hosts.py",
         "scripts/repository_files.py",
-        "scripts/continuation.py"
+        "scripts/continuation.py",
+        "scripts/provider_results.py"
       ],
       "depends_on": []
     },
@@ -71,9 +74,12 @@
       "purpose": "Frozen model tasks, rubric and explicit bounded performing-agent observations.",
       "owned_paths": [
         "evals/",
-        "tools/run_behavioral_evals.py"
+        "tools/run_behavioral_evals.py",
+        "tools/behavior_hosts.py"
       ],
-      "depends_on": []
+      "depends_on": [
+        "contracts"
+      ]
     }
   ]
 }
