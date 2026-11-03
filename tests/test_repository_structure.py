@@ -104,5 +104,13 @@ class RepositoryStructureTests(unittest.TestCase):
 
     def test_shared_root_rules_match_the_generation_template(self):
         template = (ROOT / "assets/AGENTS.md").read_text()
-        self.assertTrue((ROOT / "AGENTS.md").read_text().startswith(template))
+        instructions = (ROOT / "AGENTS.md").read_text()
+        self.assertTrue(instructions.startswith(template))
         self.assertEqual((ROOT / "CLAUDE.md").read_text(), "@AGENTS.md\n")
+        # Builder-specific maintenance guidance must not leak into new skills.
+        import re
+        reference = "references/agents_and_skills.md"
+        self.assertNotIn(reference, template)
+        project_links = re.findall(r"\]\(([^)]+)\)", instructions[len(template):])
+        self.assertIn(reference, project_links)
+        self.assertTrue((ROOT / reference).is_file())

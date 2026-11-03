@@ -22,6 +22,8 @@ Keep repository workflow rules in AGENTS.md. Always provide CLAUDE.md with an @A
 
 Keep one skill at the repository root and use config/repository_layout.json for its structure. Put repeatable mechanics in scripts, domain guidance in references, tests and evals with their responsible components, and internal records outside the repository. Review actual responsibilities as well as declared domain ownership.
 
+When changing agent-based skills or their authoring guidance, read and apply [agents, skills and orchestration](references/agents_and_skills.md). Keep the relevant consumers and affected checks aligned with that reference.
+
 README.md is rendered from config/documentation.json. Update its generator, guidance and affected tests when changing `README.md` requirements. New skills use the approved MIT template with a supplied copyright holder; preserve an existing license unless a change is authorized.
 
 Use the environment containing scripts/requirements-lock.txt. Run impacted test methods or modules while editing. The repository-check helper uses the same scoped test runner. Keep private inputs and run snapshots outside the repository; keep public documentation focused on installation, invocation, use, evaluation and support.
