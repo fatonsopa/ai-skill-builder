@@ -10,6 +10,22 @@ Inventory every created or changed workflow and its applicable branches, boundar
 
 Controls and replay establish mechanics, not fresh model behavior. Separate evaluated/planned coverage, accepted/evaluated task success, process checks, mechanical checks and behavioral results. Show counts with percentages. Missing observations leave coverage incomplete; failed or unrun critical cases block acceptance regardless of an average. State what was actually tested and which hosts/models remain unverified.
 
+## Test activation separately from performance
+
+Activation cases ask whether the host discovers and loads the intended skill; performance cases ask whether using it produces the required result. A file-identity check establishes neither. Preserve explicit-only invocation rules: an explicit mention tests that route, not automatic selection. If implicit selection is supported, use realistic matching prompts and nearby requests that share vocabulary but need another capability. Observe actual loading in host traces rather than inferring it from the answer.
+
+Read [description evaluation guidance](https://agentskills.io/skill-creation/optimizing-descriptions) when changing selection. Freeze a development set and held-out set, each with matching and near-miss requests. Keep held-out answers outside authoring; if a result informs a repair, retain it as regression evidence and add a fresh held-out case. Choose repetitions, thresholds and call/time limits from the claim and available budget. The guide's example counts are not a mandatory batch. Report misses and unwanted activations separately from output quality.
+
+## Compare output quality
+
+For improvement claims, use the same tasks, inputs and execution profile with the candidate and a no-skill or previous-version baseline. Start each run in a fresh context; record any reused context as a limitation. A separate session can provide this without subagents. Keep expected answers and graders out of performing contexts.
+
+Preserve outputs, artifacts and public traces, plus measured elapsed time and token usage when available; unavailable measurements stay unknown. Inspect inefficient tool use and outliers alongside task success, and report counts and configuration differences before claiming a gain. Small samples do not establish broad reliability.
+
+Read [output evaluation guidance](https://agentskills.io/skill-creation/evaluating-skills) when designing comparisons. Exploratory runs can expose missing assertions, but Builder freezes acceptance before tuning. A justified criterion change starts a separately versioned run and retains earlier results. Do not drop safety or preservation checks merely because both configurations pass them.
+
+These description and output-evaluation sections were opened on 2026-11-03. Recheck relevant primary guidance when the evaluation method changes.
+
 ## Test workflow compliance and actual AI behavior
 
 The v2 specification declares `workflows`. Each has `id`, `purpose`, `trigger`, `steps`, and arrays of `{id, text}` for `boundaries`, `branches` and `recovery`. The plan packet lists the required test scenarios. Cases identify their workflow, scenario and covered step/condition IDs. Missing tests prevent production. Use `schema specify` and `schema plan` for exact fields.

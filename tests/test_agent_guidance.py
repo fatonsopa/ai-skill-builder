@@ -57,8 +57,8 @@ class AgentGuidanceTests(unittest.TestCase):
 
     def test_behavior_tasks_remain_distinct_and_runtime_resources_exist(self):
         cases = json.loads((ROOT / 'evals/agent_guidance_cases.json').read_text())
-        self.assertEqual({c['id'] for c in cases}, {'agent-simple', 'agent-bundle', 'agent-recovery', 'agent-host'})
-        self.assertEqual(len(cases), 4)
+        self.assertEqual({c['id'] for c in cases}, {'agent-simple', 'agent-bundle', 'agent-recovery', 'agent-host', 'agent-authoring', 'agent-evidence', 'agent-client'})
+        self.assertEqual(len(cases), 7)
         for case in cases:
             self.assertEqual(case['kind'], 'behavior')
             self.assertTrue(case['critical'] and case['semantic'])
@@ -78,3 +78,58 @@ class AgentGuidanceTests(unittest.TestCase):
         urls = re.findall(r'\]\((https://[^)]+)\)', text)
         for host in ('learn.chatgpt.com', 'developers.openai.com', 'platform.claude.com', 'code.claude.com', 'www.anthropic.com'):
             self.assertTrue(any('/' + host + '/' in url for url in urls))
+
+
+class AgentSkillsSourceTests(unittest.TestCase):
+    """Check source ownership and routes, not the quality of their prose."""
+
+    contracts = {
+        'authoring': ('references/authoring.md', [
+            'https://agentskills.io/skill-creation/best-practices',
+            'https://agentskills.io/skill-creation/optimizing-descriptions',
+            'https://agentskills.io/skill-creation/using-scripts',
+            'https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices#writing-effective-descriptions',
+            'evaluation.md#test-activation-separately-from-performance']),
+        'evaluation': ('references/evaluation.md', [
+            'https://agentskills.io/skill-creation/optimizing-descriptions',
+            'https://agentskills.io/skill-creation/evaluating-skills']),
+        'host': ('references/host_support.md', [
+            'https://agentskills.io/client-implementation/adding-skills-support',
+            'https://learn.chatgpt.com/docs/build-skills',
+            'agents_and_skills.md']),
+    }
+
+    def missing_links(self, text, expected):
+        links = set(re.findall(r'\]\(([^)]+)\)', text))
+        return [url for url in expected if url not in links]
+
+    def test_owner_sources_and_routes_resolve(self):
+        for owner, (name, expected) in self.contracts.items():
+            path = ROOT / name
+            text = path.read_text()
+            self.assertEqual(self.missing_links(text, expected), [], owner)
+            for target in re.findall(r'\]\(([^)]+)\)', text):
+                if '://' in target:
+                    continue
+                relative, _, anchor = target.partition('#')
+                destination = (path.parent / relative).resolve()
+                self.assertTrue(destination.is_file(), (name, target))
+                if anchor:
+                    headings = re.findall(r'^#+ (.+)$', destination.read_text(), re.M)
+                    anchors = {re.sub(r'[^a-z0-9 -]', '', h.lower()).replace(' ', '-') for h in headings}
+                    self.assertIn(anchor, anchors, (name, target))
+
+    def test_missing_source_in_each_owner_is_detected(self):
+        for owner, (name, expected) in self.contracts.items():
+            original = (ROOT / name).read_text()
+            for link in expected:
+                damaged = original.replace('](' + link + ')', '](missing-resource)')
+                self.assertEqual(self.missing_links(damaged, expected), [link], owner)
+
+    def test_guidance_routes_and_eval_impact_are_preserved(self):
+        routes = (ROOT / REFERENCE).read_text()
+        for target in ('authoring.md#describe-when-the-skill-applies', 'host_support.md#discovery-and-loading'):
+            self.assertEqual(self.missing_links(routes, [target]), [])
+        impact = json.loads((ROOT / 'config/test_impact.json').read_text())
+        for path in ('references/evaluation.md', 'references/host_support.md'):
+            self.assertTrue(any(path in r['paths'] and 'agent-guidance' in r['tests'] for r in impact['rules']), path)

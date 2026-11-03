@@ -102,5 +102,82 @@
       "scenario": "behavior",
       "covers": []
     }
+  },
+  {
+    "id": "agent-authoring",
+    "kind": "behavior",
+    "requirements": [
+      "AS-AUTHOR"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Give design advice only for a reusable expense-import skill. The team has corrected examples and a working CSV parser that preserves account IDs as strings. A proposal bundles every finance task, lists six equal parsing tools, puts all tax rules in SKILL.md, prompts for input in a terminal, installs unpinned packages and mixes logs into JSON stdout. Recommend a coherent capability, useful procedure/defaults, resource loading and script interface. Explain how to choose its description for Codex and Claude without a universal wording rule. Do not implement, run providers or spawn agents."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/authoring.md",
+      "references/agents_and_skills.md",
+      "references/skill_structure.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "authoring-advice",
+      "scenario": "behavior",
+      "covers": []
+    }
+  },
+  {
+    "id": "agent-evidence",
+    "kind": "behavior",
+    "requirements": [
+      "AS-EVAL"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Review this evaluation proposal only: a skill loaded once after an explicit mention and produced a plausible report; the author calls that reliable automatic activation and a 30% quality gain. All prompts share the authoring chat, only obvious unrelated negatives are used, failed trials are removed, validation prompts guide edits, no baseline or timing/token data exists, and an example online requires exactly 60 calls. Propose a bounded evaluation and explain what the existing evidence establishes. Do not run models or modify files."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/evaluation.md",
+      "references/authoring.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "evaluation-advice",
+      "scenario": "behavior",
+      "covers": []
+    }
+  },
+  {
+    "id": "agent-client",
+    "kind": "behavior",
+    "requirements": [
+      "AS-HOST"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Advise on delivery only. A working skill folder passes YAML validation. The team wants to claim Codex, Claude Code and browser support and build a new daemon so every skill can discover itself, load every reference at startup and always delegate to a subagent. Identify which responsibilities belong to the client, what the existing hosts can be checked for, and the evidence needed for each claim. Preserve a one-agent native path; do not install, launch CLIs or spawn agents."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/host_support.md",
+      "references/agents_and_skills.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "host-advice",
+      "scenario": "behavior",
+      "covers": []
+    }
   }
 ]

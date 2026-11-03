@@ -2,6 +2,14 @@
 
 Start with the task's users, triggering requests, inputs, expected results, constraints, and important failure cases. Use available conversations and project files before asking for information again. Separate demonstrated requirements from assumptions; examples alone may not determine a general rule.
 
+## Shape a useful capability
+
+Ground the procedure in actual task outputs, corrections, project conventions and known failures. Choose one coherent capability that users can select and evaluate; [skill structure](skill_structure.md) owns package boundaries. Give a working default and the condition for choosing an alternative. Explain reusable steps rather than prescribing the answer to one example. Include the domain facts and pitfalls the agent would otherwise miss, with enough detail to perform the task.
+
+Match control to the operation: fragile steps need precise inputs, order and checks; judgment can allow supported alternatives. Keep the root focused on the common path. Put conditional detail in existing references with an explicit reading trigger, and retain essential precautions where they will be seen before the action. Review real traces for irrelevant reading, unnecessary branches and repeated mistakes before adding more instructions.
+
+Use [Agent Skills best practices](https://agentskills.io/skill-creation/best-practices) for these authoring decisions. Read its relevant sections when creating or materially changing a capability, and record the source/date and decision; do not copy every suggested pattern into every skill.
+
 ## Research, specify, and plan
 
 Inspect an existing package before proposing replacements. Research current official host documentation and domain uncertainties that affect this task. Record the source, date, relevant decision, and whether it was actually opened. Report unsupported claims as unverified. The runner records these statements; it does not independently prove that browsing occurred.
@@ -25,11 +33,23 @@ Stage evidence can reuse current research and decisions for a narrow edit. Recor
 
 For agent-based designs, use [agents, skills and orchestration](agents_and_skills.md) when selecting roles, delegation contracts and host-specific resources.
 
+## Describe when the skill applies
+
+State the user's intent, matching requests and meaningful exclusions in the description. Keep implementation detail in the body and preserve approved metadata. Read [description guidance](https://agentskills.io/skill-creation/optimizing-descriptions) when changing selection behavior. It recommends imperative phrasing, while [Anthropic's description guidance](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices#writing-effective-descriptions) recommends third person. These recommendations do not establish one grammar for every host. Follow actual host requirements and assess realistic selection requests using [evaluation](evaluation.md#test-activation-separately-from-performance). Preserve an explicit-invocation boundary where the skill requires it.
+
 ## Decide what belongs in code
 
 Encode parsing, transformations, file handling, state, schemas, literals, identifiers, required structure, scoring, and stopping rules when their behavior can be defined. Reuse suitable commands. Explain residual AI responsibilities, such as interpreting a novel brief or judging supported prose. An unconstrained prompt behind a script is not an executable contract.
 
 For an AI-assisted runtime, define what enters the AI stage, which structured output returns, what code verifies, and what happens on refusal, malformed output, or uncertainty. Supply the required implementation with the skill, or declare an available supported dependency. The builder's optional CLI model helper generates phase responses; it does not supply a universal runtime to every generated skill.
+
+## Define script interfaces
+
+When adding or changing commands, read [Using scripts in skills](https://agentskills.io/skill-creation/using-scripts). Reuse a suitable existing command; bundle a script when repeatable logic warrants it. State the runtime, required tools, dependency versions and invocation directory. Pin external package versions where reproducibility matters, while retaining the project's established dependency mechanism.
+
+Provide concise `--help` with supported arguments, defaults and examples. Accept inputs through arguments, files, environment or stdin without waiting for a terminal prompt; required inputs should fail clearly. Keep structured results on stdout and diagnostics on stderr. Explain what failed, what input was expected and the supported next step; use documented nonzero exit codes for failure. Bound large output or write it to a file.
+
+For stateful operations, define safe defaults, applicable preview support and retry behavior before execution. A noninteractive flag does not grant authority for an external action. Test the actual interface, missing prerequisites, invalid inputs and failures; do not invent flags for an existing command.
 
 ## Learn from paired examples
 
@@ -64,3 +84,7 @@ Command or artifact tests establish mechanical properties. Behavioral cases use 
 Prepare and review the cases and graders before running them. Deliberately wrong paths must be detectable. Fresh task outputs come from a performing AI, not from the skill author writing a desired answer. Keep expected answers and grading criteria out of the performing packet. Preserve each attempt, including malformed output and workflow violations; do not rename these as infrastructure failures.
 
 For an output workflow whose final summary can introduce unchecked facts, return a concise checked handoff from the delivery code. Keep the substantive explanation in the reviewed artifact. Test a matching actual handoff, an altered final message, missing evidence and changed delivered bytes; inspect the real host trace as well as any saved copy. Apply this boundary where it serves the task rather than prescribing a canned response for every skill.
+
+## Source review
+
+The linked Agent Skills authoring, description and script sections, and Anthropic description guidance, were opened on 2026-11-03. Consult current primary guidance for the decision being changed; [host support](host_support.md#discovery-and-loading) owns client-specific loading responsibilities.

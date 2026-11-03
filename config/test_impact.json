@@ -645,7 +645,9 @@
         "references/skill_structure.md",
         "config/domains.json",
         "evals/agent_guidance_cases.json",
-        "tests/test_agent_guidance.py"
+        "tests/test_agent_guidance.py",
+        "references/evaluation.md",
+        "references/host_support.md"
       ],
       "tests": [
         "agent-guidance"
