@@ -18,6 +18,9 @@ from repository_files import compare_installation
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="command", required=True)
+    documents = commands.add_parser("validate-documents", help="Accept every changed document through Technical Writer.")
+    documents.add_argument("--run", type=Path, required=True)
+    documents.add_argument("--manifest", type=Path, required=True)
     start = commands.add_parser("start", help="Capture a request and source snapshot.")
     start.add_argument("--request", type=Path, required=True)
     start.add_argument("--run", type=Path, required=True)
@@ -81,6 +84,7 @@ def parser():
     extend.add_argument("--invocations", type=int, default=0)
     extend.add_argument("--reason", "--authorization-note", dest="authorization_note", required=True, help="Concrete reason for a bounded retry within the authorized task.")
     package = commands.add_parser("package")
+    package.add_argument("--run", type=Path, required=True)
     package.add_argument("--package", type=Path, required=True)
     package.add_argument("--output", type=Path, required=True)
     package.add_argument("--version", default="0.2.0")
@@ -141,6 +145,8 @@ def replay(root):
                     changed = sorted(name for name in set(actual_files) | set(report["package_hashes"]) if actual_files.get(name) != report["package_hashes"].get(name))
                     raise Invalid("Replayed artifacts differ from captured evaluation inputs: " + repr(changed))
                 current_state.update(
+                    replay_only=True, technical_writer=state["technical_writer"],
+                    document_validation=captured.get("document_validation") if captured else None,
                     evaluation=report,
                     package_check=check_package(package, full=request["operation"] in {"create", "rebuild"}, structure=request.get("repair_structure", False)),
                     phase="review", status="awaiting_ai",
@@ -171,6 +177,8 @@ def state_summary(state, root):
         for name in ('metrics', 'mechanical_metrics', 'behavioral_metrics', 'process_metrics'):
             if name in state['evaluation']:
                 result[name] = state['evaluation'][name]
+    if state.get('document_check'):
+        result['document_check'] = state['document_check']
     if state.get('package_check'):
         result['package_check'] = {key: state['package_check'][key] for key in ('passed', 'findings')}
     return result
@@ -209,7 +217,8 @@ def main(argv=None):
             value = grade(args.report, args.reviews)
         elif args.command == "package":
             from runtime.delivery import package
-            value = package(args.package, args.output, version=args.version)
+            with locked(args.run):
+                value = package(args.package, args.output, version=args.version, run=args.run)
         else:
             with locked(args.run):
                 if args.command == "start":
@@ -218,6 +227,9 @@ def main(argv=None):
                     value = workflow.read_state(args.run)
                 elif args.command == "packet":
                     value = workflow.packet(args.run)
+                elif args.command == "validate-documents":
+                    from runtime.technical_writer import validate_documents
+                    value = validate_documents(args.run, args.manifest)
                 elif args.command == "submit":
                     value = workflow.submit(args.run, load(args.response))
                 elif args.command == "evaluate":

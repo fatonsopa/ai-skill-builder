@@ -36,9 +36,9 @@ The task-only install excludes `evals/`, `tests/`, `tools/`, and Python scripts 
 
 Every evaluation receives a new report file; rerunning an unchanged candidate must preserve earlier reports. Replay uses the evaluation captured in each archived review packet and verifies that packet’s hash. Lifecycle CLI commands return progress summaries with separate mechanical, process and behavioral metrics and the full state-file path. Full evidence stays in state.json and the typed phase packet; a shorter CLI response does not remove captured sources or change acceptance rules.
 
-## Shared guidance covers every output surface
+## Validate document acceptance
 
-When a skill defines shared writing guidance, require it for every authored text surface: final artifacts, titles, table cells, diagram text, examples, questions/options, findings, recommendations and delivery messages. Include the guide in each applicable generation and review handoff even when a task-specific reference list omits it. Test missing guidance and attempted format exemptions mechanically, then use actual behavioral tasks and public traces to assess language across surfaces. Preserve machine literals under the guide’s rules; do not use preservation as permission to skip review. A guide-read flag or review receipt is evidence of a claim, not proof of semantic quality.
+Use the required Technical Writer dependency and [its integration](technical_writer.md) for document guidance and acceptance. Test the runner’s document inventory, dependency handoff and rejection of missing, failed or stale validation. Inspect actual model outputs and public traces separately when evaluating language quality; transport receipts alone do not establish it.
 
 ## Check tool dependencies before spending model calls
 

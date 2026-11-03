@@ -151,6 +151,9 @@ def render(name, documentation, profile="source"):
             rows += [f"- [{link['label']}]({link['path']})"]
         rows.append("")
         rows += ["<!-- repository:end -->", ""]
+    if profile == "source" and not d.get("repository"):
+        rows += ["## Documentation", "",
+            "Use [SKILL.md](SKILL.md) for task instructions and [evals/cases.json](evals/cases.json) for the declared evaluation cases.", ""]
     rows += [f"<!-- skill-readme:{profile} -->", ""]
     return "\n".join(rows)
 

@@ -51,7 +51,7 @@ REQUEST = obj({
     "operation": {"enum": ["create", "modify", "refactor", "rebuild", "audit", "specify", "plan"]},
     "skill_name": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64},
     "brief": TEXT, "source": TEXT, "allowed_paths": STRINGS,
-    "examples": TEXT,
+    "examples": TEXT, "technical_writer": TEXT, "document_paths": STRINGS,
     "copyright_holder": TEXT,
     "repair_structure": BOOL,
     "host": HOST,

@@ -22,7 +22,7 @@ Use [the structure and domain guide](references/skill_structure.md) and its exec
 
 ## Start with the requested result
 
-Read [README conventions](references/readme.md) when producing or reviewing public documentation. Read [authoring](references/authoring.md) for creation, specification, planning, or substantial redesign. Read [maintenance](references/maintenance.md) for an existing skill or feedback from use. Apply [writing style](references/writing_style.md) to prose and [evaluation](references/evaluation.md) when designing or assessing evidence.
+Read [Public documentation contract](references/readme.md) when producing or reviewing public documentation. Read [authoring](references/authoring.md) for creation, specification, planning, or substantial redesign. Read [maintenance](references/maintenance.md) for an existing skill or feedback from use. Use the required `technical-writer` skill for every document created or updated, including `AGENTS.md`, `CLAUDE.md`, `SKILL.md`, `README.md`, references, examples, templates and other authored documentation. Technical Writer owns document guidance and validation; do not maintain writing rules in Skill Builder. Read [the integration guide](references/technical_writer.md) for dependency resolution and runner validation. Use [evaluation](references/evaluation.md) when designing or assessing evidence.
 
 Resolve this skill's directory before running its scripts. Use the installed Python environment containing `scripts/requirements.txt` dependencies. The CLI is `scripts/skill_builder_cli.py`.
 
@@ -46,7 +46,7 @@ Mechanical passes do not establish AI behavior. Use `scripts/evaluate.py --behav
 2. Run `packet --run RUN_DIR`. Perform the phase's research or judgment using relevant evidence, then write the typed response requested by that packet.
 3. Run `submit --run RUN_DIR --response RESPONSE.json`. Continue only from the state the runner reports.
 4. After production, inspect the candidate's executable code. Run `evaluate --run RUN_DIR --allow-exec` only for reviewed code or within a verified external sandbox. Without that flag, command cases remain unrun.
-5. Review the actual outputs and declared resources using the review packet. The runner combines that review with executable results; a favorable judgment cannot waive a failed check.
+5. Validate every created or changed document through Technical Writer and run `validate-documents --run RUN_DIR --manifest MANIFEST.json`. Review the actual outputs and declared resources using the review packet. The runner combines that review with executable results; a favorable judgment cannot waive a failed check.
 6. If the target remains unmet, use `revise --run RUN_DIR --hypothesis "SUPPORTED CHANGE"` and repeat within the frozen objective and limits.
 7. Apply a ready candidate with `apply --run RUN_DIR` for an existing source, or add `--destination TARGET` for creation within the user's authorization. Verify delivery. Use `recover` if restoration is needed.
 
@@ -58,7 +58,7 @@ Code controls files, prerequisites, metrics, scope, and keep/discard decisions. 
 
 ## Deliver a focused package and honest evidence
 
-Every newly created skill includes a README, executable mechanics where applicable, runnable evals, and the resources its task needs. The renderer owns standard package assembly. Keep semantic content in the typed fields; do not replace managed files with untracked copies.
+Every newly created skill includes `README.md`, executable mechanics where applicable, runnable evals, and the resources its task needs. The renderer owns standard package assembly. Keep semantic content in the typed fields; do not replace managed files with untracked copies.
 
 Use `check --package PACKAGE` on an exported copy. Review purpose, meaning, exceptions, factual support, and each resource's contribution as well as structure. Existing narrow changes may retain legacy packaging without acquiring unrelated new files; disclose the limits.
 

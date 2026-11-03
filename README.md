@@ -7,6 +7,7 @@ Create and improve reusable AI skills with executable workflows, focused referen
 - Python 3.11 or later on macOS, Linux, or WSL.
 - A host with code execution and file access: ChatGPT desktop/Codex, Claude, or Claude Code.
 - The Python packages declared in scripts/requirements-lock.txt. External model CLIs are optional.
+- The technical-writer skill is required for document authoring and acceptance. Install it in a standard local skill location or set SKILL_BUILDER_TECHNICAL_WRITER to its folder.
 
 ## Installation
 
@@ -76,7 +77,7 @@ You receive located findings, their consequences, and a recommendation to retain
 
 > /skill-builder Create a skill that turns release notes and issue descriptions into a weekly engineering update. Preserve issue IDs, link each claim to its source, and include examples and evaluations.
 
-The builder establishes the input/output contract and acceptance criteria, creates a candidate skill with the needed scripts and guidance, evaluates it, and delivers the accepted package with its README.
+The builder establishes the input/output contract and acceptance criteria, creates a candidate skill with the needed scripts and guidance, evaluates it, and delivers the accepted package with its `README.md`.
 
 ### Build from input/output examples
 
@@ -172,7 +173,7 @@ Then invoke the skill:
 
 > /skill-builder Build a bug-report skill from ../skill-data/paired-data. Preserve the supplied facts, use the report structure in expected.md, and mark missing relevant files without inventing paths. Agree acceptance criteria and a target before evaluating. Return the run directory with the results.
 
-You receive a candidate skill, its README, evaluation results, and a run-directory path. Add more pairs for different behaviors and keep independent evaluation cases separate. One demonstration explains the task; it does not establish reliability on unseen inputs.
+You receive a candidate skill, its `README.md`, evaluation results, and a run-directory path. Add more pairs for different behaviors and keep independent evaluation cases separate. One demonstration explains the task; it does not establish reliability on unseen inputs.
 
 ### Audit an existing skill
 
@@ -210,7 +211,7 @@ One root SKILL.md, README.md and LICENSE, with files assigned to their responsib
 .venv/bin/python scripts/smoke_check.py
 ```
 
-The result contains passed: true. This checks repository files, the README contract, dependency-backed input validation, and a real temporary workflow transition. Use the development suite for broader regression testing.
+The result contains passed: true. This checks repository files, the `README.md` contract, dependency-backed input validation, and a real temporary workflow transition. Use the development suite for broader regression testing.
 
 ## Evaluate and improve results
 
@@ -224,6 +225,7 @@ Use this after a create, modify, refactor, or rebuild operation has produced a c
 - Choose the required task-success percentage, coverage, and critical checks before evaluation. A mandatory failure blocks acceptance even when the aggregate score is high.
 - For a multi-host readiness claim, freeze config/host_validation.json and use scripts/host_coverage.py to require actual reviewed results for every declared host/case. A Codex pass cannot establish Claude behavior.
 - An observed task timeout is a failed attempt even when its trace is incomplete. Missing observations remain not run; retain both the failed result and diagnostic uncertainty.
+- Every created or changed document has passing Technical Writer checks and review for its exact bytes.
 
 ### Run the evaluations
 
@@ -286,6 +288,10 @@ Review failed cases and missing coverage. Authorize another bounded batch only w
 
 Use a filesystem-enabled workspace or enable the host's code-execution capability. Executable stages cannot be verified in a text-only chat.
 
+### Document validation blocks delivery
+
+Use the Technical Writer dependency returned by the phase packet. Validate every path in the review packet’s documents inventory, then run validate-documents with the accepted sessions and reviews. See references/technical_writer.md.
+
 ## Support
 
 For help with Skill Builder, email the author at **faton.sopa[at]manaferra.com** (replace `[at]` with `@`). Include your host, operation, reproduction steps, expected result, and actual result.
@@ -300,8 +306,9 @@ MIT. See [LICENSE](LICENSE).
 
 The repository itself is the skill. Root SKILL.md, README.md and LICENSE define the entry point; references hold guidance, scripts own mechanics, evals/tests check results, and config holds machine contracts. Plans declare component ownership and dependencies. After installing scripts/requirements-lock.txt, preview `.venv/bin/python scripts/run_tests.py`, then add `--execute` to run the selected impacted checks. Full testing requires final-batch authorization; see references/maintenance.md. AGENTS.md contains repository collaboration rules; CLAUDE.md imports it for Claude Code.
 
-- [README conventions](references/readme.md)
+- [Public documentation contract](references/readme.md)
 - [Testing and development](tests/README.md)
+- [Technical Writer integration](references/technical_writer.md)
 
 <!-- repository:end -->
 

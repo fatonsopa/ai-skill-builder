@@ -1,6 +1,6 @@
-# Write a skill README for its users
+# Public documentation contract
 
-The README explains what the installed skill does and how to use it. Keep implementation plans, conversation history, deferred ideas, raw evaluations, and authoring decisions outside the public guide.
+Use the required `technical-writer` skill for document guidance and acceptance. This reference defines Skill Builder’s generated package interface; the renderer and schema enforce that interface.
 
 ## Documentation contract
 
@@ -10,18 +10,16 @@ Explain how to supply inputs and desired outputs, define acceptance criteria, ex
 
 Keep setup for a particular usage scenario within that scenario. For creation from paired examples, explain each input file, desired-output file, and manifest, how their paths connect, and the import step before the invocation. Keep evaluation instructions focused on running checks against an existing candidate, reading results, and improving failures; they must also work for skills created without paired examples. Use the scenario's structured `steps` for multi-step walkthroughs.
 
-Describe actual capabilities and interfaces. Separate host invocation from terminal commands. Use real file names, distinguish placeholders, and make input/output examples consistent with the task contract. Do not advertise commands, dependencies, installation methods, or outcomes that the package cannot support.
+The shared renderer creates the `README.md` from `config/documentation.json`. The builder uses the same renderer for its own `README.md`. The schema lives in `scripts/runtime/contracts.py`; public rendering and checks live in `scripts/runtime/readme.py`.
 
-The shared renderer creates the README from `config/documentation.json`. The builder uses the same renderer for its own README. The schema lives in `scripts/runtime/contracts.py`; public rendering and checks live in `scripts/runtime/readme.py`.
-
-Use `readme --package FOLDER --check` to check the generated content and documented script paths. Run relevant installation, setup, verification, and usage commands in an exported copy. Read the rendered guide as a new user; a complete heading list does not establish that the instructions work.
+Use `readme --package FOLDER --check` to check the generated content and documented script paths. Run relevant installation, setup, verification, and usage commands in an exported copy. Complete [Technical Writer validation](technical_writer.md) on the rendered output.
 
 ## Source and installed copies
 
-Use the README's `## Documentation` section for repository navigation, public development instructions, and worked examples. Preserve that section and its linked files in installed copies and upload ZIPs: the complete repository is the artifact. Apply grader filtering only in disposable evaluation staging; it must not change the source repository or installed artifact.
+Use the `README.md` file’s `## Documentation` section for repository navigation, public development instructions, and worked examples. Preserve that section and its linked files in installed copies and upload ZIPs: the complete repository is the artifact. Apply grader filtering only in disposable evaluation staging; it must not change the source repository or installed artifact.
 
-Every public local link must resolve within the selected distribution. Excluding a private file from a ZIP while linking to it from the README still produces a broken guide.
+Every public local link must resolve within the selected distribution. Excluding a private file from a ZIP while linking to it from the `README.md` still produces a broken guide.
 
-This is the project's documentation contract, based on [GitHub's README guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes). The [Agent Skills specification](https://agentskills.io/specification) defines the agent-facing `SKILL.md` and supporting resources; it does not mandate a universal README outline.
+This is the project's documentation contract, based on [GitHub's README guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes). The [Agent Skills specification](https://agentskills.io/specification) defines the agent-facing `SKILL.md` and supporting resources; it does not mandate a universal document outline.
 
-The skill repository itself is installed. Show one root README, SKILL and LICENSE. Put Python dependency paths under scripts/; do not advertise separate source/runtime trees or a dist directory.
+The skill repository itself is installed. Show one root `README.md`, `SKILL.md` and `LICENSE`. Put Python dependency paths under scripts/; do not advertise separate source/runtime trees or a dist directory.

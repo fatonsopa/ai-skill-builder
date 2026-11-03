@@ -12,7 +12,18 @@ from .artifacts import check_package
 from .common import Invalid, digest, inventory, copy_package
 
 
-def package(source, output, version="0.2.0"):
+def package(source, output, version="0.2.0", run=None):
+    from . import technical_writer, workflow
+    if run is None:
+        raise Invalid("Archive delivery requires a validated run.")
+    state = workflow.read_state(run)
+    if state.get("replay_only") or state["status"] not in {"ready", "applied", "recovered"} or not state.get("best"):
+        raise Invalid("No validated candidate is ready for archive delivery.")
+    if inventory(source) != state["best"]["files"]:
+        raise Invalid("Archive source differs from the validated candidate.")
+    check = technical_writer.gate(run, {**state, "document_validation": state["best"].get("document_validation")}, state["best"]["files"])
+    if not check["passed"]:
+        raise Invalid("Document delivery is blocked: " + "; ".join(check["findings"]))
     source, output = Path(source).resolve(), Path(output).resolve()
     if output.is_relative_to(source):
         raise Invalid("Archive cannot be part of its own source selection.")

@@ -10,11 +10,12 @@ from runtime import workflow
 from runtime.common import Invalid
 from repository_files import inventory
 from evaluate import json_hash, maintenance
-from fixtures import RESEARCH,PRODUCE
+from fixtures import RESEARCH,PRODUCE,writer_fixture,validate_fixture_documents
 from test_workflow_coverage import WorkflowCoverageTests
 
 class PendingObservationTests(unittest.TestCase):
     def setUp(self):
+        writer_fixture(self)
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name);self.run=self.root/'run'
         self.spec,self.plan=WorkflowCoverageTests().normalizer()
         workflow.start(self.run,{'operation':'create','skill_name':'normalize-customers','brief':'Normalize customer input.','copyright_holder':'Fixture','limits':{'max_stagnant_experiments':1}})
@@ -27,6 +28,7 @@ class PendingObservationTests(unittest.TestCase):
         case=self.plan['cases'][-1];p=self.root/'observations.json';p.write_text(json.dumps({'package_hashes':inventory(self.run/'candidate'),'observations':[{'case_id':case['id'],'case_sha256':json_hash(case),'execution_status':'completed','provenance':{'kind':'host_observation','host':'fixture','model':None,'source':'Authored transport control, not an actual model result.'},'output':{'customer_id':'0007' if correct else 'wrong','display_name':'Ada'}}]}));return p
 
     def review(self):
+        validate_fixture_documents(self.run)
         state=workflow.read_state(self.run)
         return {'reviewer':{'kind':'model','identity':'unit fixture','method':'Authored readiness control, not real semantic evidence.'},'cases':[{'id':self.plan['cases'][-1]['id'],'accepted':True,'rationale':'Authored control cannot make absent/failed observations pass.'}],'resource_findings':[{'path':n,'accepted':True,'evidence':'Authored resource control.'} for n in sorted(workflow.review_resource_names(state))],'workflow_findings':[{'id':'normalize','accepted':True,'evidence':'Authored workflow control.'}],'workflow_inventory':{'accepted':True,'evidence':'Single-step authored fixture.'}}
 

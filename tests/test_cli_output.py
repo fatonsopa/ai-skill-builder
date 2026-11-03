@@ -10,10 +10,13 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from runtime import workflow
-from fixtures import payload
+from fixtures import payload, writer_fixture, validate_fixture_documents
 
 
 class CliOutputTests(unittest.TestCase):
+    def setUp(self):
+        writer_fixture(self)
+
     def produce_control(self, run):
         workflow.start(run, {'operation': 'create', 'skill_name': 'normalize-customers', 'brief': 'Normalize JSON.', 'copyright_holder': 'Fixture Author'}, protocol_version=1)
         for phase in ('research', 'specify', 'plan', 'produce'):
@@ -21,6 +24,7 @@ class CliOutputTests(unittest.TestCase):
             workflow.submit(run, {key: packet[key] for key in ('run_id', 'phase', 'packet_sha256')} | {'data': payload(phase)})
 
     def review_control(self, run, accepted):
+        validate_fixture_documents(run)
         packet = workflow.packet(run)
         state = workflow.read_state(run)
         data = {'reviewer': {'kind': 'human', 'identity': 'fixture', 'method': 'Authored protocol control, not model performance.'},
@@ -108,7 +112,7 @@ class CliOutputTests(unittest.TestCase):
                 for name in ('mechanical_metrics', 'behavioral_metrics', 'process_metrics'):
                     self.assertEqual(summary[name], state['evaluation'][name])
                 self.assertLess(len(status.stdout), 4096)
-                expected = {'SKILL.md', 'README.md', 'AGENTS.md', 'CLAUDE.md'} | {row['path'] for row in state['data']['plan']['resources']}
+                expected = workflow.review_resource_names(state)
                 self.assertEqual(set(packet['candidate_resources']), expected)
                 if missing:
                     self.assertTrue(packet['candidate_resources']['AGENTS.md']['missing'])

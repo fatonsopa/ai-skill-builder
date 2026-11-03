@@ -89,3 +89,58 @@ PRODUCE = {
 
 def payload(phase):
     return deepcopy({"research": RESEARCH, "specify": SPEC, "plan": PLAN, "produce": PRODUCE}[phase])
+
+
+def writer_fixture(test):
+    """Isolate transport tests from the user's installed skills and model reviews."""
+    import os
+    from pathlib import Path
+    import tempfile
+    from unittest.mock import patch
+    temp = tempfile.TemporaryDirectory(prefix='writer-transport-control-')
+    test.addCleanup(temp.cleanup)
+    root = Path(temp.name)
+    (root / 'scripts').mkdir()
+    (root / 'references').mkdir()
+    (root / 'SKILL.md').write_text('---\nname: technical-writer\ndescription: Authored validator transport control.\n---\nFixture only.\n')
+    (root / 'references/writing_style.md').write_text('Authored transport control; no language-quality claim.\n')
+    (root / 'scripts/validate_document.py').write_text('''import argparse, hashlib, json
+from pathlib import Path
+p=argparse.ArgumentParser();p.add_argument('command');p.add_argument('--session');p.add_argument('--draft');p.add_argument('--review');p.add_argument('--message');a=p.parse_args()
+s=Path(a.session);state=json.loads((s/'state.json').read_text());request=state['frozen']['request']
+if a.command=='finalize':
+    review=json.loads(Path(a.review).read_text())
+    if not all(review.get(k) is True for k in ('accepted','checks_passed','style_passed')): raise SystemExit('Authored negative validation control')
+    raw=Path(a.draft).read_bytes();sha=hashlib.sha256(raw).hexdigest()
+    if review['output_sha256']!=sha: raise SystemExit('Stale authored review')
+    target=Path(request['destination']);target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
+    (s/'message.md').write_text('Authored transport control.\\n');(s/'delivery.json').write_text(json.dumps({'output_sha256':sha}))
+    print(json.dumps({'status':'delivered','output_sha256':sha}))
+else: print(json.dumps({'passed':True}))
+''')
+    env = patch.dict(os.environ, {'SKILL_BUILDER_TECHNICAL_WRITER': str(root)})
+    env.start(); test.addCleanup(env.stop)
+    return root
+
+
+def validate_fixture_documents(run, *, changes=None):
+    """Supply explicit authored transport evidence; this is not model performance."""
+    import json
+    from pathlib import Path
+    import uuid
+    from runtime import technical_writer, workflow
+    from runtime.common import inventory, save
+    run = Path(run)
+    state = workflow.read_state(run)
+    rows = []
+    folder = run / 'writer-controls' / uuid.uuid4().hex
+    for index, (name, sha) in enumerate(technical_writer.documents(state, inventory(run / 'candidate')).items()):
+        session = folder / str(index)
+        kind = 'skill' if Path(name).name == 'SKILL.md' else 'readme' if Path(name).name == 'README.md' else 'agent' if Path(name).name == 'AGENTS.md' else 'explanation'
+        request = {'kind': kind, 'operation': 'create' if kind in {'skill', 'readme', 'agent'} else 'review', 'scope': 'complete', 'sources': [{'id': 'builder', 'text': technical_writer.source_text(state)}], 'destination': str(session / 'accepted.md')}
+        save(session / 'state.json', {'frozen': {'request': request}})
+        review = {'output_sha256': sha, 'accepted': True, 'checks_passed': True, 'style_passed': True, **(changes or {})}
+        save(session / 'review.json', review)
+        rows.append({'path': name, 'session': str(session), 'review': str(session / 'review.json')})
+    save(folder / 'manifest.json', rows)
+    return technical_writer.validate_documents(run, folder / 'manifest.json')

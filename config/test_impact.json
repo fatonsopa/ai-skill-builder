@@ -308,6 +308,18 @@
         "-p",
         "test_provider_results.py"
       ]
+    },
+    "technical-writer": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_technical_writer.py"
+      ]
     }
   },
   "rules": [
@@ -582,6 +594,35 @@
       ],
       "tests": [
         "provider-results"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/technical_writer.py",
+        "scripts/runtime/workflow.py",
+        "scripts/runtime/contracts.py",
+        "scripts/runtime/delivery.py",
+        "scripts/skill_builder_cli.py",
+        "references/technical_writer.md",
+        "references/writing_style.md",
+        "tests/fixtures.py"
+      ],
+      "tests": [
+        "technical-writer",
+        "workflow",
+        "generation",
+        "cli-output",
+        "pending-observations",
+        "workflow-coverage",
+        "replay"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/readme.py"
+      ],
+      "tests": [
+        "technical-writer"
       ]
     }
   ],

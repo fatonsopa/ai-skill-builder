@@ -45,7 +45,7 @@ During `produce`, supply the description, instructions, usage, and task-specific
 
 For narrow maintenance, `files` and optional `remove` modify only authorized paths on a captured source copy. Keep custom content and host metadata unless the requested change affects them. A rebuild is appropriate when generation must replace the whole managed structure.
 
-Check complete output examples where depth matters, and use a different scenario to test transfer. Review all prose using the writing guide. Evaluate the candidate independently before delivery; file generation is not evidence that its language, decisions, installation, or model behavior are correct.
+Use Technical Writer for document authoring and review, then complete [document validation](technical_writer.md). Use a different scenario to test transfer. Evaluate the candidate independently before delivery; file generation is not evidence that its language, decisions, installation, or model behavior are correct.
 
 ## Repository and domain contract
 

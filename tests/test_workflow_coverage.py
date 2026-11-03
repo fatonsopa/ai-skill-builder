@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from runtime import contracts, workflow
 from runtime.artifacts import check_plan, check_workflow_coverage, workflow_requirements
 from runtime.common import Invalid, validate
-from fixtures import PLAN, SPEC, RESEARCH, PRODUCE
+from fixtures import PLAN, SPEC, RESEARCH, PRODUCE, writer_fixture, validate_fixture_documents
 from evaluate import json_hash
 from repository_files import inventory
 
@@ -39,6 +39,9 @@ def complete_plan(spec):
 
 
 class WorkflowCoverageTests(unittest.TestCase):
+    def setUp(self):
+        writer_fixture(self)
+
     def normalizer(self):
         spec, plan = deepcopy(SPEC), deepcopy(PLAN)
         spec['workflows'] = [{'id': 'normalize', 'purpose': 'Normalize one record.', 'trigger': 'Customer JSON input.', 'steps': ['normalize'], 'boundaries': [], 'branches': [], 'recovery': []}]
@@ -147,7 +150,8 @@ class WorkflowCoverageTests(unittest.TestCase):
                 report = workflow.run_evaluation(run, allow_exec=True, observations=observation_path)
                 self.assertEqual(report['attempts'][-1]['status'], 'pending_review' if capture else 'not_run')
                 files = inventory(run / 'candidate')
-                review = {'reviewer': {'kind': 'model', 'identity': 'fixture', 'method': 'Authored control of readiness, not quality judgment.'}, 'cases': [{'id': plan['cases'][-1]['id'], 'accepted': True, 'rationale': 'Favorable review cannot invent a missing observation.'}], 'resource_findings': [{'path': path, 'accepted': True, 'evidence': 'Fixture resource review.'} for path in sorted({'SKILL.md', 'README.md', 'AGENTS.md', 'CLAUDE.md'} & set(files))], 'workflow_findings': [{'id': 'normalize', 'accepted': True, 'evidence': 'Fixture inventory and transport reviewed.'}], 'workflow_inventory': {'accepted': True, 'evidence': 'Single-step fixture workflow.'}}
+                review = {'reviewer': {'kind': 'model', 'identity': 'fixture', 'method': 'Authored control of readiness, not quality judgment.'}, 'cases': [{'id': plan['cases'][-1]['id'], 'accepted': True, 'rationale': 'Favorable review cannot invent a missing observation.'}], 'resource_findings': [{'path': path, 'accepted': True, 'evidence': 'Fixture resource review.'} for path in sorted(workflow.review_resource_names(workflow.read_state(run)))], 'workflow_findings': [{'id': 'normalize', 'accepted': True, 'evidence': 'Fixture inventory and transport reviewed.'}], 'workflow_inventory': {'accepted': True, 'evidence': 'Single-step fixture workflow.'}}
+                validate_fixture_documents(run)
                 submit('review', review)
                 state = workflow.read_state(run)
                 self.assertEqual(state['status'] == 'ready', capture)

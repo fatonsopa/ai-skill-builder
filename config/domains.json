@@ -6,7 +6,8 @@
       "purpose": "Coordinate typed skill-building stages and accepted changes.",
       "owned_paths": [
         "scripts/runtime/workflow.py",
-        "scripts/skill_builder_cli.py"
+        "scripts/skill_builder_cli.py",
+        "scripts/runtime/technical_writer.py"
       ],
       "depends_on": [
         "repository",

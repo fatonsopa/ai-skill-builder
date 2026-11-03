@@ -21,11 +21,12 @@ from runtime.examples import development_packet, ingest
 from evaluate import evaluate, metrics, run_process, maintenance
 from continuation import MAX_EXTENSIONS
 from skill_builder_cli import main, replay
-from fixtures import PLAN, PRODUCE, PROGRAM, SPEC, payload
+from fixtures import PLAN, PRODUCE, PROGRAM, SPEC, payload, writer_fixture, validate_fixture_documents
 
 
 class RuntimeTests(unittest.TestCase):
     def setUp(self):
+        writer_fixture(self)
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
@@ -54,8 +55,9 @@ class RuntimeTests(unittest.TestCase):
         self.submit("produce", produce)
 
     def review(self, accepted=True):
+        validate_fixture_documents(self.run)
         state = workflow.read_state(self.run)
-        resources = {"SKILL.md", "README.md", "AGENTS.md", "CLAUDE.md"} | {r["path"] for r in state["data"]["plan"]["resources"]}
+        resources = workflow.review_resource_names(state)
         if state["request"]["operation"] in {"modify", "refactor"}:
             resources &= set(inventory(self.run / "candidate"))
         return {
@@ -890,8 +892,9 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
     def test_phase_packet_passes_the_actual_writing_guide(self):
         self.start()
         packet = workflow.packet(self.run)
-        guide = (SCRIPTS.parent / "references/writing_style.md").read_text()
-        self.assertEqual(packet["guidance"]["writing_style.md"], guide)
+        guide = (Path(workflow.read_state(self.run)["technical_writer"]["path"]) / "references/writing_style.md").read_text()
+        self.assertEqual(packet["technical_writer"]["guidance"]["references/writing_style.md"], guide)
+        self.assertNotIn("writing_style.md", packet["guidance"])
         self.assertEqual(load(self.run / "packets" / f"{packet['packet_sha256']}.json"), packet)
 
     def test_pending_review_is_not_an_established_critical_failure(self):
