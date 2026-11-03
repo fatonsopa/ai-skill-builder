@@ -10,10 +10,12 @@ A skill owns one coherent capability. Split distinct capabilities when they have
 - `references/` owns domain knowledge and writing guidance; examples demonstrate it without becoming a competing rule source.
 - `scripts/` owns deterministic transformations and validation. Put its dependency declarations here.
 - `evals/` owns cases, source fixtures, rubrics and acceptance evidence. Development tests can live in `tests/` or beside the scripts.
-- `config/` owns required machine configuration and generated bookkeeping. Public guidance belongs in the README or references.
+- `config/` owns required machine configuration and generated bookkeeping. Public guidance belongs in `README.md` or references.
 - Host adapters translate execution requests. They must not redefine domain rules or acceptance criteria.
 
 Plans declare each domain's purpose, owned resource paths and dependencies. Code checks names, ownership, paths and dependency cycles. Review actual responsibilities and code imports as well: a directory name is not proof of separation of concerns. Keep shared rules in one authoritative file and derive or cross-check their consumers.
+
+For a coherent capability with a lead and specialists, use [agents, skills and orchestration](agents_and_skills.md) to package their guidance and definitions within this repository contract.
 
 ## Audit and repair existing skills
 
@@ -25,7 +27,7 @@ A narrow modification reports unrelated structure debt without widening its perm
 
 Use MIT by default for new skills, with the supplied copyright holder and current year. Use the approved template; do not invent legal terms or author identity. Preserve an existing license unless its owner authorizes a change. Verify a nonempty root LICENSE and public installation, invocation, evaluation and support instructions. Keep prompts, migration notes, audit history and run snapshots outside the published skill.
 
-The [Agent Skills specification](https://agentskills.io/specification) defines the interoperable skill format. The root README/LICENSE, repository layout and domain declarations above are this Builder's delivery contract. [MIT license text](https://opensource.org/license/mit).
+The [Agent Skills specification](https://agentskills.io/specification) defines the interoperable skill format. The root `README.md`/`LICENSE`, repository layout and domain declarations above are this Builder's delivery contract. [MIT license text](https://opensource.org/license/mit).
 
 [OpenAI skill structure](https://learn.chatgpt.com/docs/build-skills) and [Anthropic authoring guidance](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) both support concise instructions and resources loaded as needed. Add only folders with a concrete responsibility; schema and evaluation files below config/ are Builder implementation choices, not host requirements. Reusable output templates belong in assets/.
 

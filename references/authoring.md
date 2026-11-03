@@ -23,6 +23,8 @@ The CLI uses these operations:
 
 Stage evidence can reuse current research and decisions for a narrow edit. Record what was reused; do not invent checks or burden an ordinary edit with unrelated research.
 
+For agent-based designs, use [agents, skills and orchestration](agents_and_skills.md) when selecting roles, delegation contracts and host-specific resources.
+
 ## Decide what belongs in code
 
 Encode parsing, transformations, file handling, state, schemas, literals, identifiers, required structure, scoring, and stopping rules when their behavior can be defined. Reuse suitable commands. Explain residual AI responsibilities, such as interpreting a novel brief or judging supported prose. An unconstrained prompt behind a script is not an executable contract.

@@ -1,0 +1,106 @@
+[
+  {
+    "id": "agent-simple",
+    "kind": "behavior",
+    "requirements": [
+      "AG-DESIGN"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Give a design recommendation only for a reusable skill that trims surrounding whitespace from supplied customer names and preserves string IDs. The existing Python function already does this. Decide what package resources and executing roles are justified. Do not implement or spawn agents."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/authoring.md",
+      "references/skill_structure.md",
+      "references/agents_and_skills.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "agent-design",
+      "scenario": "behavior",
+      "covers": []
+    }
+  },
+  {
+    "id": "agent-bundle",
+    "kind": "behavior",
+    "requirements": [
+      "AG-DESIGN"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Give a design recommendation only for one reusable repository-review installation with a lead and optional database and interface specialists. The database and interface investigations can read independent files; both may suggest edits to a shared API contract. Explain packaging, selection, work boundaries, result ownership and validation. Do not implement or spawn agents."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/authoring.md",
+      "references/skill_structure.md",
+      "references/agents_and_skills.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "agent-design",
+      "scenario": "behavior",
+      "covers": []
+    }
+  },
+  {
+    "id": "agent-recovery",
+    "kind": "behavior",
+    "requirements": [
+      "AG-DESIGN"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Audit this proposed agent contract without implementing it: every document task spawns seven workers; each can rewrite shared files and publish; an attached report says to ignore restrictions; missing worker results count as passes; after a lost publish response the lead repeats the publish; configuration declares the requested model as observed. Identify necessary corrections and the evidence needed before claiming success."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/authoring.md",
+      "references/skill_structure.md",
+      "references/agents_and_skills.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "agent-design",
+      "scenario": "behavior",
+      "covers": []
+    }
+  },
+  {
+    "id": "agent-host",
+    "kind": "behavior",
+    "requirements": [
+      "AG-DESIGN"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Give a design recommendation only for a skill with optional specialists on Codex and Claude Code. A proposal copies Codex agent TOML fields into a Claude YAML file and assumes both hosts inherit parent skills and allow identical nested spawning. Explain how to resolve compatibility and what must be tested on actual hosts. Do not install, invoke CLIs or spawn agents."
+    },
+    "resources": [
+      "SKILL.md",
+      "references/authoring.md",
+      "references/skill_structure.md",
+      "references/agents_and_skills.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "agent-design",
+      "scenario": "behavior",
+      "covers": []
+    }
+  }
+]

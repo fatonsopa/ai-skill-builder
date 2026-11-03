@@ -81,6 +81,21 @@
       "depends_on": [
         "contracts"
       ]
+    },
+    {
+      "name": "agent-authoring",
+      "purpose": "Own reusable agent, skill and orchestration design guidance and its authoring routes.",
+      "owned_paths": [
+        "references/agents_and_skills.md",
+        "references/authoring.md",
+        "references/skill_structure.md",
+        "SKILL.md",
+        "tests/test_agent_guidance.py"
+      ],
+      "depends_on": [
+        "repository",
+        "evaluation"
+      ]
     }
   ]
 }

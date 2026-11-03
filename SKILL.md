@@ -20,6 +20,8 @@ Check that the host can execute Python and handle the required files and depende
 
 Use [the structure and domain guide](references/skill_structure.md) and its executable layout contract for creation, audit and structural repair. Every skill is its own installable repository: root SKILL.md, README.md and LICENSE, with AGENTS.md shared through a CLAUDE.md import, with supporting files under their responsible folders. The repository is the artifact; keep internal records outside it. Plans declare domains, owned paths and dependencies; review real responsibilities and shared rule ownership as well as names. Use MIT for new skills with a supplied copyright holder; preserve existing licenses unless a change is authorized.
 
+When a skill may need distinct executing roles, read [agents, skills and orchestration](references/agents_and_skills.md) to choose and validate the execution design.
+
 ## Start with the requested result
 
 Read [Public documentation contract](references/readme.md) when producing or reviewing public documentation. Read [authoring](references/authoring.md) for creation, specification, planning, or substantial redesign. Read [maintenance](references/maintenance.md) for an existing skill or feedback from use. Use the required `technical-writer` skill for every document created or updated, including `AGENTS.md`, `CLAUDE.md`, `SKILL.md`, `README.md`, references, examples, templates and other authored documentation. Technical Writer owns document guidance and validation; do not maintain writing rules in Skill Builder. Read [the integration guide](references/technical_writer.md) for dependency resolution and runner validation. Use [evaluation](references/evaluation.md) when designing or assessing evidence.
