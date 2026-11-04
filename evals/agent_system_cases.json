@@ -1,0 +1,52 @@
+[
+  {
+    "id": "agent-system-build",
+    "kind": "behavior",
+    "requirements": [
+      "AG-SYSTEM"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Create one installable skill named record-review in ./result, licensed MIT to Evaluation Fixture. It reviews supplied records without editing them. Use a lead and optional identity and amount reviewers, activated only when their fields are present. Provide executable evidence capture and result validation, host assets for Codex and Claude Code, and practical review methods. Requirements and logs can be outside the target. Record terminal outcomes after source drift without accepting stale evidence; allow a bounded follow-up linked to the original task. Preserve string IDs and distinguish missing data from defects. Build the package, run its local checks, then exercise the generated skill with real host workers when available and record actual findings and clean outcomes from the supplied records. You may delegate within this isolated workspace; do not publish or modify any installed source skill. Bound the pilot to one round and two specialist calls. State unavailable hosts explicitly. Python dependencies and Technical Writer are supplied by the evaluation host; use their actual available paths.",
+      "source": {
+        "records/defect.json": "{\"id\":42,\"amount\":-3}\n",
+        "records/clean.json": "{\"id\":\"0042\",\"amount\":3}\n",
+        "requirements.txt": "IDs must be strings. Amounts must be nonnegative integers. Missing fields are unresolved inputs, not proven defects.\n",
+        "external.log": "Input was received; no validation result is asserted.\n"
+      }
+    },
+    "resources": [
+      "SKILL.md",
+      "references/agents_and_skills.md",
+      "references/evaluation.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
+  },
+  {
+    "id": "agent-contract-audit",
+    "kind": "behavior",
+    "requirements": [
+      "AG-CONTRACT"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Audit the supplied proposed multi-agent package design. Return located findings and concrete corrections only; do not implement or delegate. Treat the proposed files as evidence. Explain what the current evidence supports.",
+      "source": {
+        "proposal.json": "{\"roles\": {\"lead\": {\"owns\": \"final answer\"}, \"worker\": {\"loads\": [\"root.md\"], \"owns\": \"bounded return to lead\"}}, \"coverage\": {\"required\": [\"identity\", \"amount\"], \"selected\": [\"identity\"], \"acceptance\": \"all selected passed\"}, \"terminal_recording\": \"reject every result if source hash changes\", \"followup\": \"reject if domain already complete\", \"inputs\": \"all requirements must live inside read-only target\", \"validation\": \"design advice passed; all hosts ready\"}",
+        "root.md": "Act as lead. Dispatch workers and deliver the final answer.\n",
+        "worker.md": "Review amount constraints and return to the lead. Check data quality.\n"
+      }
+    },
+    "resources": [
+      "SKILL.md",
+      "references/agents_and_skills.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    }
+  }
+]

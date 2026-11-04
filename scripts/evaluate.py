@@ -113,6 +113,9 @@ def process_metrics(attempts, suite):
             "limits": "Declared workflow-case results; not universal skill accuracy or proof of unobserved model behavior."}
 
 
+from case_inputs import prepare_inputs
+
+
 def behavior_packet(package, case):
     """Inputs for a fresh performing context; expected answers are excluded."""
     package = Path(package).resolve()
@@ -126,7 +129,7 @@ def behavior_packet(package, case):
             raise ValueError('Performing resources cannot include evaluation answers or development controls: ' + name)
         resources[name] = path.read_text()
     return {"case_id": case["id"], "case_sha256": json_hash(case), "package_hashes": hash_tree(package),
-            "request": case["request"], "skill": (package / "SKILL.md").read_text(), "resources": resources,
+            "request": prepare_inputs(package, case), "skill": (package / "SKILL.md").read_text(), "resources": resources,
             "role": "performing_agent", "instructions": "Use the actual skill for this task in a fresh context. Capture public messages, tool calls and artifacts. Do not claim tools ran when unavailable. Return the requested result; this packet does not contain the grader's expected answer."}
 
 

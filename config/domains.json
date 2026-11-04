@@ -23,7 +23,8 @@
         "scripts/install_skill.py",
         "scripts/runtime/artifacts.py",
         "scripts/runtime/readme.py",
-        "scripts/runtime/delivery.py"
+        "scripts/runtime/delivery.py",
+        "tests/test_readme_inputs.py"
       ],
       "depends_on": [
         "contracts"
@@ -55,7 +56,9 @@
         "scripts/runtime/hosts.py",
         "scripts/repository_files.py",
         "scripts/continuation.py",
-        "scripts/provider_results.py"
+        "scripts/provider_results.py",
+        "scripts/runtime/execution.py",
+        "scripts/case_inputs.py"
       ],
       "depends_on": []
     },
@@ -90,7 +93,9 @@
         "references/authoring.md",
         "references/skill_structure.md",
         "SKILL.md",
-        "tests/test_agent_guidance.py"
+        "tests/test_agent_guidance.py",
+        "tests/test_execution_contract.py",
+        "tests/test_case_inputs.py"
       ],
       "depends_on": [
         "repository",

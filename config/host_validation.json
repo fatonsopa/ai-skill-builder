@@ -7,6 +7,12 @@
   "case_files": [
     {
       "path": "evals/cases.json"
+    },
+    {
+      "path": "evals/agent_guidance_cases.json"
+    },
+    {
+      "path": "evals/agent_system_cases.json"
     }
   ]
 }

@@ -18,7 +18,7 @@ class PendingObservationTests(unittest.TestCase):
         writer_fixture(self)
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name);self.run=self.root/'run'
         self.spec,self.plan=WorkflowCoverageTests().normalizer()
-        workflow.start(self.run,{'operation':'create','skill_name':'normalize-customers','brief':'Normalize customer input.','copyright_holder':'Fixture','limits':{'max_stagnant_experiments':1}})
+        workflow.start(self.run,{'operation':'create','skill_name':'normalize-customers','brief':'Normalize customer input.','copyright_holder':'Fixture','limits':{'max_stagnant_experiments':1}}, protocol_version=2)
         for phase,data in [('research',RESEARCH),('specify',self.spec),('plan',self.plan),('produce',PRODUCE)]:self.submit(phase,deepcopy(data))
 
     def submit(self,phase,data):
@@ -60,7 +60,7 @@ class PendingObservationTests(unittest.TestCase):
         with self.assertRaisesRegex(Invalid,'Stagnation'):workflow.revise(self.run,'Retry without a supported improvement.')
 
     def test_import_never_skips_production_prerequisites(self):
-        run=self.root/'early';workflow.start(run,{'operation':'create','skill_name':'early-control','brief':'A test.','copyright_holder':'Fixture'})
+        run=self.root/'early';workflow.start(run,{'operation':'create','skill_name':'early-control','brief':'A test.','copyright_holder':'Fixture'}, protocol_version=2)
         with self.assertRaisesRegex(Invalid,'prerequisites'):workflow.run_evaluation(run,observations=self.observation())
 
     def test_generated_maintenance_refresh_preserves_reports_and_tuning_allowance(self):

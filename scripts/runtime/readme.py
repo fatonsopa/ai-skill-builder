@@ -191,8 +191,21 @@ def check(root):
     commands += [row["command"] for row in data["documentation"]["scenarios"] if "command" in row]
     commands += [step["command"] for row in data["documentation"]["scenarios"] for step in row.get("steps", []) if "command" in step]
     for command in commands:
-        for value in command["argv"][1:]:
-            if value.endswith((".py", ".sh", ".txt")) and not value.startswith("-"):
+        argv = command["argv"]
+        index = 0
+        executable = Path(argv[0]).name
+        if re.fullmatch(r"python(?:[0-9.]+)?", executable) or executable in {"sh", "bash", "zsh"}:
+            index = 1
+            while index < len(argv) and argv[index].startswith("-"):
+                if argv[index] in {"-c", "-m"}:
+                    index = len(argv)
+                    break
+                index += 2 if argv[index] in {"-X", "-W"} else 1
+        if index < len(argv):
+            value = argv[index]
+            # Check a bundled script entry point, not user-provided input arguments
+            # or absolute external prerequisites whose origin is outside this artifact.
+            if value.endswith((".py", ".sh")) and not Path(value).is_absolute():
                 path = (root / value).resolve()
                 if not path.is_relative_to(root.resolve()) or not path.is_file():
                     errors.append(f"Documented command references missing file: {value}")

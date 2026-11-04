@@ -6,7 +6,7 @@ authorize the task's file/command access. No fallback widens those permissions.
 import json
 from provider_results import claude_result_error
 
-CLAUDE_TOOLS = ['Read', 'Glob', 'Grep', 'Write', 'Edit', 'Bash', 'Skill', 'WebSearch', 'WebFetch']
+CLAUDE_TOOLS = ['Read', 'Glob', 'Grep', 'Write', 'Edit', 'Bash', 'Skill', 'WebSearch', 'WebFetch', 'Agent']
 
 
 def command(executable, model, effort):

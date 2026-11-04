@@ -16,6 +16,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from evaluate import run_process, json_hash
+from case_inputs import prepare_inputs
 from repository_files import inventory, copy_repository, skill_name, PRIVATE_DIRS
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import behavior_hosts
@@ -45,7 +46,7 @@ def public_events(stdout):
         item = event.get('item', {})
         if item.get('type') in {'reasoning', 'analysis'}:
             continue
-        if event.get('type') in {'thread.started', 'turn.completed', 'turn.failed', 'error'} or item.get('type') in {'agent_message', 'command_execution', 'file_change', 'mcp_tool_call', 'web_search'}:
+        if event.get('type') in {'thread.started', 'turn.completed', 'turn.failed', 'error'} or item.get('type') in {'agent_message', 'command_execution', 'file_change', 'mcp_tool_call', 'collab_tool_call', 'web_search'}:
             events.append(event)
     return events
 
@@ -168,6 +169,7 @@ def run(config_path, output, executable=None):
         raise ValueError('Repetitions must be a positive integer.')
     if len({case['id'] for case in cases}) != len(cases):
         raise ValueError('Behavioral case IDs must be unique.')
+    prepared_inputs = {case['id']: prepare_inputs(subject, case) for case in cases}
     controller = {name: hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest() for name, module in [('evaluate', sys.modules['evaluate']), ('repository_files', sys.modules['repository_files']), ('behavior_hosts', behavior_hosts)]}
     controller['runner'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     before = inventory(subject)
@@ -227,7 +229,7 @@ def run(config_path, output, executable=None):
                 compatibility_link = work / '.agents/skills' / subject_name
                 compatibility_link.parent.mkdir(parents=True)
                 compatibility_link.symlink_to(installed, target_is_directory=True)
-            request, originals = stage_inputs(work, case['request'])
+            request, originals = stage_inputs(work, prepared_inputs[case['id']])
             input_hashes = inventory(originals)
             payload = {'request': request, 'skill': subject_name, 'python': sys.executable, 'workspace': str(work)}
             save(folder / 'performing-input.json', payload)

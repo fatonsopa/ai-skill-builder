@@ -134,7 +134,7 @@ class WorkflowCoverageTests(unittest.TestCase):
             with self.subTest(capture=capture), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder)
                 run = root / 'run'
-                workflow.start(run, {'operation': 'create', 'skill_name': 'normalize-customers', 'brief': 'Normalize customer JSON.', 'copyright_holder': 'Fixture'})
+                workflow.start(run, {'operation': 'create', 'skill_name': 'normalize-customers', 'brief': 'Normalize customer JSON.', 'copyright_holder': 'Fixture'}, protocol_version=2)
                 spec, plan = self.normalizer()
                 def submit(phase, data):
                     packet = workflow.packet(run)

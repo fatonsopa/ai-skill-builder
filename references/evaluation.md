@@ -85,3 +85,27 @@ Before model calls, freeze a validation scope from changed behavior, known failu
 Compare actual final public text with reviewed delivery evidence. A checked local message is insufficient if the host later expands it. When such drift would introduce unchecked claims, produce a source-bound handoff receipt in code and evaluate the exact sent text. Matrix case-file entries can set `verify_delivery: true`; the shared guard then requires one captured message-bearing delivery receipt, matching delivered bytes and final host text. Even a favorable reviewer cannot waive a mismatch. This verifies consistency, while meaning and source support still need review.
 
 For a checked final message, require one distinct handoff. Several format reviews may capture the same message, destination and output hash; identical receipts are the same delivery. Conflicting handoffs remain an error. Verify every captured receipt hash before comparing the handoff, and preserve earlier results under their original evaluator version.
+
+## Preflight the acceptance corpus
+
+The default host matrix registers design-advice cases and `evals/agent_system_cases.json`. Its construction case requires a usable multi-role package and observed execution of that package. Advice, file syntax, local lifecycle controls and actual reviewer accuracy remain separate claims. Review detection, false positives, routing, recovery, source preservation and supported-host coverage separately.
+
+Cases may supply inline `request.source` files or a `fixtures` manifest with `path`, `destination` and `sha256`. Imported files must be raw inputs under `evals/fixtures/`; keep answers and rubrics elsewhere. `scripts/case_inputs.py` checks resource availability, normalized destinations, duplicate destinations, missing fixtures and content drift before matrix freeze, packet creation or model execution. A failed preflight is not a model attempt. Review fixture contents for answer leakage; directory checks cannot establish semantic isolation.
+
+Freeze and review the case corpus before tuning. Include a task that creates the intended output, clean and defective inputs, missing prerequisites, conflicting instructions and the applicable lifecycle transitions. Keep absent host observations visible even when the local candidate passes every mechanical check.
+
+## Write compatible process traces
+
+The authoring packet exposes `artifact_contract.process_trace_schema` and an illustrative `process_trace_example`. These describe the captured trace; `expect.process` describes what the case requires. Use event `phase` strings, a top-level `provenance` object with its actual kind/source, and an evidence reference string for every required phase. Arrays of evidence labels or an event named `step` do not satisfy the portable evaluator. An authored control must identify itself as `authored_control`, even when it executes code; it cannot establish a fresh model observation. Check a generated trace with `check-process` before treating its workflow check as complete. Preserve failed traces and fix the producer rather than weakening frozen expectations.
+
+Use the evaluator’s actual denominators in public documentation: task success is accepted divided by evaluated attempts, while coverage is evaluated attempts divided by planned cases. Neither a high success percentage with missing cases nor a prose acceptance criterion can waive incomplete coverage. The authoring packet exposes these definitions alongside the trace contract.
+
+## Preserve the scope of execution bounds
+
+Identify what each limit governs before creating the request: authoring candidate revisions, external model-adapter invocations, native specialist calls, or rounds of a generated-system pilot. A requested single pilot round with two specialists does not impose one authoring revision. Use `request.hard_limits` only for explicit absolute caps on the authoring run; record pilot-specific bounds with that pilot. Never change a captured hard limit to repair this interpretation. Preserve the failed attempt and start a versioned request with the actual scope, retaining task criteria and prior failures.
+
+Before spending bounded worker calls on a generated package, complete its executable and Technical Writer document checks. A document title or routing failure should be corrected within the authoring allowance before the live pilot begins. A mechanically valid package still needs actual performing-agent evidence; preflight does not count as that evidence. If a pilot has already consumed its supplied bounds, retain its result and do not silently grant it extra calls.
+
+## Retain public delegation evidence
+
+The Codex capture filter retains documented `collab_tool_call` items, including started and terminal updates, while excluding reasoning items. This wire type is defined in the [official exec event schema](https://raw.githubusercontent.com/openai/codex/main/codex-rs/exec/src/exec_events.rs), checked on 2026-11-04. Some client/version routes can still omit delegation from stdout. Missing stream events do not prove that no worker ran. Require source-bound public activity evidence for a worker-execution claim; record any independently retrieved supplement with its origin and hash, without rewriting the original capture. Authored worker-result files alone do not establish that agents executed.

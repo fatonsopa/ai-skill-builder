@@ -290,7 +290,7 @@ class HostCoverageTests(unittest.TestCase):
         from test_workflow_coverage import WorkflowCoverageTests
         run = self.root / 'generated'
         spec, plan = WorkflowCoverageTests().normalizer()
-        workflow.start(run, {'operation': 'create', 'skill_name': 'normalize-customers', 'brief': 'A generated control.', 'copyright_holder': 'Fixture'})
+        workflow.start(run, {'operation': 'create', 'skill_name': 'normalize-customers', 'brief': 'A generated control.', 'copyright_holder': 'Fixture'}, protocol_version=2)
         for phase, data in [('research', RESEARCH), ('specify', spec), ('plan', plan), ('produce', PRODUCE)]:
             packet = workflow.packet(run)
             workflow.submit(run, {**{k: packet[k] for k in ('run_id', 'phase', 'packet_sha256')}, 'data': deepcopy(data)})

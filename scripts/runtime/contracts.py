@@ -169,12 +169,67 @@ REVIEW = obj({
 PHASES = {**PHASES, "specify": SPEC, "plan": PLAN, "review": REVIEW}
 
 
+V2_PHASES = dict(PHASES)
+PROTOCOL_VERSION = 3
+AUTHORITY = obj({"tools": STRINGS, "read_roots": STRINGS, "write_roots": STRINGS,
+                 "external_actions": STRINGS, "may_delegate": BOOL})
+ROLE = obj({
+    "id": TEXT, "eligibility": TEXT, "exclusions": TEXT,
+    "inputs": array(TEXT, 1), "outputs": array(TEXT, 1), "recipient": TEXT,
+    "authority": AUTHORITY, "dispatch": TEXT, "limits": TEXT, "recovery": TEXT,
+    "method": TEXT,
+    "assets": array(obj({"host": TEXT, "path": TEXT, "loaded_paths": STRINGS}), 1),
+})
+COVERAGE = obj({"requirement": TEXT, "status": {"enum": ["covered", "excluded", "unresolved"]},
+                "roles": STRINGS, "cases": STRINGS, "reason": TEXT})
+LIFECYCLE = obj({"event": {"enum": ["drift", "revocation", "late_result", "lost_return", "followup"]},
+                 "applicable": BOOL, "reason": TEXT, "record_outcome": TEXT,
+                 "accept_evidence": TEXT, "cases": STRINGS})
+BINDING = obj({"id": TEXT, "origin": {"enum": ["source", "conversation", "external", "dependency", "output"]},
+               "root": TEXT, "access": {"enum": ["read", "write"]}, "version_binding": TEXT})
+DOCUMENT_CONTEXT = obj({"applicable": BOOL, "reason": TEXT, "sources": array(obj({
+    "id": TEXT, "kind": TEXT,
+    "status": {"enum": ["available", "missing", "stale", "conflicting", "not_applicable"]},
+    "authority": {"enum": ["agreed", "proposed", "unknown", "superseded"]},
+    "origin": TEXT, "version": TEXT, "sections": STRINGS,
+    "roles": STRINGS, "requirements": STRINGS,
+}))})
+EXECUTION = obj({
+    "mode": {"enum": ["single", "multi"]}, "rationale": TEXT,
+    "file_workflow": BOOL, "file_reason": TEXT, "bindings": array(BINDING), "document_context": DOCUMENT_CONTEXT,
+    "final_owner": TEXT, "roles": array(ROLE), "coverage": array(COVERAGE),
+    "lifecycle": array(LIFECYCLE),
+}, required=["mode", "rationale", "file_workflow", "file_reason", "bindings", "document_context"])
+CASE = obj({**CASE["properties"], "fixtures": array(obj({"path": TEXT, "destination": TEXT, "sha256": TEXT}))}, required=CASE["required"])
+PLAN = obj({**PLAN["properties"], "cases": array(CASE, 1), "execution": EXECUTION})
+REVIEW = obj({**REVIEW["properties"], "execution_review": obj({
+    "accepted": BOOL, "evidence": TEXT,
+    "instruction_reviews": array(obj({"role": TEXT, "host": TEXT, "bundle_sha256": TEXT,
+                                      "accepted": BOOL, "evidence": TEXT})),
+})}, required=[*REVIEW["required"], "execution_review"])
+PHASES = {**PHASES, "plan": PLAN, "review": REVIEW}
+
+
 def response_schema(phase, protocol_version=PROTOCOL_VERSION):
-    if protocol_version not in (1, PROTOCOL_VERSION):
+    if protocol_version not in (1, 2, PROTOCOL_VERSION):
         raise ValueError("Unsupported authoring protocol version.")
-    phases = LEGACY_PHASES if protocol_version == 1 else PHASES
+    phases = {1: LEGACY_PHASES, 2: V2_PHASES, 3: PHASES}[protocol_version]
     return obj({
         "run_id": TEXT, "phase": {"const": phase},
         "packet_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "data": phases[phase],
     })
+
+
+# Captured execution events are distinct from a case's expected process order.
+PROCESS_TRACE = obj({
+    "provenance": obj({"kind": {"enum": ["authored_control", "historical_replay", "instrumented_execution", "host_observation"]}, "source": TEXT}),
+    "events": array(obj({"phase": TEXT, "visible": BOOL, "evidence": TEXT}, required=["phase"]), 1),
+})
+PROCESS_TRACE["additionalProperties"] = True
+PROCESS_TRACE["properties"]["provenance"]["additionalProperties"] = True
+PROCESS_TRACE["properties"]["events"]["items"]["additionalProperties"] = True
+PROCESS_TRACE_EXAMPLE = {
+    "provenance": {"kind": "authored_control", "source": "Illustrative executable probe; replace with the actual capture source."},
+    "events": [{"phase": "validate", "evidence": "probe-results.json"}],
+}

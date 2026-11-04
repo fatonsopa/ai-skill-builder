@@ -15,7 +15,7 @@ from .common import Invalid, digest, inside, inventory, relative, save, copy_pac
 from .hosts import POLICY
 from .readme import render as render_readme, check as check_readme
 
-MANAGED = {"scripts/provider_results.py", "scripts/host_coverage.py", "config/host_validation.json", "scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
+MANAGED = {"scripts/case_inputs.py", "scripts/provider_results.py", "scripts/host_coverage.py", "config/host_validation.json", "scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
 EVALUATOR = Path(__file__).resolve().parents[1] / "evaluate.py"
 
 
@@ -200,7 +200,7 @@ def render(root, request, spec, plan, response, source=None):
             instructions += "\n## Project guidance\n\nThe shared testing and approval rules above take precedence over conflicting project notes.\n\n" + project_notes.strip() + "\n"
         (root / "AGENTS.md").write_text(instructions)
         (root / "CLAUDE.md").write_text("@AGENTS.md\n")
-        for name in ("continuation.py", "repository_files.py", "repository_layout.py", "run_tests.py", "host_coverage.py", "provider_results.py"):
+        for name in ("case_inputs.py", "continuation.py", "repository_files.py", "repository_layout.py", "run_tests.py", "host_coverage.py", "provider_results.py"):
             (root / "scripts").mkdir(exist_ok=True)
             shutil.copyfile(EVALUATOR.parent / name, root / "scripts" / name)
         save(root / "config/host_validation.json", {"schema_version": 1, "required_hosts": ["codex", "claude-code"], "case_files": [{"path": "evals/cases.json"}]})
@@ -234,7 +234,7 @@ def render(root, request, spec, plan, response, source=None):
             {**inherited, "name": data["name"], "description": data["description"], "license": inherited.get("license", "See LICENSE") if existing_license else "MIT"}, sort_keys=False
         ).strip()
         routing = "\n".join(
-            f"- [{item['path']}]({item['path']}): {item['purpose']} Read when {item['when']}."
+            f"- [{item['path']}]({item['path']}): {item['purpose']} Read when {re.sub(r'(?i)^when +', '', item['when'])}."
             for item in data["resources"]
         )
         (root / "SKILL.md").write_text(
