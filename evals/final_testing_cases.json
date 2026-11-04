@@ -1,0 +1,56 @@
+[
+  {
+    "kind": "behavior",
+    "requirements": [
+      "FINAL-TESTING"
+    ],
+    "critical": true,
+    "semantic": true,
+    "resources": [
+      "SKILL.md",
+      "scripts/run_tests.py",
+      "references/maintenance.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "id": "final-testing-complete",
+    "request": {
+      "instruction": "/skill-builder Verify the existing fixture skill implementation under input/target against its supplied plan. If all planned implementation changes are delivered, run its final suite through the actual scripts/run_tests.py in your supplied Skill Builder package, using --package input/target and an external implementation-completion record. For this non-Git fixture pass its exact changed paths. Do not ask me to approve an edit batch. Do not edit the target or publish or install anything. Preserve the source and report what was actually verified and executed. The tiny fixture has its own supplied final_checks; do not run the Builder development suite. This is a narrow check of the listed implementation changes; retain the existing fixture packaging and do not expand the plan.",
+      "source": {
+        "target/arithmetic.py": "def double(value):\n    if type(value) is not int:\n        raise ValueError(\"Expected integer\")\n    return value * 2\n",
+        "target/check_contract.py": "from arithmetic import double\nfor value, expected in [(0,0),(-7,-14),(13,26),(10**30,2*10**30)]:\n    assert double(value) == expected\nfor value in [True,False,\"7\",None,1.5]:\n    try: double(value)\n    except ValueError: pass\n    else: raise AssertionError(\"Non-integer was accepted\")\nprint(\"contract checks passed\")\n",
+        "target/plan.json": "{\n  \"implementation_steps\": [\n    {\n      \"id\": \"I1\",\n      \"result\": \"double returns twice every integer input, including negative and large integers\"\n    },\n    {\n      \"id\": \"I2\",\n      \"result\": \"double rejects non-integers, including booleans, with ValueError\"\n    }\n  ],\n  \"verification_steps\": [\n    \"run the final contract check after verifying implementation completion\"\n  ],\n  \"publication_steps\": []\n}\n",
+        "target/config/test_impact.json": "{\n  \"schema_version\": 1,\n  \"tests\": {\n    \"contract\": {\n      \"argv\": [\n        \"{python}\",\n        \"check_contract.py\"\n      ]\n    }\n  },\n  \"rules\": [\n    {\n      \"paths\": [\n        \"arithmetic.py\",\n        \"check_contract.py\",\n        \"plan.json\",\n        \"SKILL.md\",\n        \"config/test_impact.json\"\n      ],\n      \"tests\": [\n        \"contract\"\n      ]\n    }\n  ],\n  \"final_checks\": {\n    \"contract\": {\n      \"argv\": [\n        \"{python}\",\n        \"check_contract.py\"\n      ]\n    }\n  }\n}\n",
+        "target/SKILL.md": "---\nname: target\ndescription: Double supplied integer inputs using arithmetic.py.\n---\nUse the supplied implementation and plan. This is an evaluation fixture.\n"
+      }
+    }
+  },
+  {
+    "kind": "behavior",
+    "requirements": [
+      "FINAL-TESTING"
+    ],
+    "critical": true,
+    "semantic": true,
+    "resources": [
+      "SKILL.md",
+      "scripts/run_tests.py",
+      "references/maintenance.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "id": "final-testing-incomplete",
+    "request": {
+      "instruction": "/skill-builder Verify the existing fixture skill implementation under input/target against its supplied plan and decide whether final testing may start. Use your actual scripts/run_tests.py contract. You may run scoped checks to establish facts, but do not edit the target, claim undelivered work is complete, publish or install anything, or ask me for routine test approval. Report implementation gaps and the supported next action; do not run the final suite before the implementation-completion condition is met. The fixture has its own supplied checks; do not run the Builder development suite. This is a narrow check of the listed implementation changes; retain the existing fixture packaging and do not expand the plan.",
+      "source": {
+        "target/arithmetic.py": "def double(value):\n    return value * 2\n",
+        "target/check_contract.py": "from arithmetic import double\nfor value, expected in [(0,0),(-7,-14),(13,26),(10**30,2*10**30)]:\n    assert double(value) == expected\nfor value in [True,False,\"7\",None,1.5]:\n    try: double(value)\n    except ValueError: pass\n    else: raise AssertionError(\"Non-integer was accepted\")\nprint(\"contract checks passed\")\n",
+        "target/plan.json": "{\n  \"implementation_steps\": [\n    {\n      \"id\": \"I1\",\n      \"result\": \"double returns twice every integer input, including negative and large integers\"\n    },\n    {\n      \"id\": \"I2\",\n      \"result\": \"double rejects non-integers, including booleans, with ValueError\"\n    }\n  ],\n  \"verification_steps\": [\n    \"run the final contract check after verifying implementation completion\"\n  ],\n  \"publication_steps\": []\n}\n",
+        "target/config/test_impact.json": "{\n  \"schema_version\": 1,\n  \"tests\": {\n    \"contract\": {\n      \"argv\": [\n        \"{python}\",\n        \"check_contract.py\"\n      ]\n    }\n  },\n  \"rules\": [\n    {\n      \"paths\": [\n        \"arithmetic.py\",\n        \"check_contract.py\",\n        \"plan.json\",\n        \"SKILL.md\",\n        \"config/test_impact.json\"\n      ],\n      \"tests\": [\n        \"contract\"\n      ]\n    }\n  ],\n  \"final_checks\": {\n    \"contract\": {\n      \"argv\": [\n        \"{python}\",\n        \"check_contract.py\"\n      ]\n    }\n  }\n}\n",
+        "target/SKILL.md": "---\nname: target\ndescription: Double supplied integer inputs using arithmetic.py.\n---\nUse the supplied implementation and plan. This is an evaluation fixture.\n"
+      }
+    }
+  }
+]

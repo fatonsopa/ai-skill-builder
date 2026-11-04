@@ -16,9 +16,11 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from evaluate import run_process, json_hash
+from case_inputs import prepare_inputs
 from repository_files import inventory, copy_repository, skill_name, PRIVATE_DIRS
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import behavior_hosts
+from runtime import completion
 
 
 def save(path, value):
@@ -45,7 +47,7 @@ def public_events(stdout):
         item = event.get('item', {})
         if item.get('type') in {'reasoning', 'analysis'}:
             continue
-        if event.get('type') in {'thread.started', 'turn.completed', 'turn.failed', 'error'} or item.get('type') in {'agent_message', 'command_execution', 'file_change', 'mcp_tool_call', 'web_search'}:
+        if event.get('type') in {'thread.started', 'turn.completed', 'turn.failed', 'error'} or item.get('type') in {'agent_message', 'command_execution', 'file_change', 'mcp_tool_call', 'collab_tool_call', 'web_search'}:
             events.append(event)
     return events
 
@@ -154,6 +156,20 @@ def run(config_path, output, executable=None):
         raise ValueError('preflight_seconds must be an integer from 1 to 60.')
     cases = json.loads((config_path.parent / config['cases']).read_text())
     cases = [case for case in cases if case['kind'] == 'behavior']
+    policy_path = config.get('completion_policy')
+    if config['max_invocations'] and not policy_path:
+        raise ValueError('Live validation needs a completion_policy with frozen case scope and an objective-wide budget.')
+    if policy_path:
+        policy_path = (config_path.parent / policy_path).resolve()
+        policy = completion.read(policy_path)
+        declared = {c['id']: c for c in policy['contract']['checks']}
+        mapping = config.get('completion_checks', {})
+        for case in cases:
+            if config.get('case_ids') is not None and case['id'] not in config['case_ids']:
+                continue
+            identifier = mapping.get(case['id'], case['id'])
+            if identifier not in declared or declared[identifier]['kind'] != 'behavior' or declared[identifier].get('case_id', identifier) != case['id']:
+                raise ValueError('Validation expands the frozen check scope: ' + case['id'])
     chosen = config.get('case_ids')
     if chosen is not None:
         if set(chosen) - {case['id'] for case in cases}:
@@ -168,6 +184,7 @@ def run(config_path, output, executable=None):
         raise ValueError('Repetitions must be a positive integer.')
     if len({case['id'] for case in cases}) != len(cases):
         raise ValueError('Behavioral case IDs must be unique.')
+    prepared_inputs = {case['id']: prepare_inputs(subject, case) for case in cases}
     controller = {name: hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest() for name, module in [('evaluate', sys.modules['evaluate']), ('repository_files', sys.modules['repository_files']), ('behavior_hosts', behavior_hosts)]}
     controller['runner'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     before = inventory(subject)
@@ -187,8 +204,12 @@ def run(config_path, output, executable=None):
             remaining = config['max_seconds'] - (time.monotonic() - started)
             row = {'id': identifier, 'case_id': case['id'], 'case_sha256': json_hash(case), 'repetition': repetition, 'status': 'not_run', 'critical': case['critical'], 'semantic': True}
             if execution_block:
-                row['reason'] = 'Provider usage limit stopped this batch; no further invocation, billing switch or fallback.'
-                row['provider_error'] = execution_block
+                if execution_block.get('code') == 'completion_policy':
+                    row['reason'] = 'Completion policy stopped further work; no new model invocation.'
+                    row['completion_block'] = execution_block
+                else:
+                    row['reason'] = 'Provider usage limit stopped this batch; no further invocation, billing switch or fallback.'
+                    row['provider_error'] = execution_block
                 attempts.append(row); save(folder / 'result.json', row)
                 continue
             if preflight_result and preflight_result['status'] != 'passed':
@@ -206,6 +227,16 @@ def run(config_path, output, executable=None):
                 attempts.append(row)
                 save(folder / 'result.json', row)
                 continue
+            if policy_path:
+                try:
+                    completion.authorize_case(policy_path, case['id'], subject, case=case,
+                        profile={'host': host, 'model': config['model'], 'reasoning_effort': effort},
+                        check_id=config.get('completion_checks', {}).get(case['id'], case['id']))
+                except ValueError as error:
+                    execution_block = {'code': 'completion_policy', 'error': str(error)}
+                    row.update(reason=str(error), completion_block=execution_block)
+                    attempts.append(row); save(folder / 'result.json', row)
+                    continue
             # A task-only install excludes evaluation answers and development tests.
             installed = folder / 'runtime-skill'
             copy_repository(subject, installed)
@@ -227,7 +258,7 @@ def run(config_path, output, executable=None):
                 compatibility_link = work / '.agents/skills' / subject_name
                 compatibility_link.parent.mkdir(parents=True)
                 compatibility_link.symlink_to(installed, target_is_directory=True)
-            request, originals = stage_inputs(work, case['request'])
+            request, originals = stage_inputs(work, prepared_inputs[case['id']])
             input_hashes = inventory(originals)
             payload = {'request': request, 'skill': subject_name, 'python': sys.executable, 'workspace': str(work)}
             save(folder / 'performing-input.json', payload)

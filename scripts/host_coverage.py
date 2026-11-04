@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from repository_files import inventory
+from case_inputs import prepare_inputs
 from provider_results import claude_result_error
 
 
@@ -40,6 +41,8 @@ def freeze(package, config):
         if ids is not None and (not ids or set(ids) - {c['id'] for c in cases}):
             raise ValueError('A declared case selection is empty or unknown.')
         cases = [c for c in cases if c['id'] in ids] if ids is not None else [c for c in cases if c.get('kind') == 'behavior']
+        for case in cases:
+            prepare_inputs(package, case)
         verify_delivery = source.get('verify_delivery', False)
         if type(verify_delivery) is not bool:
             raise ValueError('verify_delivery must be a boolean.')

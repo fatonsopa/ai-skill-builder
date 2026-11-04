@@ -108,7 +108,13 @@ class WorkflowCoverageTests(unittest.TestCase):
             folder = Path(folder)
             request = folder / 'request.json'
             run = folder / 'run'
-            request.write_text(json.dumps({'operation': 'create', 'skill_name': 'phase-control', 'brief': 'Check process order.', 'copyright_holder': 'Fixture'}))
+            from runtime.completion import create
+            policy = create(folder, {'objective_id': 'authored-cli-control', 'goal': 'Verify existing CLI behavior with the current contract.',
+                'project': str(folder / 'phase-project'), 'scope': ['**'],
+                'checks': [{'id': 'report', 'kind': 'report', 'dependencies': []}],
+                'budget': {'runs': 1, 'revisions': 0, 'model_calls': 0, 'seconds': 600},
+                'delivery': {'kind': 'report', 'authority': 'Authored unit control only.'}})['policy']
+            request.write_text(json.dumps({'completion_policy': policy, 'operation': 'create', 'skill_name': 'phase-control', 'brief': 'Check process order.', 'copyright_holder': 'Fixture'}))
             result = subprocess.run(cli + ['start', '--request', str(request), '--run', str(run)], cwd=root, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             before = (run / 'state.json').read_bytes()
@@ -134,7 +140,7 @@ class WorkflowCoverageTests(unittest.TestCase):
             with self.subTest(capture=capture), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder)
                 run = root / 'run'
-                workflow.start(run, {'operation': 'create', 'skill_name': 'normalize-customers', 'brief': 'Normalize customer JSON.', 'copyright_holder': 'Fixture'})
+                workflow.start(run, {'operation': 'create', 'skill_name': 'normalize-customers', 'brief': 'Normalize customer JSON.', 'copyright_holder': 'Fixture'}, protocol_version=2)
                 spec, plan = self.normalizer()
                 def submit(phase, data):
                     packet = workflow.packet(run)

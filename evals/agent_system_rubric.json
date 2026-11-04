@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "case_criteria": {
+    "agent-system-build": [
+      "Creates a usable package, not only advice.",
+      "Both roles have procedures, defect and clean examples, evidence and stopping criteria.",
+      "Actual workers preserve result ownership; model invocation is observed, not simulated by author-written returns.",
+      "Source remains unchanged; external requirements are bound separately.",
+      "Mechanical drift, revocation, late/lost results and follow-up tests retain history and reject invalid acceptance.",
+      "Reports detection, false positives, workflow compliance and unrun hosts separately."
+    ],
+    "agent-contract-audit": [
+      "Identifies combined lead/worker instruction conflict without claiming observed takeover.",
+      "Separates required coverage from selected workers.",
+      "Separates terminal recording from acceptance and supports linked follow-up.",
+      "Captures external criteria without modifying source.",
+      "Explains missing specialist methods and actual host evidence without claiming all historic work absent."
+    ]
+  }
+}

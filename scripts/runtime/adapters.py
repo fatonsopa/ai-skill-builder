@@ -96,6 +96,8 @@ def sample(provider, model, payload, timeout):
 def invoke(root, provider, model):
     root = Path(root)
     state = read_state(root)
+    if state.get('replay_only'):
+        raise Invalid('Historical replay cannot invoke a model.')
     route(state["request"].get("host"), provider, model)
     current = packet(root)
     limits = state["request"].get("limits", {})
@@ -106,6 +108,9 @@ def invoke(root, provider, model):
         raise Invalid("Execution time allowance is exhausted.")
     if not shutil.which(provider):
         raise Invalid(f"Required CLI is unavailable: {provider}")
+    if state.get('completion'):
+        from .completion import reserve
+        reserve(state['completion']['path'], 'model_calls', detail='phase:' + state['phase'])
     index = state["model_invocations"] + 1
     state["model_invocations"] = index
     save(root / "state.json", state)  # Reserve before calling; interrupted calls still count.

@@ -6,7 +6,7 @@ import tempfile
 
 from runtime.artifacts import check_package
 from runtime.common import Invalid, validate
-from runtime import contracts, workflow
+from runtime import contracts, workflow, completion
 
 
 def check(root=None):
@@ -23,7 +23,12 @@ def check(root=None):
         return {"passed": False, "checks": checks, "errors": ["URI validation accepted invalid input."]}
     with tempfile.TemporaryDirectory(prefix="skill-builder-smoke-") as folder:
         run = Path(folder) / "run"
-        workflow.start(run, {"operation": "specify", "skill_name": "installation-check", "brief": "Check the authoring handoff."})
+        policy = completion.create(folder, {'objective_id': 'installation-check', 'goal': 'Verify the installed native handoff.',
+            'project': str(Path(folder) / 'smoke-target'), 'scope': ['**'],
+            'checks': [{'id': 'report', 'kind': 'report', 'dependencies': []}],
+            'budget': {'runs': 1, 'revisions': 0, 'model_calls': 0, 'seconds': 600},
+            'delivery': {'kind': 'report', 'authority': 'Local installation smoke check only.'}})['policy']
+        workflow.start(run, {'completion_policy': policy,"operation": "specify", "skill_name": "installation-check", "brief": "Check the authoring handoff."})
         packet = workflow.packet(run)
         workflow.submit(run, {
             "run_id": packet["run_id"], "phase": packet["phase"],

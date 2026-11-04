@@ -332,6 +332,68 @@
         "-p",
         "test_agent_guidance.py"
       ]
+    },
+    "execution-contract": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_execution_contract.py"
+      ]
+    },
+    "case-inputs": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_case_inputs.py"
+      ]
+    },
+    "readme-inputs": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_readme_inputs.py"
+      ]
+    },
+    "generated-runtime-impact": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_runtime.py",
+        "-k",
+        "generated_impact"
+      ]
+    },
+    "completion-policy": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_completion.py"
+      ]
     }
   },
   "rules": [
@@ -652,6 +714,76 @@
       "tests": [
         "agent-guidance"
       ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/execution.py",
+        "scripts/runtime/contracts.py",
+        "scripts/runtime/workflow.py",
+        "tests/test_execution_contract.py"
+      ],
+      "tests": [
+        "execution-contract"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/case_inputs.py",
+        "scripts/evaluate.py",
+        "scripts/host_coverage.py",
+        "tools/run_behavioral_evals.py",
+        "config/host_validation.json",
+        "tests/test_case_inputs.py",
+        "evals/agent_system_cases.json",
+        "evals/agent_system_rubric.json"
+      ],
+      "tests": [
+        "case-inputs",
+        "behavior-harness"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/runtime/readme.py",
+        "tests/test_readme_inputs.py"
+      ],
+      "tests": [
+        "readme-inputs"
+      ]
+    },
+    {
+      "paths": [
+        "evals/final_testing_cases.json"
+      ],
+      "tests": [
+        "case-inputs",
+        "host-coverage"
+      ],
+      "reason": "Preflight new final-testing fixture inputs and preserve full-matrix registration; live outputs require separate review."
+    },
+    {
+      "paths": [
+        "scripts/runtime/artifacts.py"
+      ],
+      "tests": [
+        "generated-runtime-impact"
+      ],
+      "reason": "Generated runtime and transitive shared-domain dependencies must select actual related controls, excluding unrelated and unmapped files."
+    },
+    {
+      "paths": [
+        "scripts/runtime/completion.py",
+        "tests/test_completion.py",
+        "scripts/runtime/contracts.py",
+        "scripts/runtime/workflow.py",
+        "scripts/runtime/adapters.py",
+        "scripts/skill_builder_cli.py",
+        "tools/run_behavioral_evals.py"
+      ],
+      "tests": [
+        "completion-policy"
+      ],
+      "reason": "Frozen objective scope, cumulative limits, retained evidence, finding triage and closure must remain enforced through supported entry points."
     }
   ],
   "final_checks": {

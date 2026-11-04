@@ -35,6 +35,14 @@ class BehaviorHarnessTests(unittest.TestCase):
         self.config['reasoning_effort'] = 'medium'
 
     def run_harness(self):
+        from runtime.completion import create
+        cases = json.loads((self.root / 'cases.json').read_text())
+        definition = {'objective_id': 'authored-harness-control', 'goal': 'Test mocked capture mechanics; no real model performance.',
+            'project': str(self.subject), 'scope': ['**'],
+            'checks': [{'id': c['id'], 'kind': 'behavior', 'dependencies': ['SKILL.md']} for c in cases],
+            'budget': {'runs': 10, 'revisions': 10, 'model_calls': 100, 'seconds': 600},
+            'delivery': {'kind': 'local', 'authority': 'Authored unit fixture only.'}}
+        self.config['completion_policy'] = create(self.root, definition)['policy']
         path = self.root / 'config.json'
         path.write_text(json.dumps(self.config))
         return harness.run(path, self.root / 'output', executable='fixture-codex')
@@ -194,3 +202,21 @@ class BehaviorHarnessTests(unittest.TestCase):
         ]
         result = harness.public_events('\n'.join(json.dumps(row) for row in events))
         self.assertEqual([row['item']['type'] for row in result], ['agent_message', 'command_execution'])
+
+    def test_claude_construction_transport_exposes_native_agent_dispatch(self):
+        argv = harness.behavior_hosts.command('claude', 'fixture-model', None)
+        for flag in ('--tools', '--allowedTools'):
+            self.assertIn('Agent', argv[argv.index(flag) + 1].split(','))
+        self.assertEqual(argv[argv.index('--permission-mode') + 1], 'dontAsk')
+        self.assertIn('--strict-mcp-config', argv)
+
+    def test_public_collaboration_lifecycle_is_retained_without_reasoning(self):
+        events = [
+            {'type':'item.started','item':{'id':'dispatch-1','type':'collab_tool_call','tool':'spawn_agent','status':'in_progress','receiver_thread_ids':[]}},
+            {'type':'item.completed','item':{'id':'dispatch-1','type':'collab_tool_call','tool':'spawn_agent','status':'completed','receiver_thread_ids':['leaf-1']}},
+            {'type':'item.completed','item':{'type':'reasoning','text':'Excluded private analysis.'}},
+        ]
+        captured = harness.public_events('\n'.join(json.dumps(event) for event in events))
+        self.assertEqual(len(captured),2)
+        self.assertEqual([row['item']['id'] for row in captured],['dispatch-1','dispatch-1'])
+        self.assertEqual(captured[-1]['item']['receiver_thread_ids'],['leaf-1'])

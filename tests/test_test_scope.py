@@ -1,4 +1,4 @@
-"""Controls for impacted selection, refusal of full runs and checkpoint integrity."""
+"""Controls for impacted selection, implementation completion and checkpoint integrity."""
 import json
 from pathlib import Path
 import sys
@@ -31,6 +31,22 @@ class TestScopeTests(unittest.TestCase):
     def write_config(self):
         (self.root / 'config/test_impact.json').write_text(json.dumps(self.config))
 
+    def completion_record(self, **updates):
+        record = {
+            'artifact_sha256': run_tests.digest(inventory(self.root)),
+            'implementation_complete': True,
+            'implementation_plan': {'source': 'Authored unit-control plan, not a real delivery claim',
+                                    'steps': [{'id': 'I1', 'result': 'Preserve the control source'}]},
+            'delivered_steps': [{'id': 'I1', 'status': 'delivered',
+                                 'evidence': ['Authored fixture source, not fresh model evidence']}],
+            'remaining_implementation_work': [],
+            'verified_by': {'identity': 'Unit control', 'method': 'Declared synthetic delivery for guard testing'},
+        }
+        record.update(updates)
+        path = self.base / 'completion.json'
+        path.write_text(json.dumps(record))
+        return path
+
     def test_default_uses_changed_files_and_runs_only_related_check(self):
         (self.root / 'source.txt').write_text('after')
         selection = run_tests.plan(self.root)
@@ -51,21 +67,98 @@ class TestScopeTests(unittest.TestCase):
                 run_tests.execute(selection)
             process.assert_not_called()
 
-    def test_full_suite_without_actual_final_authorization_is_refused(self):
+    def test_full_suite_without_implementation_verification_is_refused(self):
         with patch.object(run_tests.subprocess, 'run') as process:
             with self.assertRaisesRegex(ValueError, 'Full suites are disabled'):
                 run_tests.plan(self.root, [], full=True)
             process.assert_not_called()
 
-    def test_final_authorization_is_bound_to_the_exact_artifact(self):
-        authorization = self.base / 'authored-control.json'
-        authorization.write_text(json.dumps({'batch_complete': True, 'user_instruction': 'Synthetic unit authorization; not approval for a real repository.', 'artifact_sha256': run_tests.digest(inventory(self.root))}))
-        selection = run_tests.plan(self.root, [], full=True, authorization=authorization)
+    def test_verified_implementation_needs_no_user_approval(self):
+        completion = self.completion_record()
+        self.assertNotIn('user_instruction', json.loads(completion.read_text()))
+        selection = run_tests.plan(self.root, [], full=True, completion_record=completion)
         self.assertEqual(selection['mode'], 'full')
-        # Planning is sufficient; this control never executes full discovery.
-        (self.root / 'source.txt').write_text('changed after the authored authorization')
+        self.assertEqual(selection['implementation_completion']['record'], str(completion.resolve()))
+        self.assertIn('author verified', selection['checks'][0]['because'][0])
+
+    def test_completion_is_bound_to_the_exact_artifact(self):
+        completion = self.completion_record()
+        run_tests.plan(self.root, [], full=True, completion_record=completion)
+        (self.root / 'source.txt').write_text('changed after the control verification')
         with self.assertRaisesRegex(ValueError, 'invalidate'):
-            run_tests.plan(self.root, [], full=True, authorization=authorization)
+            run_tests.plan(self.root, [], full=True, completion_record=completion)
+
+    def test_final_execution_rechecks_implementation_and_completion_evidence(self):
+        completion = self.completion_record()
+        selection = run_tests.plan(self.root, [], full=True, completion_record=completion)
+        record = json.loads(completion.read_text())
+        record['verified_by']['method'] = 'Changed control review after planning'
+        completion.write_text(json.dumps(record))
+        with patch.object(run_tests.subprocess, 'run') as process:
+            with self.assertRaisesRegex(ValueError, 'changed after final-test planning'):
+                run_tests.execute(selection)
+            process.assert_not_called()
+        selection = run_tests.plan(self.root, [], full=True, completion_record=self.completion_record())
+        (self.root / 'source.txt').write_text('Implementation changed before execution')
+        with patch.object(run_tests.subprocess, 'run') as process:
+            with self.assertRaisesRegex(ValueError, 'invalidate'):
+                run_tests.execute(selection)
+            process.assert_not_called()
+
+    def test_verified_final_selection_executes_without_user_confirmation(self):
+        selection = run_tests.plan(self.root, [], full=True, completion_record=self.completion_record())
+        result = run_tests.subprocess.CompletedProcess([], 0, 'Authored full-run control', '')
+        with patch.object(run_tests.subprocess, 'run', return_value=result) as process:
+            report = run_tests.execute(selection)
+            self.assertTrue(report['passed'])
+            process.assert_called_once()
+
+    def test_remaining_implementation_or_false_completion_blocks_final_testing(self):
+        for change in [{'implementation_complete': False}, {'implementation_complete': 1},
+                       {'remaining_implementation_work': ['Implement the missing branch']}]:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                run_tests.plan(self.root, [], full=True, completion_record=self.completion_record(**change))
+
+    def test_every_planned_step_needs_delivery_evidence(self):
+        for delivered in [[], [{'id': 'other', 'status': 'delivered', 'evidence': ['Control']}],
+                          [{'id': 'I1', 'status': 'planned', 'evidence': ['Control']}],
+                          [{'id': 'I1', 'status': 'delivered', 'evidence': []}],
+                          [{'id': [], 'status': 'delivered', 'evidence': ['Control']}]]:
+            with self.subTest(delivered=delivered), self.assertRaises(ValueError):
+                run_tests.plan(self.root, [], full=True, completion_record=self.completion_record(delivered_steps=delivered))
+
+    def test_duplicate_plan_steps_or_delivery_assessments_are_refused(self):
+        for change in [
+            {'implementation_plan': {'source': 'Control', 'steps': [{'id': 'I1', 'result': 'First'}, {'id': 'I1', 'result': 'Second'}]}},
+            {'delivered_steps': [{'id': 'I1', 'status': 'delivered', 'evidence': ['Control']}] * 2},
+        ]:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                run_tests.plan(self.root, [], full=True, completion_record=self.completion_record(**change))
+
+    def test_plan_and_actual_verifier_are_required(self):
+        for change in [{'implementation_plan': {}}, {'implementation_plan': {'source': 'Control', 'steps': []}},
+                       {'verified_by': {}}, {'verified_by': {'identity': 'Control', 'method': ''}}]:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                run_tests.plan(self.root, [], full=True, completion_record=self.completion_record(**change))
+
+    def test_legacy_user_approval_does_not_assert_implementation_delivery(self):
+        legacy = self.base / 'legacy-approval.json'
+        legacy.write_text(json.dumps({'batch_complete': True, 'user_instruction': 'Authored approval control',
+                                      'artifact_sha256': run_tests.digest(inventory(self.root))}))
+        with self.assertRaisesRegex(ValueError, 'Verify implementation completion'):
+            run_tests.plan(self.root, [], full=True, authorization=legacy)
+        # The old argument name remains an alias for the new completion contract.
+        self.assertEqual(run_tests.plan(self.root, [], full=True, authorization=self.completion_record())['mode'], 'full')
+
+    def test_completion_record_must_be_an_external_object(self):
+        inside = self.root / 'completion.json'
+        inside.write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'outside'):
+            run_tests.plan(self.root, [], full=True, completion_record=inside)
+        bad = self.base / 'invalid.json'
+        bad.write_text('[]')
+        with self.assertRaisesRegex(ValueError, 'must be an object'):
+            run_tests.plan(self.root, [], full=True, completion_record=bad)
 
     def test_hidden_full_discovery_cannot_be_an_impacted_group(self):
         self.config['tests']['related']['argv'] = ['{python}', '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py']
