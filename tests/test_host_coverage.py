@@ -33,6 +33,18 @@ class HostCoverageTests(unittest.TestCase):
         self.config = {'required_hosts': ['codex', 'claude-code'], 'case_files': [{'path': 'evals/cases.json'}]}
         self.plan = matrix.freeze(self.package, self.config)
 
+    def run_harness(self, config_path, output):
+        from runtime.completion import create
+        config = json.loads(config_path.read_text())
+        definition = {'objective_id': 'authored-host-control', 'goal': 'Verify capture boundaries using mocked transport.',
+            'project': str(self.package), 'scope': ['**'],
+            'checks': [{'id': self.case['id'], 'kind': 'behavior', 'dependencies': ['SKILL.md']}],
+            'budget': {'runs': 10, 'revisions': 10, 'model_calls': 100, 'seconds': 600},
+            'delivery': {'kind': 'local', 'authority': 'Authored unit fixture only.'}}
+        config['completion_policy'] = create(self.root, definition)['policy']
+        config_path.write_text(json.dumps(config))
+        return harness.run(config_path, output)
+
     def bundle(self, host, status='pending_review', accepted=True, name=None, model='fixture-model', effort=None):
         folder = self.root / (name or host)
         attempt = folder / '001-audit'
@@ -166,7 +178,7 @@ class HostCoverageTests(unittest.TestCase):
             events = [{'type': 'system', 'subtype': 'init', 'model': 'fixture-model'}, {'type': 'assistant', 'message': {'content': [{'type': 'thinking', 'thinking': 'Excluded private reasoning.'}, {'type': 'tool_use', 'id': 'read', 'name': 'Read', 'input': {'file_path': 'input/document.md'}}, {'type': 'text', 'text': 'Audit findings.'}]}}, {'type': 'result', 'subtype': 'success', 'is_error': False, 'result': 'Audit findings.'}]
             return subprocess.CompletedProcess(argv, 0, '\n'.join(map(json.dumps, events)), '')
         with patch.object(harness.shutil, 'which', return_value='/fixture-claude'), patch.object(harness, 'run_process', side_effect=perform):
-            result = harness.run(self.root / 'config.json', self.root / 'run')
+            result = self.run_harness(self.root / 'config.json', self.root / 'run')
         row = result['attempts'][0]
         self.assertEqual(result['execution_host'], 'claude-code')
         self.assertEqual(row['status'], 'pending_review')
@@ -180,7 +192,7 @@ class HostCoverageTests(unittest.TestCase):
         partial = b'{"type":"assistant","message":{"content":[{"type":"text","text":"Started audit."}]}}'
         error = subprocess.TimeoutExpired('fixture-claude', 10, output=partial)
         with patch.object(harness.shutil, 'which', return_value='/fixture-claude'), patch.object(harness, 'run_process', side_effect=error):
-            result = harness.run(self.root / 'timeout-config.json', self.root / 'timed-out-run')
+            result = self.run_harness(self.root / 'timeout-config.json', self.root / 'timed-out-run')
         row = result['attempts'][0]
         self.assertEqual(result['model_invocations'], 1)
         self.assertEqual(row['status'], 'failed')
@@ -231,7 +243,7 @@ class HostCoverageTests(unittest.TestCase):
             if len(calls)==2:(Path(cwd)/'escape').symlink_to(self.package)
             return subprocess.CompletedProcess(argv,0,json.dumps({'type':'thread.started','thread_id':'authored-control'}),'')
         with patch.object(harness.shutil,'which',return_value='/fixture-codex'),patch.object(harness,'run_process',side_effect=perform):
-            result=harness.run(self.root/'capture-config.json',self.root/'captured-run')
+            result=self.run_harness(self.root/'capture-config.json',self.root/'captured-run')
         self.assertEqual([r['status'] for r in result['attempts']],['pending_review','failed'])
         self.assertIn('artifact capture failed',result['attempts'][1]['reason'])
         self.assertTrue((self.root/'captured-run/002-audit/public-events.json').is_file())
@@ -245,7 +257,7 @@ class HostCoverageTests(unittest.TestCase):
                 result={'type':'result','subtype':'success','is_error':True,'terminal_reason':'api_error','api_error_status':429,'api_error':'usage_limit_reached','result':'Weekly usage limit reached; resets Wednesday at07:00.','usage':{'input_tokens':0,'output_tokens':12 if started else 0}}
                 def perform(argv,**kwargs):return subprocess.CompletedProcess(argv,0,json.dumps(result),'')
                 with patch.object(harness.shutil,'which',return_value='/fixture-claude'),patch.object(harness,'run_process',side_effect=perform) as invoke:
-                    report=harness.run(config_path,self.root/('limited-'+str(started)))
+                    report=self.run_harness(config_path,self.root/('limited-'+str(started)))
                 self.assertEqual(invoke.call_count,1);self.assertEqual(report['model_invocations'],1)
                 self.assertEqual([x['status'] for x in report['attempts']],['failed' if started else 'infrastructure_failure','not_run','not_run'])
                 row=report['attempts'][0];self.assertIn('Weekly usage limit',row['reason']);self.assertEqual(row['provider_error']['task_started'],started)
@@ -260,9 +272,9 @@ class HostCoverageTests(unittest.TestCase):
         clear={'type':'result','subtype':'success','is_error':False,'result':'Actual authored-control response.'}
         old=self.root/'provider-old';new=self.root/'provider-new'
         with patch.object(harness.shutil,'which',return_value='/fixture-claude'),patch.object(harness,'run_process',side_effect=[subprocess.CompletedProcess([],0,json.dumps(blocked),''),subprocess.CompletedProcess([],0,json.dumps(clear),'')]) as invoke:
-            first=harness.run(config_path,old);before=(old/'report.json').read_bytes()
-            with self.assertRaisesRegex(ValueError,'Preserve earlier'):harness.run(config_path,old)
-            second=harness.run(config_path,new)
+            first=self.run_harness(config_path,old);before=(old/'report.json').read_bytes()
+            with self.assertRaisesRegex(ValueError,'Preserve earlier'):self.run_harness(config_path,old)
+            second=self.run_harness(config_path,new)
         self.assertEqual(invoke.call_count,2);self.assertEqual((old/'report.json').read_bytes(),before)
         self.assertEqual(first['attempts'][0]['status'],'infrastructure_failure');self.assertEqual(second['attempts'][0]['status'],'pending_review');self.assertIsNone(second['execution_block'])
 

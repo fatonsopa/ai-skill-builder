@@ -304,7 +304,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Documentation
 
-The repository itself is the skill. Root SKILL.md, README.md and LICENSE define the entry point; references hold guidance, scripts own mechanics, evals/tests check results, and config holds machine contracts. Plans declare component ownership and dependencies. After installing scripts/requirements-lock.txt, preview `.venv/bin/python scripts/run_tests.py`, then add `--execute` to run the selected impacted checks. Full testing requires final-batch authorization; see references/maintenance.md. AGENTS.md contains repository collaboration rules; CLAUDE.md imports it for Claude Code.
+The repository itself is the skill. Root SKILL.md, README.md and LICENSE define the entry point; references hold guidance, scripts own mechanics, evals/tests check results, and config holds machine contracts. Plans declare component ownership and dependencies. After installing scripts/requirements-lock.txt, preview `.venv/bin/python scripts/run_tests.py`, then add `--execute` to run the selected impacted checks. Full testing follows the author’s verification that all planned implementation changes are delivered and no implementation work remains; see references/maintenance.md. User batch approval is not required. AGENTS.md contains repository collaboration rules; CLAUDE.md imports it for Claude Code. New authoring runs use the objective-wide completion contract in references/maintenance.md: freeze scope, required checks and cumulative limits once, retain valid evidence for unchanged inputs, and deliver when those checks pass. New versions cannot reset the allowance. Publication follows existing explicit user authority.
 
 - [Public documentation contract](references/readme.md)
 - [Testing and development](tests/README.md)

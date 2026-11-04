@@ -20,6 +20,7 @@ from case_inputs import prepare_inputs
 from repository_files import inventory, copy_repository, skill_name, PRIVATE_DIRS
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import behavior_hosts
+from runtime import completion
 
 
 def save(path, value):
@@ -155,6 +156,20 @@ def run(config_path, output, executable=None):
         raise ValueError('preflight_seconds must be an integer from 1 to 60.')
     cases = json.loads((config_path.parent / config['cases']).read_text())
     cases = [case for case in cases if case['kind'] == 'behavior']
+    policy_path = config.get('completion_policy')
+    if config['max_invocations'] and not policy_path:
+        raise ValueError('Live validation needs a completion_policy with frozen case scope and an objective-wide budget.')
+    if policy_path:
+        policy_path = (config_path.parent / policy_path).resolve()
+        policy = completion.read(policy_path)
+        declared = {c['id']: c for c in policy['contract']['checks']}
+        mapping = config.get('completion_checks', {})
+        for case in cases:
+            if config.get('case_ids') is not None and case['id'] not in config['case_ids']:
+                continue
+            identifier = mapping.get(case['id'], case['id'])
+            if identifier not in declared or declared[identifier]['kind'] != 'behavior' or declared[identifier].get('case_id', identifier) != case['id']:
+                raise ValueError('Validation expands the frozen check scope: ' + case['id'])
     chosen = config.get('case_ids')
     if chosen is not None:
         if set(chosen) - {case['id'] for case in cases}:
@@ -189,8 +204,12 @@ def run(config_path, output, executable=None):
             remaining = config['max_seconds'] - (time.monotonic() - started)
             row = {'id': identifier, 'case_id': case['id'], 'case_sha256': json_hash(case), 'repetition': repetition, 'status': 'not_run', 'critical': case['critical'], 'semantic': True}
             if execution_block:
-                row['reason'] = 'Provider usage limit stopped this batch; no further invocation, billing switch or fallback.'
-                row['provider_error'] = execution_block
+                if execution_block.get('code') == 'completion_policy':
+                    row['reason'] = 'Completion policy stopped further work; no new model invocation.'
+                    row['completion_block'] = execution_block
+                else:
+                    row['reason'] = 'Provider usage limit stopped this batch; no further invocation, billing switch or fallback.'
+                    row['provider_error'] = execution_block
                 attempts.append(row); save(folder / 'result.json', row)
                 continue
             if preflight_result and preflight_result['status'] != 'passed':
@@ -208,6 +227,16 @@ def run(config_path, output, executable=None):
                 attempts.append(row)
                 save(folder / 'result.json', row)
                 continue
+            if policy_path:
+                try:
+                    completion.authorize_case(policy_path, case['id'], subject, case=case,
+                        profile={'host': host, 'model': config['model'], 'reasoning_effort': effort},
+                        check_id=config.get('completion_checks', {}).get(case['id'], case['id']))
+                except ValueError as error:
+                    execution_block = {'code': 'completion_policy', 'error': str(error)}
+                    row.update(reason=str(error), completion_block=execution_block)
+                    attempts.append(row); save(folder / 'result.json', row)
+                    continue
             # A task-only install excludes evaluation answers and development tests.
             installed = folder / 'runtime-skill'
             copy_repository(subject, installed)

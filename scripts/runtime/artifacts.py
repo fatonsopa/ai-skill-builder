@@ -152,6 +152,52 @@ def check_plan(spec, plan, require_workflows=False):
         relative(path)
 
 
+def generated_test_configuration(root, plan):
+    """Select controls for their implementation domains and declared dependencies."""
+    root = Path(root)
+    groups = {case['id']: {'argv': ['{python}', 'scripts/evaluate.py', '--package', '.', '--allow-exec', '--case', case['id']]} for case in plan['cases']}
+    domains = {domain['name']: domain for domain in plan['domains']}
+
+    def local_path(value, existing=False):
+        path = Path(value)
+        if path.is_absolute() or '..' in path.parts or '\\' in value or not path.parts:
+            return None
+        if existing and not (root / path).is_file():
+            return None
+        return path.as_posix()
+
+    rules = []
+    for case in plan['cases']:
+        direct = {name for value in case.get('command', [])[1:] if not value.startswith('-')
+                  if (name := local_path(value, existing=True)) is not None}
+        if case['kind'] != 'behavior':
+            direct.update(name for value in case.get('resources', [])
+                          if (name := local_path(value, existing=True)) is not None)
+        if case['expect'].get('file'):
+            name = local_path(case['expect']['file'])
+            if name is not None:
+                direct.add(name)
+        related = {name for name, domain in domains.items()
+                   if any(path == owned or owned.endswith('/') and path.startswith(owned)
+                          for path in direct for owned in domain['owned_paths'])}
+        pending = list(related)
+        while pending:
+            for dependency in domains[pending.pop()]['depends_on']:
+                if dependency not in related:
+                    related.add(dependency)
+                    pending.append(dependency)
+        paths = set(direct)
+        for name in related:
+            paths.update(owned + '*' if owned.endswith('/') else owned for owned in domains[name]['owned_paths'])
+        if paths:
+            rules.append({'paths': sorted(paths), 'tests': [case['id']],
+                          'reason': 'Case entry points and declared implementation-domain dependencies; verify actual imports and consumers during review.'})
+    rules.append({'paths': ['evals/cases.json', 'scripts/evaluate.py'], 'tests': list(groups)})
+    rules.append({'paths': ['AGENTS.md', 'CLAUDE.md', 'README.md', 'SKILL.md', 'LICENSE'], 'tests': [],
+                  'reason': 'Review changed instructions; unrelated executable cases are not selected.'})
+    return {'schema_version': 1, 'tests': groups, 'rules': rules, 'final_checks': groups}
+
+
 def render(root, request, spec, plan, response, source=None):
     root = Path(root)
     if root.exists():
@@ -206,17 +252,7 @@ def render(root, request, spec, plan, response, source=None):
         save(root / "config/host_validation.json", {"schema_version": 1, "required_hosts": ["codex", "claude-code"], "case_files": [{"path": "evals/cases.json"}]})
         save(root / "config/repository_layout.json", json.loads((EVALUATOR.parent.parent / "config/repository_layout.json").read_text()))
         save(root / "config/domains.json", {"schema_version": 1, "domains": plan["domains"]})
-        test_groups = {case["id"]: {"argv": ["{python}", "scripts/evaluate.py", "--package", ".", "--allow-exec", "--case", case["id"]]} for case in plan["cases"]}
-        impact_rules = []
-        for case in plan["cases"]:
-            paths = [value for value in case.get("command", [])[1:] if not value.startswith("-") and (root / value).is_file()]
-            if case["expect"].get("file"):
-                paths.append(case["expect"]["file"])
-            if paths:
-                impact_rules.append({"paths": sorted(set(paths)), "tests": [case["id"]]})
-        impact_rules.append({"paths": ["evals/cases.json", "scripts/evaluate.py"], "tests": list(test_groups)})
-        impact_rules.append({"paths": ["AGENTS.md", "CLAUDE.md", "README.md", "SKILL.md", "LICENSE"], "tests": [], "reason": "Review changed instructions; unrelated executable cases are not selected."})
-        save(root / "config/test_impact.json", {"schema_version": 1, "tests": test_groups, "rules": impact_rules, "final_checks": test_groups})
+        save(root / "config/test_impact.json", generated_test_configuration(root, plan))
         data = {
             "name": request["skill_name"], "description": response["description"],
             "instructions": response["instructions"], "resources": plan["resources"],

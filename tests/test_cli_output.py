@@ -130,7 +130,13 @@ class CliOutputTests(unittest.TestCase):
             run = root / 'run'
             request = root / 'request.json'
             secret = 'A long user brief retained in state. ' * 5000
-            request.write_text(json.dumps({'operation': 'specify', 'skill_name': 'summary-control', 'brief': secret}))
+            from runtime.completion import create
+            policy = create(root, {'objective_id': 'authored-cli-control', 'goal': 'Verify existing CLI behavior with the current contract.',
+                'project': str(root / 'summary-project'), 'scope': ['**'],
+                'checks': [{'id': 'report', 'kind': 'report', 'dependencies': []}],
+                'budget': {'runs': 1, 'revisions': 0, 'model_calls': 0, 'seconds': 600},
+                'delivery': {'kind': 'report', 'authority': 'Authored unit control only.'}})['policy']
+            request.write_text(json.dumps({'completion_policy': policy, 'operation': 'specify', 'skill_name': 'summary-control', 'brief': secret}))
             cli = [sys.executable, str(ROOT / 'scripts/skill_builder_cli.py')]
             result = subprocess.run(cli + ['start', '--request', str(request), '--run', str(run)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)

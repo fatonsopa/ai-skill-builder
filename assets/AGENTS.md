@@ -4,7 +4,13 @@
 
 During implementation, use `scripts/run_tests.py --execute` to run only impacted tests. The script derives changes from the last successful checkpoint or Git HEAD and reports why each check was selected. Do not invoke full unittest/pytest discovery or a full-suite helper directly. Unmapped changes must be assigned an impact rule; they must not trigger a full-suite fallback.
 
-Run the full suite only after the user confirms the batch is finished, with an authorization record bound to the current artifact. Do not create that record without the actual user instruction. Final testing does not grant push approval.
+Run the full suite when you have verified that every planned implementation change has been delivered and no implementation work remains. Use an implementation-completion record bound to the current artifact; do not ask the user to approve an edit batch. Implementation completion does not assert that final validation or publication has passed. An implementation change invalidates the record. Final testing does not grant push approval.
+
+## Complete the agreed work
+
+Freeze the requested outcome, implementation scope, definition of done, validation checks and cumulative budget before implementation. Carry that contract and all consumed budget across versions and new run directories. Classify later findings as requirement blockers, follow-ups or material scope changes. A follow-up belongs in the backlog; only an evidenced blocker against an agreed requirement reopens the current work.
+
+Use impacted checks and retain valid evidence for unchanged inputs, with its original artifact and date. Do not describe retained evidence as fresh or restart a whole benchmark after a small documentation edit. Report a scope or budget conflict before starting a large new batch. Once required work and checks pass, commit and deliver within existing authority, including pushing when authorized. Do not keep improving the completed scope.
 
 ## Routine test retries
 
@@ -12,7 +18,7 @@ Routine testing and necessary retries are part of the authorized task. Choose an
 
 ## GitHub approval
 
-Do not push to GitHub without the user's explicit approval for the completed changes being published. An earlier approval does not cover later edits. Prepare a concrete, reviewable result, report its validation, and wait for approval before pushing. A request to continue editing is not push approval.
+Publish only within the user's existing explicit authority for this deliverable, remote and branch. Preserve that authority across routine edits and retries within the agreed scope; do not ask again merely because the implementation changed. If publication is not authorized, prepare the tested result for review and ask only for that remaining action. Never infer push or merge authority from permission to edit or test.
 
 ## Shared instructions
 

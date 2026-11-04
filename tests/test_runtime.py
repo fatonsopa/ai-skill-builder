@@ -104,7 +104,8 @@ class RuntimeTests(unittest.TestCase):
         root = self.run / "candidate"
         instructions = (root / "AGENTS.md").read_text()
         self.assertIn("scripts/run_tests.py --execute", instructions)
-        self.assertIn("Do not push to GitHub without the user's explicit approval", instructions)
+        self.assertIn("Publish only within the user's existing explicit authority", instructions)
+        self.assertIn("Never infer push or merge authority from permission to edit or test", instructions)
         self.assertEqual((root / "CLAUDE.md").read_text(), "@AGENTS.md\n")
         self.assertTrue(check_package(root)["passed"])
         workflow.run_evaluation(self.run, allow_exec=True)
@@ -137,6 +138,66 @@ class RuntimeTests(unittest.TestCase):
         blocked = subprocess.run([sys.executable, "scripts/run_tests.py", "--changed", "scripts/normalize.py", "--full"], cwd=package, text=True, capture_output=True)
         self.assertEqual(blocked.returncode, 2)
         self.assertIn("Full suites are disabled", blocked.stderr)
+
+    def test_generated_impact_maps_runtime_domain_dependencies(self):
+        plan, produce, spec = deepcopy(PLAN), deepcopy(PRODUCE), deepcopy(SPEC)
+        plan['domains'] = [
+            {'name': 'rules', 'purpose': 'Shared normalization implementation', 'owned_paths': ['scripts/normalizer/'], 'depends_on': []},
+            {'name': 'runtime', 'purpose': 'Input/output entry point', 'owned_paths': ['scripts/normalize.py'], 'depends_on': ['rules']},
+            {'name': 'verification', 'purpose': 'Executable test entry point', 'owned_paths': ['scripts/check_normalization.py'], 'depends_on': ['runtime']},
+            {'name': 'version', 'purpose': 'Independent fixture command', 'owned_paths': ['scripts/version.py'], 'depends_on': []},
+        ]
+        for case in plan['cases']:
+            case['command'] = ['{python}', 'scripts/check_normalization.py']
+        spec['requirements'].append({'id': 'R-4', 'text': 'Report the fixture version independently of normalization', 'kind': 'mechanical'})
+        plan['cases'].append({'id': 'version', 'requirements': ['R-4'], 'critical': True, 'kind': 'command',
+                              'command': ['{python}', 'scripts/version.py'], 'expect': {'exit_code': 0, 'stdout_json': {'version': '1.0'}}, 'semantic': False})
+        produce['files']['scripts/normalize.py'] = 'from normalizer.rules import clean_name\n' + PROGRAM.replace('name.strip() if name is not None else None', 'clean_name(name)')
+        produce['files']['scripts/normalizer/rules.py'] = 'def clean_name(value):\n    return value.strip() if value is not None else None\n'
+        produce['files']['scripts/check_normalization.py'] = 'import runpy\nrunpy.run_path("scripts/normalize.py", run_name="__main__")\n'
+        produce['files']['scripts/version.py'] = 'import json\nprint(json.dumps({"version": "1.0"}))\n'
+        plan['allowed_candidate_paths'] = list(produce['files'])
+        self.produced(plan=plan, produce=produce, spec=spec)
+        package = self.run / 'candidate'
+        expected = {case['id'] for case in PLAN['cases']}
+        for changed in ['scripts/normalizer/rules.py', 'scripts/normalize.py', 'scripts/check_normalization.py']:
+            argv = [sys.executable, 'scripts/run_tests.py', '--changed', changed]
+            if changed == 'scripts/normalizer/rules.py':
+                argv.append('--execute')
+            result = subprocess.run(argv, cwd=package, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, (changed, result.stdout, result.stderr))
+            report = json.loads(result.stdout)
+            self.assertEqual({case['id'] for case in report['checks']}, expected)
+            if '--execute' in argv:
+                self.assertTrue(report['passed'])
+        version = subprocess.run([sys.executable, 'scripts/run_tests.py', '--changed', 'scripts/version.py'], cwd=package, text=True, capture_output=True)
+        self.assertEqual({row['id'] for row in json.loads(version.stdout)['checks']}, {'version'})
+        unknown = subprocess.run([sys.executable, 'scripts/run_tests.py', '--changed', 'scripts/unknown.py'], cwd=package, text=True, capture_output=True)
+        self.assertEqual(unknown.returncode, 1)
+        unknown_report = json.loads(unknown.stdout)
+        self.assertFalse(unknown_report['executable'])
+        self.assertEqual(unknown_report['checks'], [])
+        self.assertEqual(unknown_report['unmapped'], ['scripts/unknown.py'])
+
+    def test_generated_impact_maps_declared_command_resources(self):
+        from runtime.artifacts import generated_test_configuration
+        self.produced()
+        package = self.run / 'candidate'
+        plan = deepcopy(PLAN)
+        for case in plan['cases']:
+            case['command'] = ['{python}', '-c', 'import runpy; runpy.run_path("scripts/normalize.py", run_name="__main__")']
+            case['resources'] = ['scripts/normalize.py']
+            validate(case, contracts.CASE)
+        # Prepare an authored component fixture with the supported v3 case fields.
+        # This is not a change to a recorded model evaluation or its answers.
+        save(package / 'evals/cases.json', plan['cases'])
+        save(package / 'config/test_impact.json', generated_test_configuration(package, plan))
+        result = subprocess.run([sys.executable, 'scripts/run_tests.py', '--changed', 'scripts/normalize.py', '--execute'],
+                                cwd=package, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, (result.stdout, result.stderr))
+        report = json.loads(result.stdout)
+        self.assertTrue(report['passed'])
+        self.assertEqual({row['id'] for row in report['checks']}, {case['id'] for case in PLAN['cases']})
 
     def test_creation_requires_actual_copyright_holder(self):
         self.start()

@@ -110,7 +110,7 @@ class ExecutionContractTests(unittest.TestCase):
         spec,plan=WorkflowCoverageTests.normalizer(self)
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            workflow.start(root,{'operation':'create','skill_name':'normalize-customers','brief':'Normalize supplied records','copyright_holder':'Fixture'})
+            workflow.start(root,{'operation':'create','skill_name':'normalize-customers','brief':'Normalize supplied records','copyright_holder':'Fixture'}, protocol_version=3)
             def submit(data):
                 packet=workflow.packet(root)
                 return workflow.submit(root,{**{k:packet[k] for k in ('run_id','phase','packet_sha256')},'data':deepcopy(data)})

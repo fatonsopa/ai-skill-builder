@@ -85,7 +85,7 @@ class ProviderResultTests(unittest.TestCase):
         run = self.root / 'phase-run'
         workflow.start(run, {'operation': 'create', 'skill_name': 'fixture', 'brief': 'Authored fixture.',
                              'copyright_holder': 'Fixture', 'limits': {'max_live_calls': 1},
-                             'host': {'platform': 'claude-code', 'model': 'fixture-model', 'code_execution': True, 'file_access': True, 'external_cli': True, 'allow_cross_provider': False}})
+                             'host': {'platform': 'claude-code', 'model': 'fixture-model', 'code_execution': True, 'file_access': True, 'external_cli': True, 'allow_cross_provider': False}}, protocol_version=3)
         with patch.object(adapters.shutil, 'which', return_value='/authored-claude'), patch.object(adapters, 'run_process', return_value=subprocess.CompletedProcess([], 0, json.dumps(limited()), '')) as call:
             result = adapters.invoke(run, 'claude', 'fixture-model')
         self.assertEqual(call.call_count, 1)

@@ -7,7 +7,7 @@ import sys
 import tempfile
 import shutil
 
-from runtime import contracts, workflow
+from runtime import contracts, workflow, completion
 from runtime.artifacts import check_package
 from runtime.common import Invalid, load, locked, save
 from runtime.examples import ingest
@@ -18,6 +18,26 @@ from repository_files import compare_installation
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="command", required=True)
+    policy = commands.add_parser('completion-init', help='Freeze one objective-wide scope, check list and cumulative budget.')
+    policy.add_argument('--workspace', type=Path, required=True)
+    policy.add_argument('--definition', type=Path, required=True)
+    for name in ('completion-status', 'completion-record-check', 'completion-record-hosts', 'completion-finding', 'completion-amend', 'completion-delivered'):
+        item = commands.add_parser(name)
+        item.add_argument('--policy', type=Path, required=True)
+        item.add_argument('--package', type=Path)
+        if name == 'completion-record-check':
+            item.add_argument('--check', required=True)
+            item.add_argument('--evidence', type=Path, required=True)
+        if name == 'completion-record-hosts':
+            item.add_argument('--manifest', type=Path, required=True)
+        if name == 'completion-amend':
+            item.add_argument('--definition', type=Path, required=True)
+            item.add_argument('--authority', required=True)
+        if name == 'completion-finding':
+            item.add_argument('--classification', choices=['blocker', 'follow_up', 'scope_change'], required=True)
+            item.add_argument('--requirement', default='')
+            item.add_argument('--text', required=True)
+            item.add_argument('--check', action='append', default=[])
     documents = commands.add_parser("validate-documents", help="Accept every changed document through Technical Writer.")
     documents.add_argument("--run", type=Path, required=True)
     documents.add_argument("--manifest", type=Path, required=True)
@@ -50,7 +70,7 @@ def parser():
     installation.add_argument("--package", type=Path, required=True)
     installation.add_argument("--installed", type=Path, required=True)
     schema = commands.add_parser("schema")
-    schema.add_argument("phase", choices=["request", *contracts.PHASES])
+    schema.add_argument("phase", choices=["request", 'completion', *contracts.PHASES])
     trace = commands.add_parser("check-process", help="Grade captured workflow stages separately from final output.")
     trace.add_argument("--trace", type=Path, required=True)
     trace.add_argument("--expect", type=Path, required=True)
@@ -120,7 +140,7 @@ def replay(root):
         request = dict(state["request"])
         if request.get("source"):
             request["source"] = str((Path(root) / "baseline").resolve())
-        workflow.start(target, request, protocol_version=state.get("protocol_version", 1))
+        workflow.start(target, request, protocol_version=state.get("protocol_version", 1), replay_only=True)
         for path in sorted((Path(root) / "responses").glob("*.json")):
             original = load(path)
             current_state = workflow.read_state(target)
@@ -173,6 +193,11 @@ def state_summary(state, root):
     """Keep full evidence on disk; repeated lifecycle output needs only progress."""
     result = {key: state[key] for key in ('run_id', 'phase', 'status', 'experiment', 'objective_sha256', 'elapsed_seconds', 'model_invocations', 'evaluation_record', 'baseline_evaluation_record', 'delivered', 'last_decision') if key in state}
     result.update(run=str(Path(root).resolve()), state_file=str((Path(root) / 'state.json').resolve()), operation=state['request']['operation'])
+    if state.get('completion'):
+        package = Path(root) / 'candidate'
+        if not package.exists():
+            package = Path(completion.read(state['completion']['path'])['contract']['project'])
+        result['completion_policy'] = completion.status(state['completion']['path'], package)
     if state.get('evaluation'):
         for name in ('metrics', 'mechanical_metrics', 'behavioral_metrics', 'process_metrics'):
             if name in state['evaluation']:
@@ -187,7 +212,23 @@ def state_summary(state, root):
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
-        if args.command == "check-process":
+        if args.command == 'completion-init':
+            value = completion.create(args.workspace, load(args.definition))
+        elif args.command.startswith('completion-'):
+            package = args.package or Path(completion.read(args.policy)['contract']['project'])
+            if args.command == 'completion-status':
+                value = completion.status(args.policy, package)
+            elif args.command == 'completion-record-check':
+                value = completion.record(args.policy, args.check, package, args.evidence)
+            elif args.command == 'completion-record-hosts':
+                value = completion.record_hosts(args.policy, package, args.manifest)
+            elif args.command == 'completion-amend':
+                value = completion.amend(args.policy, load(args.definition), args.authority)
+            elif args.command == 'completion-finding':
+                value = completion.finding(args.policy, args.classification, args.requirement, args.text, args.check)
+            else:
+                value = completion.delivered(args.policy, package)
+        elif args.command == "check-process":
             from evaluate import grade_process
             from runtime.common import validate
             expected = load(args.expect)
@@ -206,7 +247,7 @@ def main(argv=None):
                 write_readme(args.package)
             value = check_readme(args.package)
         elif args.command == "schema":
-            value = contracts.REQUEST if args.phase == "request" else contracts.response_schema(args.phase)
+            value = contracts.REQUEST if args.phase == "request" else completion.CONTRACT if args.phase == 'completion' else contracts.response_schema(args.phase)
         elif args.command == "examples":
             value = ingest(args.manifest, args.output)
         elif args.command == "benchmark":

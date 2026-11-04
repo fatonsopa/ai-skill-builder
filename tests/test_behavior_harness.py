@@ -35,6 +35,14 @@ class BehaviorHarnessTests(unittest.TestCase):
         self.config['reasoning_effort'] = 'medium'
 
     def run_harness(self):
+        from runtime.completion import create
+        cases = json.loads((self.root / 'cases.json').read_text())
+        definition = {'objective_id': 'authored-harness-control', 'goal': 'Test mocked capture mechanics; no real model performance.',
+            'project': str(self.subject), 'scope': ['**'],
+            'checks': [{'id': c['id'], 'kind': 'behavior', 'dependencies': ['SKILL.md']} for c in cases],
+            'budget': {'runs': 10, 'revisions': 10, 'model_calls': 100, 'seconds': 600},
+            'delivery': {'kind': 'local', 'authority': 'Authored unit fixture only.'}}
+        self.config['completion_policy'] = create(self.root, definition)['policy']
         path = self.root / 'config.json'
         path.write_text(json.dumps(self.config))
         return harness.run(path, self.root / 'output', executable='fixture-codex')

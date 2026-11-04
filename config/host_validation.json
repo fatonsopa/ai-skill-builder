@@ -13,6 +13,9 @@
     },
     {
       "path": "evals/agent_system_cases.json"
+    },
+    {
+      "path": "evals/final_testing_cases.json"
     }
   ]
 }

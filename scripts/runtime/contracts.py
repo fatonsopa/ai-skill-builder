@@ -54,6 +54,7 @@ REQUEST = obj({
     "examples": TEXT, "technical_writer": TEXT, "document_paths": STRINGS,
     "copyright_holder": TEXT,
     "repair_structure": BOOL,
+    "completion_policy": TEXT,
     "host": HOST,
     "preserve_literals": STRINGS,
     "target_success_percent": {"type": "number", "minimum": 0, "maximum": 100},
@@ -170,7 +171,7 @@ PHASES = {**PHASES, "specify": SPEC, "plan": PLAN, "review": REVIEW}
 
 
 V2_PHASES = dict(PHASES)
-PROTOCOL_VERSION = 3
+PROTOCOL_VERSION = 4
 AUTHORITY = obj({"tools": STRINGS, "read_roots": STRINGS, "write_roots": STRINGS,
                  "external_actions": STRINGS, "may_delegate": BOOL})
 ROLE = obj({
@@ -211,9 +212,9 @@ PHASES = {**PHASES, "plan": PLAN, "review": REVIEW}
 
 
 def response_schema(phase, protocol_version=PROTOCOL_VERSION):
-    if protocol_version not in (1, 2, PROTOCOL_VERSION):
+    if protocol_version not in (1, 2, 3, PROTOCOL_VERSION):
         raise ValueError("Unsupported authoring protocol version.")
-    phases = {1: LEGACY_PHASES, 2: V2_PHASES, 3: PHASES}[protocol_version]
+    phases = {1: LEGACY_PHASES, 2: V2_PHASES, 3: PHASES, 4: PHASES}[protocol_version]
     return obj({
         "run_id": TEXT, "phase": {"const": phase},
         "packet_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
@@ -233,3 +234,6 @@ PROCESS_TRACE_EXAMPLE = {
     "provenance": {"kind": "authored_control", "source": "Illustrative executable probe; replace with the actual capture source."},
     "events": [{"phase": "validate", "evidence": "probe-results.json"}],
 }
+
+LEGACY_REQUEST = REQUEST
+REQUEST = {**REQUEST, 'required': [*REQUEST['required'], 'completion_policy']}
