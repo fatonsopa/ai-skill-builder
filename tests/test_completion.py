@@ -497,3 +497,30 @@ class AuditRepairCheckpointTests(unittest.TestCase):
         self.assertEqual(completion.read(policy)['receipts']['audit-result'],before['receipts']['audit-result'])
         (run/'baseline/run.py').write_text('tampered baseline\n')
         self.assertFalse(completion.status(policy,self.project)['checks'][0]['valid'])
+
+
+class CompletionFeasibilityTests(unittest.TestCase):
+    setUp = CompletionTests.setUp
+    policy = CompletionTests.policy
+    request = CompletionTests.request
+
+    def test_impossible_native_checks_fail_before_build_and_budget_then_correct_in_place(self):
+        checks=[*deepcopy(self.definition['checks']),
+                {'id':'package-report','kind':'report','dependencies':[]},
+                {'id':'native-use','kind':'behavior','case_id':'native-use','dependencies':['run.py'],
+                 'profile':{'host':'codex','model':None,'reasoning_effort':None}}]
+        policy=self.policy(checks=checks)
+        host={'platform':'codex','model':None,'code_execution':True,'file_access':True,'external_cli':False,'allow_cross_provider':False}
+        run=self.workspace/'native-run'
+        with self.assertRaisesRegex(Invalid,'cannot be fulfilled') as failure:
+            workflow.start(run,self.request(policy,host=host))
+        self.assertIn('package-report',str(failure.exception));self.assertIn('native-use',str(failure.exception))
+        self.assertFalse(run.exists())
+        before=completion.read(policy)
+        self.assertEqual(before['usage']['runs'],0)
+        definition=deepcopy(before['contract']);definition['checks'].pop(1);definition['checks'][1].pop('profile')
+        completion.amend(policy,definition,'Authored feasibility control correcting unsupported declarations, not actual user authority or a model result.')
+        state=workflow.start(run,self.request(policy,host=host))
+        self.assertEqual(state['phase'],'research')
+        self.assertEqual(completion.read(policy)['usage']['runs'],1)
+        self.assertEqual(completion.read(policy)['created_unix'],before['created_unix'])

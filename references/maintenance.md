@@ -86,6 +86,10 @@ Resolve the active skill path and compare it with the source being maintained. A
 
 Import later actual observations directly during review; do not submit a failing placeholder review to unlock the next action. Missing observations remain unrun and do not consume stagnation. See [evaluation](evaluation.md) for binding, retained reports and readiness checks.
 
+A completion `report` check accepts a completed read-only audit, specification or plan. Package-shape assertions belong to mechanical cases, with `completion_check` grouping where needed. A behavior check with `profile` requires a separate bound host assessment; omit `profile` for an authorized current-host observation in the native workflow. When `host.external_cli` is false, do not assign an unmet external assessment to that native checkpoint. Startup rejects these incompatible declarations before enrolling a run or consuming its budget. Declare separate checkpoints for distinct supported stages; preserve any already valid evidence.
+
+To correct an existing candidate after a failed code or document check, use `revise --run RUN --hypothesis "OBSERVED CORRECTION"` without `--phase`. This resumes production in the same run under the frozen specification, plan and cases. Correcting a heading does not require another research, specification or planning cycle.
+
 ## Focused checkpoints and genuine waits
 
 The completion contract can declare `checkpoints`: each has an `id`, required `checks`, `depends_on` and applicable existing `lessons`. Use `completion-checkpoint --policy POLICY --package PACKAGE --component ID --lesson LESSON` after its focused receipts are current. Missing evidence or lesson reconciliation blocks that checkpoint. A later request may name `checkpoint` to start eligible dependent or independent work. Checkpoints retain final gaps and never waive final acceptance.

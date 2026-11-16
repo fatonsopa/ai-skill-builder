@@ -129,6 +129,18 @@ def enroll(path, run, request):
         component_eligible(state, request['checkpoint'], state['contract']['project'])
     elif any(g.get('resumed_unix') is None for g in state.get('user_gates', [])):
         raise Invalid('A user gate is waiting; name an independent eligible checkpoint or resume with actual authorization.')
+    valid = {row['id'] for row in status_checks(state, state['contract']['project']) if row['valid']}
+    incompatible = []
+    for check in checkpoint_checks(state, request.get('checkpoint')):
+        if check['id'] in valid:
+            continue
+        if check['kind'] == 'report' and request['operation'] not in ('audit', 'plan', 'specify'):
+            incompatible.append({'check_id': check['id'], 'reason': 'read_only_report_in_write_checkpoint'})
+        if check.get('profile') and request.get('host', {}).get('external_cli') is False:
+            incompatible.append({'check_id': check['id'], 'reason': 'external_assessment_in_native_only_checkpoint'})
+    if incompatible:
+        raise Invalid('Completion checks cannot be fulfilled by this native run: ' + json.dumps(incompatible, sort_keys=True)
+                      + '. Report checks accept completed read-only audit/specify/plan outcomes; bind package assertions as mechanical cases. Profile-bound checks need a separate host assessment; native-only observations omit profile. Use declared checkpoints for distinct stages. No run budget was consumed.')
     scope = state['contract']['scope']
     if any(not any(fnmatch.fnmatchcase(name, pattern) for pattern in scope) for name in request.get('allowed_paths', [])):
         raise Invalid('Request expands the frozen completion edit scope.')
