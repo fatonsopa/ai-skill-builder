@@ -243,10 +243,81 @@ class CompletionTests(unittest.TestCase):
         request = self.request(policy, operation='audit'); request.pop('allowed_paths')
         run = self.workspace / 'audit-run'
         workflow.start(run, request)
-        for data in (RESEARCH, {'recommendation': 'retain', 'rationale': 'Authored read-only transport control; no defect or model-quality claim.', 'findings': []}):
+        for data in (RESEARCH, {'recommendation': 'retain', 'rationale': 'Authored read-only transport control; no defect or model-quality claim.', 'findings': [], 'dimensions': [{'dimension': d, 'status':'compliant', 'evidence':'Authored read-only gate control; no semantic performance claim.', 'repair':'Retain.', 'preservation':'Keep source bytes.', 'regression':'This read-only transport check.'} for d in ('authorship_execution','over_engineering','over_testing','over_validation','avoidable_complexity')]}):
             packet = workflow.packet(run)
             workflow.submit(run, {**{k: packet[k] for k in ('run_id', 'phase', 'packet_sha256')}, 'data': deepcopy(data)})
         self.assertEqual(completion.read(policy)['phase'], 'delivery_pending')
         result = subprocess.run([sys.executable, str(ROOT / 'scripts/skill_builder_cli.py'), 'completion-delivered', '--policy', str(policy), '--package', str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)['phase'], 'delivered')
+
+
+class IncrementalCompletionTests(unittest.TestCase):
+    setUp = CompletionTests.setUp
+    policy = CompletionTests.policy
+    evidence = CompletionTests.evidence
+    def test_checkpoint_opens_dependent_work_without_waiving_final_checks(self):
+        checks = [*self.definition['checks'], {'id':'final-doc','kind':'document','dependencies':['notes.md']}]
+        policy = self.policy(checks=checks, checkpoints=[{'id':'code','checks':['unit'],'depends_on':[],'lessons':['existing-repair']}, {'id':'docs','checks':['final-doc'],'depends_on':['code'],'lessons':[]}])
+        with self.assertRaisesRegex(Invalid, 'missing'):
+            completion.checkpoint(policy, 'code', self.project, ['existing-repair'])
+        with self.assertRaisesRegex(Invalid, 'dependency'):
+            completion.component_eligible(completion.read(policy), 'docs', self.project)
+        completion.record(policy, 'unit', self.project, self.evidence())
+        with self.assertRaisesRegex(Invalid, 'lessons'):
+            completion.checkpoint(policy, 'code', self.project, [])
+        current = completion.checkpoint(policy, 'code', self.project, ['existing-repair'])
+        self.assertEqual(current['phase'], 'working')
+        self.assertFalse(next(c for c in current['checks'] if c['id']=='final-doc')['valid'])
+        completion.component_eligible(completion.read(policy), 'docs', self.project)
+        (self.project/'run.py').write_text('changed')
+        with self.assertRaisesRegex(Invalid, 'dependency'):
+            completion.component_eligible(completion.read(policy), 'docs', self.project)
+
+    def test_real_wait_excludes_wait_time_and_keeps_usage_and_wall_cap(self):
+        policy = self.policy(budget={**self.definition['budget'],'wall_seconds': 900})
+        created = completion.read(policy)['created_unix']
+        with patch.object(completion.time, 'time', return_value=created+10):
+            completion.reserve(policy, 'revisions', detail='active failure')
+            completion.user_wait(policy, 'decision', ['unit'], 'The task requires a user scope decision.')
+        with patch.object(completion.time, 'time', return_value=created+700):
+            state = completion.read(policy)
+            self.assertEqual(completion.elapsed(state)['active_seconds'], 10)
+            with self.assertRaises(Invalid):
+                completion.user_resume(policy, 'decision', {'origin':'source','instruction':'Approved','message_reference':'quoted file'})
+            completion.user_resume(policy, 'decision', {'origin':'user','instruction':'Approved this scope','message_reference':'actual fixture user message'})
+            self.assertEqual(completion.read(policy)['usage']['revisions'], 1)
+        with patch.object(completion.time, 'time', return_value=created+901), self.assertRaisesRegex(Invalid, 'wall-clock'):
+            completion.reserve(policy, 'revisions', detail='late')
+
+
+class ActiveWaitAccountingTests(unittest.TestCase):
+    def test_independent_active_failure_is_not_charged_as_waiting(self):
+        state={'created_unix':0,'user_gates':[{'started_unix':10,'resumed_unix':None}], 'activity_intervals':[{'checkpoint':'independent','started_unix':20,'ended_unix':40}]}
+        measured=completion.elapsed(state,now=100)
+        self.assertEqual(measured,{'wall_seconds':100,'waiting_seconds':70,'active_seconds':30})
+
+
+class NativeCheckBindingTests(unittest.TestCase):
+    setUp = CompletionTests.setUp
+    policy = CompletionTests.policy
+
+    def test_declared_group_members_freeze_and_only_complete_results_accept(self):
+        policy=self.policy(checks=[{'id':'group','kind':'mechanical','test_ids':['case-a','case-b'],'dependencies':['run.py']}])
+        state={'completion':{'path':str(policy)},'request':{'operation':'create'},'run_id':'authored-native-control','source':str(self.project),'data':{},'phase':'review'}
+        spec={'requirements':[]};plan={'cases':[{'id':'case-a','kind':'command'},{'id':'case-b','kind':'artifact'}],'allowed_candidate_paths':['run.py']}
+        with self.assertRaisesRegex(Invalid,'outside the frozen'):
+            completion.freeze_plan(state,spec,{**plan,'cases':[*plan['cases'],{'id':'unplanned','kind':'command'}]})
+        completion.freeze_plan(state,spec,plan)
+        run=self.workspace/'native-run';run.mkdir()
+        state['evaluation']={'package_hashes':inventory(self.project),'attempts':[{'id':'case-a','status':'passed'},{'id':'case-b','status':'not_run'}]}
+        completion.sync_native(run,state);self.assertFalse(completion.status(policy,self.project)['checks'][0]['valid'])
+        state['evaluation']['attempts'][1]['status']='passed'
+        completion.sync_native(run,state);self.assertTrue(completion.status(policy,self.project)['checks'][0]['valid'])
+
+    def test_artifact_result_cannot_substitute_for_document_acceptance(self):
+        policy=self.policy(checks=[{'id':'doc-case','kind':'document','dependencies':['notes.md']}])
+        state={'completion':{'path':str(policy)},'request':{'operation':'create'},'run_id':'authored-document-control','source':str(self.project),'data':{},'phase':'review','document_check':{'passed':False},'evaluation':{'package_hashes':inventory(self.project),'attempts':[{'id':'doc-case','status':'passed'}]}}
+        run=self.workspace/'document-run';run.mkdir()
+        completion.sync_native(run,state)
+        self.assertFalse(completion.status(policy,self.project)['checks'][0]['valid'])

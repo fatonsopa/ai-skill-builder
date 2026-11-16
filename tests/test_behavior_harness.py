@@ -220,3 +220,26 @@ class BehaviorHarnessTests(unittest.TestCase):
         self.assertEqual(len(captured),2)
         self.assertEqual([row['item']['id'] for row in captured],['dispatch-1','dispatch-1'])
         self.assertEqual(captured[-1]['item']['receiver_thread_ids'],['leaf-1'])
+
+
+class CandidateRoleTests(unittest.TestCase):
+    def test_candidate_roles_are_registered_before_startup_and_stale_assets_stop(self):
+        from behavior_hosts import stage_roles
+        import hashlib
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);installed=root/'installed';asset=installed/'assets/codex/reviewer.toml';asset.parent.mkdir(parents=True)
+            asset.write_text('name="reviewer"\ndescription="Candidate role"\ndeveloper_instructions="Return candidate marker only."\n')
+            declaration={'id':'reviewer','host':'codex','path':'assets/codex/reviewer.toml','sha256':hashlib.sha256(asset.read_bytes()).hexdigest()}
+            work=root/'work';work.mkdir()
+            bindings=stage_roles(installed,work,'codex',[declaration])
+            self.assertEqual(Path(bindings[0]['registered']).read_bytes(),asset.read_bytes())
+            asset.write_text('name="changed"')
+            with self.assertRaisesRegex(ValueError,'changed'):stage_roles(installed,root/'other','codex',[declaration])
+
+    def test_public_nested_returns_keep_attribution_and_drop_private_blocks(self):
+        import behavior_hosts
+        raw={'type':'user','uuid':'message-1','parent_tool_use_id':'dispatch-1','message':{'role':'user','content':[{'type':'tool_result','tool_use_id':'dispatch-1','content':[{'type':'thinking','thinking':'private'},{'type':'text','text':'returned finding F1'}]}]}}
+        captured=behavior_hosts.capture(json.dumps(raw))['events'][0]
+        self.assertEqual(captured['parent_tool_use_id'],'dispatch-1')
+        self.assertIn('returned finding F1',json.dumps(captured))
+        self.assertNotIn('private',json.dumps(captured))

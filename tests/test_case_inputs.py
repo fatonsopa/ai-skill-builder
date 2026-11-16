@@ -45,3 +45,22 @@ class CaseInputTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);(root/'cases.json').write_text(json.dumps([{'id':'broken','kind':'behavior','request':{},'resources':['missing.md']}]))
             with self.assertRaisesRegex(ValueError,'missing'):freeze(root,{'required_hosts':['codex'],'case_files':[{'path':'cases.json'}]})
+
+
+class BinaryFixtureTests(unittest.TestCase):
+    def test_png_staging_preserves_bytes_and_rejects_wrong_type_and_collisions(self):
+        import base64
+        from case_inputs import stage_sources
+        data=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=')
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);p=root/'evals/fixtures/image.png';p.parent.mkdir(parents=True);p.write_bytes(data)
+            entry={'path':'evals/fixtures/image.png','destination':'image.png','sha256':hashlib.sha256(data).hexdigest(),'media_type':'image/png'}
+            request=prepare_inputs(root,{'request':{'source':{'note.txt':'Read the image.'}},'fixtures':[entry]})
+            stage=root/'stage';stage.mkdir();metadata=stage_sources(stage,request['source'])
+            self.assertEqual((stage/'image.png').read_bytes(),data)
+            self.assertEqual(metadata[-1]['media_type'],'image/png')
+            self.assertNotIn('base64',json.dumps(request))
+            with self.assertRaisesRegex(ValueError,'JPEG'):prepare_inputs(root,{'request':{},'fixtures':[{**entry,'media_type':'image/jpeg'}]})
+            with self.assertRaisesRegex(ValueError,'colliding|Duplicate'):prepare_inputs(root,{'request':{'source':{'image.png/note':'collision'}},'fixtures':[entry]})
+            p.write_bytes(b'changed')
+            with self.assertRaisesRegex(ValueError,'changed'):stage_sources(root/'later',request['source'])

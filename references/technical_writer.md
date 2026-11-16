@@ -46,3 +46,9 @@ Run `scripts/run_tests.py --execute` for impacted checks. The integration tests 
 ## If it fails
 
 Read `document_check.findings` in the lifecycle response and retain the failed attempt. Supply missing sessions or repair failed document checks through Technical Writer, then refresh the review packet. A later failed validation invalidates earlier acceptance for the current candidate; the runner retains its earlier receipts. If candidate bytes change, reevaluate the candidate and validate the changed documents again. A changed or unavailable Technical Writer dependency requires a new run with the intended skill installed.
+
+## Planning documents and explicit instruction formats
+
+A completed `plan` or `specify` run can validate actual authored files without an evaluated candidate. Declare their relative `document_paths` in the request, then call `validate-documents --run RUN --document-root AUTHORED_FOLDER --manifest MANIFEST.json`. The runner captures a separate immutable `documents` snapshot and validates those exact bytes against the accepted request/objective. A changed draft requires a versioned run; a candidate is never fabricated. Unsupported formats and stale sessions still block acceptance.
+
+Use Technical Writer's catalogue-derived `--kind` help and its explicit `context.instruction_format`: `project`, `subagent` or the supported `codex-toml` route. Preserve the verified interpreter through every dependent call. A review operation does not establish complete creation validation.

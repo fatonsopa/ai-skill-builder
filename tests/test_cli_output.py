@@ -160,3 +160,19 @@ class CliOutputTests(unittest.TestCase):
             status = subprocess.run(cli + ['status', '--run', str(run)], capture_output=True, text=True, check=True)
             self.assertLess(len(status.stdout), 4096)
             self.assertEqual(json.loads(status.stdout)['run_id'], state['run_id'])
+
+
+class SourceRecoveryTests(unittest.TestCase):
+    def test_omitted_middle_and_tail_are_recovered_from_one_revision(self):
+        from runtime.common import read_source, source_reference, Invalid
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'source.md'
+            path.write_text('Opening\n'+'A long ordinary clause.\n'*500+'Only release after actual approval.\nUnless the scoped waiver applies.\n')
+            ref=source_reference(path,100)
+            self.assertFalse(ref['complete']);self.assertNotIn('text',ref)
+            row=read_source(path,ref['sha256'],502,503)
+            self.assertIn('Unless',row['text']);self.assertTrue(row['complete_section'])
+            path.write_text('new revision')
+            with self.assertRaisesRegex(Invalid,'revision changed'):read_source(path,ref['sha256'],1,1)
+            small=source_reference(path)
+            self.assertTrue(small['complete']);self.assertEqual(small['text'],'new revision')

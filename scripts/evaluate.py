@@ -30,11 +30,11 @@ def write_json(path, value):
     os.replace(temporary, path)
 
 
-def run_process(command, *, input, cwd, timeout):
+def run_process(command, *, input, cwd, timeout, env=None):
     """Bound the whole process group, including children holding output pipes."""
     process = subprocess.Popen(
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, cwd=cwd, shell=False, start_new_session=True,
+        text=True, cwd=cwd, shell=False, start_new_session=True, env=env,
     )
     try:
         stdout, stderr = process.communicate(input=input, timeout=timeout)
@@ -113,10 +113,10 @@ def process_metrics(attempts, suite):
             "limits": "Declared workflow-case results; not universal skill accuracy or proof of unobserved model behavior."}
 
 
-from case_inputs import prepare_inputs
+from case_inputs import prepare_inputs, stage_sources
 
 
-def behavior_packet(package, case):
+def behavior_packet(package, case, input_dir=None):
     """Inputs for a fresh performing context; expected answers are excluded."""
     package = Path(package).resolve()
     resources = {}
@@ -128,8 +128,19 @@ def behavior_packet(package, case):
         if relative.parts[0] in {'evals', 'tests', 'tools'} or relative.suffix == '.py' and (relative.name.startswith('test_') or relative.name.endswith('.test.py')):
             raise ValueError('Performing resources cannot include evaluation answers or development controls: ' + name)
         resources[name] = path.read_text()
+    request = prepare_inputs(package, case)
+    source = request.get('source') if isinstance(request, dict) else None
+    if isinstance(source, dict) and any(isinstance(v, dict) for v in source.values()):
+        if input_dir is None:
+            raise ValueError('Binary behavioral packets require --input-dir for isolated file staging.')
+        staging = Path(input_dir).resolve()
+        if staging.exists() or staging.is_relative_to(package):
+            raise ValueError('Choose a new input directory outside the package.')
+        staging.mkdir(parents=True)
+        request['input_files'] = stage_sources(staging, request.pop('source'))
+        request['source_path'] = str(staging)
     return {"case_id": case["id"], "case_sha256": json_hash(case), "package_hashes": hash_tree(package),
-            "request": prepare_inputs(package, case), "skill": (package / "SKILL.md").read_text(), "resources": resources,
+            "request": request, "skill": (package / "SKILL.md").read_text(), "resources": resources,
             "role": "performing_agent", "instructions": "Use the actual skill for this task in a fresh context. Capture public messages, tool calls and artifacts. Do not claim tools ran when unavailable. Return the requested result; this packet does not contain the grader's expected answer."}
 
 
@@ -438,6 +449,7 @@ def main():
     parser.add_argument("--case", action="append", help="Run only these exact frozen case IDs.")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--behavior-packet", help="Export one performing-agent task without expected answers.")
+    parser.add_argument("--input-dir", type=Path, help="New isolated file-staging directory for binary task inputs.")
     parser.add_argument("--observations", type=Path, help="Captured fresh AI behavior, bound to case and artifact hashes.")
     parser.add_argument("--allow-exec", action="store_true")
     parser.add_argument("--session", type=Path, help="Bounded local maintenance records outside the package.")
@@ -452,7 +464,7 @@ def main():
         matches = [case for case in suite if case["id"] == args.behavior_packet and case["kind"] == "behavior"]
         if len(matches) != 1:
             parser.error("Select one declared behavioral case.")
-        print(json.dumps(behavior_packet(args.package, matches[0]), indent=2))
+        print(json.dumps(behavior_packet(args.package, matches[0], args.input_dir), indent=2))
         return 0
     if args.case:
         known = {case["id"] for case in suite}

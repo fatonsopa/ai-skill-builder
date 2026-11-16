@@ -41,6 +41,10 @@ Freeze the requested deliverable, allowed edits, definition of done, validation 
 
 ## Decide what belongs in code
 
+Agents author substantive instructions, examples, decisions and review judgments. Code may copy reviewed content, substitute declared literals and serialize fields; it cannot supply missing policy or resolve authority conflicts. For each authored output, name its responsible owner and execution consumers. Review applicability and meaning at that owner before assembly.
+
+Justify each component against a requirement or necessary boundary. A native instruction skill can have no custom automation. Use existing host tools when sufficient; parsing, fragile transformations and durable state can justify scripts. Before removing a framework, identify its useful behavior, safeguards and regression evidence, then retain them or verify a sufficient replacement. A smaller patch or file count is not the objective.
+
 Encode parsing, transformations, file handling, state, schemas, literals, identifiers, required structure, scoring, and stopping rules when their behavior can be defined. Reuse suitable commands. Explain residual AI responsibilities, such as interpreting a novel brief or judging supported prose. An unconstrained prompt behind a script is not an executable contract.
 
 For an AI-assisted runtime, define what enters the AI stage, which structured output returns, what code verifies, and what happens on refusal, malformed output, or uncertainty. Supply the required implementation with the skill, or declare an available supported dependency. The builder's optional CLI model helper generates phase responses; it does not supply a universal runtime to every generated skill.
@@ -79,6 +83,10 @@ Before declaring the generated checks usable, run the scoped test entry point fo
 
 ## Inventory processes and build their tests
 
+Identify workflow steps from user-visible behavior and material boundaries. Parsing, field validation and formatting are implementation details unless their order changes an agreed outcome or risk; a deterministic transformation does not acquire an artificial multi-phase protocol. Reuse the package checker for license, layout and shared-import checks it already performs. Add a case only for a named gap that those gates and existing evidence do not cover.
+
+For a native profile, actual behavioral cases may carry code-checked process assertions for success and relevant omission/order/boundary attempts. A positive native case can declare `workflow.covers: ["success"]` alongside its behavior scenario when the same observation supports both outcomes. Required coverage remains complete, observed traces and semantic review remain mandatory, and absent observations remain unrun. This avoids adding a custom runtime merely to simulate native steps.
+
 Each new skill declares its workflows with triggers, steps and applicable boundaries, branches and recovery paths. During maintenance, inventory the workflows affected by the change and preserve unrelated contracts and cases. During a whole-skill audit or rebuild, inspect the complete inventory against the actual instructions; listing one broad phase cannot hide a multi-step process.
 
 Choose workflow boundaries from how the capability is invoked and completed. A clarification that continues the same review can be a branch of that review; a separately invoked operation with its own result remains a workflow. Preserve the branch's steps, evidence and failure tests either way. Do not split every helper command into a workflow or combine independent operations merely to reduce test obligations.
@@ -96,3 +104,13 @@ For an output workflow whose final summary can introduce unchecked facts, return
 ## Source review
 
 The linked Agent Skills authoring, description and script sections, and Anthropic description guidance, were opened on 2026-11-03. Consult current primary guidance for the decision being changed; [host support](host_support.md#discovery-and-loading) owns client-specific loading responsibilities.
+
+## Current authored contracts and command results
+
+New authoring uses protocol 5. A plan declares `authored_outputs` with `path`, responsible `owner` and execution `consumers`; `components` lists each included executable with requirement IDs and an inclusion reason. `package_profile: native` permits empty automations and omits custom maintenance scripts. `maintained` selects supported mechanics explicitly and retains their necessary imports. Historical protocols remain readable under their captured contracts.
+
+Review case quality before freezing: source clauses, responsible actor, realizable oracle, validity of supposedly clean inputs, actual runtime and correction obligations. Each case records these in `quality`. Supply `case_review` with actual reviewer identity/method, `cases_sha256` from the runtime's canonical digest, an accepted verdict and source-grounded evidence. Code checks this binding; the agent must reject impossible oracles, misleading fixtures and verdict hints. Keep grader expectations out of performing inputs. A correct diagnosis with a faulty proposed correction fails the correction obligation.
+
+Discover commands with the installed entry point's `--help` and `schema PHASE`; reuse the returned schema. Use the verified interpreter, argument arrays and structured outputs. Preserve literal paths such as `$PWD` as data when intended; do not expand them accidentally or guess obsolete helpers. Capture the operation's own exit code and result before logging. A successful logger cannot erase a failed prerequisite, and dependent work stops after that failure.
+
+During production, `instructions` and `repository_instructions` are complete authored content, including applicable host, proportionality, authority and recovery rules. Reconcile shared and project rules under actual authority; no source file can approve its own conflict. The renderer does not append precedence or host policy to current-contract instructions. Route each resource from the authored instructions where it is actually needed.

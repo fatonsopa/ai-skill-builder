@@ -169,3 +169,22 @@ class WorkflowCoverageTests(unittest.TestCase):
         plan['cases'][-1].update(kind='command', command=['{python}', 'scripts/normalize.py'])
         with self.assertRaisesRegex(Invalid, 'real AI behavioral case'):
             check_plan(spec, plan, require_workflows=True)
+
+
+class NativeWorkflowCoverageTests(unittest.TestCase):
+    def test_native_workflow_uses_actual_process_checks_without_invented_runtime(self):
+        from runtime.artifacts import check_plan
+        from runtime.common import validate,digest,Invalid
+        from runtime import contracts
+        flow={'id':'summary','purpose':'Summarize supplied facts','trigger':'A summary request','steps':['inspect','respond'],'boundaries':[],'branches':[],'recovery':[]}
+        spec={'purpose':'Summarize supplied text','inputs':'Supplied facts','outputs':'Source-grounded bullets','requirements':[{'id':'R1','kind':'semantic','text':'Inspect source facts before responding.'},{'id':'R2','kind':'mechanical','text':'Provide a valid skill entry point.'}],'workflows':[flow],'assumptions':[],'ambiguities':[]}
+        quality={'source_clauses':['R1'],'actor':'primary','feasibility':'Observe source inspection and response in actual public evidence.','input_validity':'Use supplied text or a bounded missing-input request.','runtime':'Current host native tools.','correction_obligations':[]}
+        cases=[]
+        for identifier,scenario,covers in [('native-success','behavior',['success']),('missing-inspection','omission',['inspect']),('premature-finish','omission',['respond']),('wrong-order','order',['inspect->respond'])]:
+            cases.append({'id':identifier,'requirements':['R1'],'critical':True,'kind':'behavior','semantic':True,'request':{'instruction':'Summarize the supplied facts and preserve source limits.','source':'A bounded raw text fixture; branch variations must be source-reviewed before execution.'},'resources':['SKILL.md'],'expect':{'exit_code':0,'process':{'order':['inspect','respond'],'visible':['respond'],'evidence':['inspect','respond']}},'workflow':{'id':'summary','scenario':scenario,'covers':covers},'quality':quality})
+        cases.append({'id':'entry-format','requirements':['R2'],'critical':True,'kind':'artifact','semantic':False,'expect':{'exit_code':0,'file':'SKILL.md','contains':['name: native-summary']},'quality':{**quality,'source_clauses':['R2'],'actor':'package checker'}})
+        plan={'domains':[{'name':'native-summary','purpose':'Native source-grounded summaries','owned_paths':['SKILL.md'],'depends_on':[]}],'steps':['Inspect','Respond'],'automations':[],'ai_responsibilities':['Interpret facts and judge the summary.'],'dependencies':[],'resources':[],'cases':cases,'target_success_percent':100,'allowed_candidate_paths':['SKILL.md'],'execution':{'mode':'single','rationale':'One native task owner suffices.','file_workflow':False,'file_reason':'Inputs arrive as text.','bindings':[],'document_context':{'applicable':False,'reason':'No governing project documents.','sources':[]}},'authored_outputs':[{'path':name,'owner':'author','consumers':['primary']} for name in ['SKILL.md','README.md','AGENTS.md','CLAUDE.md']],'components':[],'package_profile':'native','case_review':{'reviewer':{'kind':'authored_control','identity':'test','method':'Schema/coverage control only; no AI observation is claimed.'},'cases_sha256':digest(cases),'accepted':True,'evidence':'Mechanical plan-acceptance fixture; actual scenario meaning and public process require separate review.'}}
+        validate(plan,contracts.PLAN);check_plan(spec,plan,require_workflows=True)
+        self.assertEqual(plan['components'],[])
+        del cases[0]['expect']['process'];plan['case_review']['cases_sha256']=digest(cases)
+        with self.assertRaisesRegex(Invalid,'actual process evidence'):check_plan(spec,plan,require_workflows=True)

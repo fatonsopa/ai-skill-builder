@@ -24,6 +24,10 @@ Publish only within the user's existing explicit authority for this deliverable,
 
 Keep repository workflow rules in AGENTS.md. Always provide CLAUDE.md with an @AGENTS.md import so Claude Code uses the same rules. Preserve this pattern in skills created or maintained by Skill Builder.
 
+## Proportionality
+
+Agents and skills author substantive content and judgments; code executes agreed mechanics. Add components, tests, reviews or evidence only for a named unmet requirement, material risk or unresolved failure. Reuse valid evidence, preserve useful safeguards and repair the responsible owner and consumers. Stop expanding when the agreed criteria pass.
+
 ## Repository maintenance
 
 Use the objective-wide completion policy in [maintenance](references/maintenance.md#freeze-the-delivery-contract). New Builder runs require its persistent policy path; new run directories cannot reset its limits.

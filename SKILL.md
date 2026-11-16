@@ -8,7 +8,9 @@ description: Create, audit, modify, refactor, or rebuild reusable AI skills with
 
 Use this workflow only when explicitly invoked as /skill-builder or the host-specific equivalent.
 
-Turn the requested task into a usable skill whose repeatable mechanics run through code. Use AI for interpretation, writing, and judgments that code cannot adequately perform. Preserve the user's operation, requirements, scope, and existing authorization.
+Turn the requested task into a usable skill. Agents and skills write requirements, policy, prose, findings and code; code executes agreed mechanics. Prefer sufficient native tools. Add a component only for an agreed capability, necessary boundary or evidenced failure, and identify its owner and consumers. Preserve the user's operation, requirements, scope, and existing authorization.
+
+Never over-engineer, over-test or over-validate. Freeze the smallest sufficient checks before execution. Expand only for a named unmet requirement, material risk or unresolved failure. Retain valid evidence and useful safeguards; stop when the agreed criteria pass. Maintenance tooling belongs in ordinary use only when that capability needs it.
 
 ## Use the current host
 

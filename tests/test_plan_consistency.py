@@ -50,3 +50,14 @@ class PlanConsistencyTests(unittest.TestCase):
         plan, case, trace = self.control()
         case['expect']['stdout_json'] = trace
         check_plan(SPEC, plan)
+
+
+class AuthoredCaseReviewTests(unittest.TestCase):
+    def test_impossible_or_stale_case_judgment_stops_before_assembly(self):
+        from runtime.common import digest
+        plan={**deepcopy(PLAN), 'package_profile':'maintained','components':[], 'authored_outputs':[{'path':p,'owner':'author','consumers':['primary']} for p in ['SKILL.md','README.md','AGENTS.md','CLAUDE.md']]}
+        plan['case_review']={'reviewer':{'kind':'authored_control','identity':'test','method':'Bound rejection control'},'cases_sha256':digest(plan['cases']),'accepted':False,'evidence':'The requested boundary cannot occur under this fixture.'}
+        with self.assertRaisesRegex(Invalid,'feasibility'):check_plan(SPEC,plan)
+        plan['case_review']['accepted']=True
+        plan['cases'][0]['stdin']={'id':'changed'}
+        with self.assertRaisesRegex(Invalid,'bound to their actual bytes'):check_plan(SPEC,plan)

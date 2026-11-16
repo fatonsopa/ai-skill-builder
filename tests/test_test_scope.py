@@ -211,3 +211,20 @@ class TestScopeTests(unittest.TestCase):
         result = run_tests.execute(run_tests.plan(self.root, ['source.txt']))
         self.assertTrue(result['passed'])
         self.assertFalse(self.checkpoint.exists())
+
+
+class WritableCheckpointTests(unittest.TestCase):
+    def test_public_checkpoint_option_uses_only_the_authorized_external_file(self):
+        import io,contextlib
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder);root=base/'repo';(root/'config').mkdir(parents=True);(root/'source.txt').write_text('before')
+            config={'schema_version':1,'tests':{'unit':{'argv':['{python}','-c','print("executed")']}},'rules':[{'paths':['source.txt'],'tests':['unit']}],'final_checks':{}}
+            (root/'config/test_impact.json').write_text(json.dumps(config))
+            checkpoint=base/'task-checkpoint.json';checkpoint.write_text(json.dumps({'root':str(root),'files':inventory(root),'test_sources':{}}))
+            (root/'source.txt').write_text('after');report=base/'result.json'
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                code=run_tests.main(['--package',str(root),'--checkpoint',str(checkpoint),'--execute','--report',str(report)])
+            self.assertEqual(code,0);self.assertTrue(json.loads(report.read_text())['passed'])
+            self.assertEqual(json.loads(checkpoint.read_text())['files'],inventory(root))
+            with self.assertRaisesRegex(ValueError,'outside the package'):
+                run_tests.plan(root,['source.txt'],checkpoint=root/'internal-checkpoint.json')

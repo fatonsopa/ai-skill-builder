@@ -36,3 +36,7 @@ The [Agent Skills specification](https://agentskills.io/specification) defines t
 Generate AGENTS.md and CLAUDE.md for every new skill. AGENTS.md owns the shared rules; CLAUDE.md imports it with `@AGENTS.md`, following [Claude Code's documented import pattern](https://code.claude.com/docs/en/memory#share-one-file-with-other-coding-tools). These are repository maintenance instructions, separate from SKILL.md's task workflow.
 
 Run impacted tests during editing and the full relevant suite for the final candidate before commit/push. Push only after the user's explicit approval covering the completed batch. Preserve project-specific instructions when rebuilding, reconcile conflicts with current authorization, and review both instruction files before accepting delivery.
+
+## Capability-specific mechanics
+
+Protocol 5 selects `native` or `maintained` package contents from reviewed component declarations. Native skills retain their entry point, shared repository instructions, public documentation, license, declared resources and evaluation cases without an unrelated maintenance runtime. Maintained skills include only justified supported scripts and required imports. A missing dependency fails assembly. Update real domain ownership, loaded-resource consumers, public claims and impact rules together when resources move; review content location and repeated roster facts as well as link syntax.

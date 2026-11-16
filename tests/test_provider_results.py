@@ -192,3 +192,17 @@ class ProviderResultTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PublicApiCaptureTests(unittest.TestCase):
+    def test_linked_public_dispatch_return_and_image_view_exclude_reasoning(self):
+        from provider_results import codex_public_capture
+        parent={'thread':{'id':'parent','cwd':'/tmp/witness'},'page':{'hasMore':False},'turns':[{'id':'p1','status':'completed','items':[{'type':'reasoning','content':['private']},{'type':'subAgentActivity','id':'dispatch','kind':'started','agentThreadId':'worker'}]}]}
+        child={'thread':{'id':'worker','cwd':'/tmp/witness'},'page':{'hasMore':False},'turns':[{'id':'c1','status':'completed','items':[{'type':'imageView','path':'/tmp/witness/input.png'},{'type':'agentMessage','text':'Candidate return'}]}]}
+        result=codex_public_capture([parent,child],'parent','/tmp/witness')
+        self.assertNotIn('private',json.dumps(result['threads']))
+        self.assertIn('Candidate return',json.dumps(result['threads']))
+        with self.assertRaisesRegex(ValueError,'Unrelated'):
+            codex_public_capture([parent,{**child,'thread':{'id':'unrelated','cwd':'/tmp/witness'}}],'parent','/tmp/witness')
+        with self.assertRaisesRegex(ValueError,'omitted'):
+            codex_public_capture([{**parent,'page':{'hasMore':True}},child],'parent','/tmp/witness')

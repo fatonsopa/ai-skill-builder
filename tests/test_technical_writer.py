@@ -217,5 +217,30 @@ class TechnicalWriterTests(unittest.TestCase):
             writer.validate_documents(self.run, manifest)
 
 
+
+class PlanningDocumentTests(unittest.TestCase):
+    setUp = TechnicalWriterTests.setUp
+
+    def test_planning_acceptance_uses_actual_documents_without_a_candidate(self):
+        from fixtures import RESEARCH,SPEC
+        from runtime.common import digest
+        source=self.root/'source';source.mkdir();(source/'SKILL.md').write_text('Captured planning source.')
+        workflow.start(self.run,{'operation':'specify','skill_name':'plan-control','brief':'Specify the scoped change.','source':str(source),'document_paths':['plan.md']},protocol_version=1)
+        for data in (RESEARCH,SPEC):
+            packet=workflow.packet(self.run)
+            workflow.submit(self.run,{**{k:packet[k] for k in ('run_id','phase','packet_sha256')},'data':deepcopy(data)})
+        authored=self.root/'authored';authored.mkdir();draft=authored/'plan.md';draft.write_text('# Scoped plan\n\nPreserve the supplied requirements.\n')
+        state=workflow.read_state(self.run);session=self.root/'document-session'
+        save(session/'state.json',{'frozen':{'request':{'kind':'explanation','operation':'review','scope':'complete','context':{},'sources':[{'id':'builder','text':writer.source_text(state)}],'destination':str(self.root/'accepted-plan.md')}}})
+        review=session/'review.json';save(review,{'output_sha256':digest(draft.read_bytes()),'accepted':True,'checks_passed':True,'style_passed':True})
+        manifest=self.root/'manifest.json';save(manifest,[{'path':'plan.md','session':str(session),'review':str(review)}])
+        result=writer.validate_documents(self.run,manifest,authored)
+        self.assertTrue(result['passed']);self.assertFalse((self.run/'candidate').exists())
+        current=workflow.read_state(self.run)
+        self.assertNotIn('evaluation',current)
+        self.assertEqual((self.root/'accepted-plan.md').read_bytes(),draft.read_bytes())
+        (self.run/'documents/plan.md').write_text('Changed after acceptance.')
+        self.assertFalse(writer.gate(self.run,current,inventory(self.run/'documents'))['passed'])
+
 if __name__ == '__main__':
     unittest.main()

@@ -7,7 +7,7 @@ import sys
 
 import yaml
 
-from .common import Invalid, digest, inventory, load, save
+from .common import Invalid, digest, inventory, load, save, inside, copy_package, source_reference
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCUMENT_SUFFIXES = {'.md', '.markdown', '.mdown', '.rst', '.adoc', '.asciidoc', '.txt', '.html', '.htm', '.tex', '.svg', '.xml', '.pdf', '.docx', '.odt', '.mdx', '.text', '.qmd', '.rmd', '.rtf', '.doc', '.prompt', '.j2', '.jinja', '.jinja2', '.tmpl', '.template', '.ipynb'}
@@ -45,7 +45,7 @@ def guidance(state):
     if not state['technical_writer'].get('files'):
         return state['technical_writer']
     root = dependency(state)
-    return {'path': str(root), 'guidance': {name: (root / name).read_text() for name in ('SKILL.md', 'references/writing_style.md')},
+    return {'path': str(root), 'guidance': {name: source_reference(root / name) if state.get('protocol_version', 1) >= 5 else (root / name).read_text() for name in ('SKILL.md', 'references/writing_style.md')},
             'validation': 'Use this skill and its applicable references for every document. Supply accepted validate_document.py sessions with validate-documents before delivery. Writing rules belong to Technical Writer.'}
 
 
@@ -86,16 +86,34 @@ def call(state, *args):
         raise Invalid('Technical Writer could not validate the document: ' + str(error)) from error
 
 
-def validate_documents(root, manifest):
+def validate_documents(root, manifest, document_root=None):
     from .workflow import read_state
     root = Path(root).resolve()
     state = read_state(root)
-    if state['phase'] != 'review' or state['status'] != 'awaiting_ai':
-        raise Invalid('Validate documents after candidate evaluation and before review.')
+    planning = state['request']['operation'] in {'plan', 'specify'}
+    if planning:
+        if state['phase'] != 'complete' or not state['request'].get('document_paths'):
+            raise Invalid('Complete the planning phases and declare actual document_paths first.')
+        package = root / 'documents'
+        if document_root is not None:
+            if package.exists():
+                raise Invalid('Planning document snapshot already exists; preserve it and start a versioned run for changed content.')
+            copy_package(document_root, package)
+        if not package.is_dir():
+            raise Invalid('Supply --document-root with the authored planning files.')
+        files = inventory(package)
+        if set(files) != set(state['request']['document_paths']):
+            raise Invalid('Planning documents must match declared document_paths exactly.')
+    else:
+        if state['phase'] != 'review' or state['status'] != 'awaiting_ai':
+            raise Invalid('Validate documents after candidate evaluation and before review.')
+        if document_root is not None:
+            raise Invalid('Evaluated candidates use their captured document root.')
+        package = root / 'candidate'
+        files = inventory(package)
+        if files != state['evaluation']['package_hashes']:
+            raise Invalid('Candidate changed after evaluation; reevaluate it.')
     dependency(state)
-    files = inventory(root / 'candidate')
-    if files != state['evaluation']['package_hashes']:
-        raise Invalid('Candidate changed after evaluation; reevaluate it.')
     expected = documents(state, files)
     rows = load(manifest)
     attempt = {'manifest_sha256': digest(Path(manifest).read_bytes()), 'status': 'not_accepted', 'previous_validation': state.pop('document_validation', None)}
@@ -109,7 +127,7 @@ def validate_documents(root, manifest):
     for row in rows:
         name = row['path']
         session, review = Path(row['session']).resolve(), Path(row['review']).resolve()
-        if session.is_relative_to(root / 'candidate') or review.is_relative_to(root / 'candidate'):
+        if session.is_relative_to(package) or review.is_relative_to(package):
             raise Invalid('Keep Technical Writer validation evidence outside the candidate.')
         request = load(session / 'state.json')['frozen']['request']
         if request.get('scope') != 'complete':
@@ -117,23 +135,37 @@ def validate_documents(root, manifest):
         if not any(source.get('text') == source_text(state) for source in request['sources']):
             raise Invalid('Technical Writer session is not bound to this Skill Builder request and objective: ' + name)
         required_kind = 'skill' if Path(name).name == 'SKILL.md' else 'readme' if Path(name).name == 'README.md' else 'agent' if Path(name).name == 'AGENTS.md' else None
+        role_hosts = [asset['host'] for role in state['data'].get('plan', {}).get('execution', {}).get('roles', []) for asset in role['assets'] if asset['path'] == name]
+        expected_format = 'project' if Path(name).name == 'AGENTS.md' else 'codex-toml' if 'codex' in role_hosts else 'subagent' if 'claude-code' in role_hosts else None
+        if role_hosts:
+            required_kind = 'agent'
+        if expected_format and request.get('context', {}).get('instruction_format') != expected_format:
+            raise Invalid('Select the actual instruction format ' + expected_format + ' for ' + name)
         if required_kind and (request['kind'] != required_kind or request['operation'] == 'review'):
             raise Invalid('Use the complete Technical Writer document contract for ' + name)
         destination = Path(request['destination']).resolve()
-        if destination.is_relative_to(root / 'candidate') or state.get('source') and destination.is_relative_to(Path(state['source'])):
+        if destination.is_relative_to(package) or state.get('source') and destination.is_relative_to(Path(state['source'])):
             raise Invalid('Technical Writer must finalize to a separate validation copy, preserving the candidate and source.')
-        result = call(state, 'finalize', '--session', session, '--draft', root / 'candidate' / name, '--review', review)
+        result = call(state, 'finalize', '--session', session, '--draft', package / name, '--review', review)
         if result.get('status') != 'delivered' or result.get('output_sha256') != expected[name] or digest(destination.read_bytes()) != expected[name]:
             raise Invalid('Technical Writer did not accept these exact document bytes: ' + name)
         evidence.append({'path': name, 'session': str(session), 'review': str(review), 'files': {str(path): digest(path.read_bytes()) for path in (session / 'state.json', session / 'delivery.json', session / 'message.md', review)}, 'destination': str(destination)})
-    if inventory(root / 'candidate') != files:
+    if inventory(package) != files:
         raise Invalid('Candidate changed during document validation.')
     receipt = {'documents': expected, 'objective_sha256': state.get('objective_sha256'), 'evidence': evidence}
     record = root / 'document-validations' / (digest(receipt) + '.json')
     save(record, receipt)
     state['document_validation'] = {'record': str(record), 'sha256': digest(record.read_bytes())}
     attempt.update(status='accepted', validation=state['document_validation'])
+    if planning:
+        state['document_artifact'] = {'root': str(package), 'files': files}
+        state['document_check'] = gate(root, state, files)
+        if not state['document_check']['passed']:
+            raise Invalid('Planning document acceptance failed.')
     save(root / 'state.json', state)
+    if planning:
+        from . import completion
+        completion.sync_native(root, state)
     return {'passed': True, 'documents': sorted(expected), 'record': str(record)}
 
 

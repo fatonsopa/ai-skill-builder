@@ -19,13 +19,18 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def state_path(root):
+def state_path(root, checkpoint=None):
+    if checkpoint is not None:
+        path = Path(checkpoint).expanduser().resolve()
+        if path.is_relative_to(Path(root).resolve()):
+            raise ValueError('Keep test checkpoints outside the package in an authorized writable location.')
+        return path
     return Path.home() / '.cache/skill-test-runs' / (digest(str(Path(root).resolve())) + '.json')
 
 
-def changed_files(root):
+def changed_files(root, checkpoint=None):
     current = inventory(root)
-    checkpoint = state_path(root)
+    checkpoint = state_path(root, checkpoint)
     if checkpoint.exists():
         previous = json.loads(checkpoint.read_text())
         if Path(previous.get('root', '')).resolve() != Path(root).resolve():
@@ -95,11 +100,11 @@ def verify_implementation_complete(root, completion_record):
             'limits': 'Checks declared implementation-step coverage and artifact identity. The author must verify the actual plan inventory and delivery evidence; this is not user approval or proof that final tests passed.'}
 
 
-def changed_test_methods(root, path):
+def changed_test_methods(root, path, checkpoint=None):
     current = Path(root) / path
     if not current.is_file() or not current.name.startswith('test_') or current.suffix != '.py':
         return None
-    checkpoint = state_path(root)
+    checkpoint = state_path(root, checkpoint)
     before = json.loads(checkpoint.read_text()).get('test_sources', {}).get(path) if checkpoint.exists() else None
     def parts(text):
         tree = ast.parse(text)
@@ -124,12 +129,12 @@ def changed_test_methods(root, path):
     return selected
 
 
-def plan(root=ROOT, changed=None, full=False, completion_record=None, authorization=None):
+def plan(root=ROOT, changed=None, full=False, completion_record=None, authorization=None, checkpoint=None):
     root = Path(root).resolve()
     config = json.loads((root / 'config/test_impact.json').read_text())
     if config.get('schema_version') != 1 or not isinstance(config.get('tests'), dict):
         raise ValueError('Invalid test impact configuration.')
-    paths = changed_files(root) if changed is None else sorted(set(changed))
+    paths = changed_files(root, checkpoint) if changed is None else sorted(set(changed))
     for name in paths:
         if not name or Path(name).is_absolute() or '..' in Path(name).parts:
             raise ValueError('Changed files must be repository-relative paths.')
@@ -142,7 +147,7 @@ def plan(root=ROOT, changed=None, full=False, completion_record=None, authorizat
         config = {**config, 'tests': config['final_checks']}
     else:
         for path in paths:
-            methods = changed_test_methods(root, path)
+            methods = changed_test_methods(root, path, checkpoint)
             if methods is not None:
                 identifier = 'changed:' + path
                 argv = ['{python}', '-m', 'unittest', 'discover', '-s', str(Path(path).parent), '-p', Path(path).name]
@@ -198,7 +203,7 @@ def plan(root=ROOT, changed=None, full=False, completion_record=None, authorizat
                     check['argv'] += ['-k', pattern]
             check.pop('_filters')
         checks.append(check)
-    return {'mode': 'full' if full else 'impacted', 'root': str(root), 'changed_files': paths, 'artifact_sha256': digest(inventory(root)), 'checks': checks, 'skipped': skipped, 'unmapped': unmapped, 'executable': not unmapped, **({'implementation_completion': completion} if full else {})}
+    return {'checkpoint': str(state_path(root, checkpoint)), 'mode': 'full' if full else 'impacted', 'root': str(root), 'changed_files': paths, 'artifact_sha256': digest(inventory(root)), 'checks': checks, 'skipped': skipped, 'unmapped': unmapped, 'executable': not unmapped, **({'implementation_completion': completion} if full else {})}
 
 
 def execute(selection):
@@ -221,11 +226,11 @@ def execute(selection):
     passed = all(row['passed'] for row in results) and digest(current) == selection['artifact_sha256']
     if passed:
         try:
-            pending = changed_files(selection['root'])
+            pending = changed_files(selection['root'], selection.get('checkpoint'))
         except ValueError:
             pending = None
         if selection['mode'] == 'full' or pending is not None and set(pending) <= set(selection['changed_files']):
-            checkpoint = state_path(selection['root'])
+            checkpoint = state_path(selection['root'], selection.get('checkpoint'))
             checkpoint.parent.mkdir(parents=True, exist_ok=True)
             checkpoint.write_text(json.dumps({'schema_version': 1, 'root': selection['root'], 'files': current, 'mode': selection['mode'], 'tested_files': selection['changed_files'], 'passed': True, 'test_sources': {p.relative_to(Path(selection['root'])).as_posix(): p.read_text() for folder in ('tests', 'scripts') if (Path(selection['root']) / folder).exists() for p in (Path(selection['root']) / folder).glob('test_*.py')}}, indent=2))
     return {**selection, 'passed': passed, 'results': results, 'limits': 'Impact rules select related checks. This runner does not authorize a push.'}
@@ -239,9 +244,10 @@ def main(argv=None):
     parser.add_argument('--full', action='store_true')
     parser.add_argument('--completion-record', '--authorization', dest='completion_record', type=Path, help='Author-verified implementation completion bound to artifact_sha256; no user approval. --authorization is a legacy flag alias for the same new record.')
     parser.add_argument('--report', type=Path)
+    parser.add_argument('--checkpoint', type=Path, help='External checkpoint file in an authorized writable location; defaults to the existing user cache.')
     args = parser.parse_args(argv)
     try:
-        result = plan(args.package, args.changed, args.full, args.completion_record)
+        result = plan(args.package, args.changed, args.full, args.completion_record, checkpoint=args.checkpoint)
         if args.execute:
             result = execute(result)
         text = json.dumps(result, indent=2)

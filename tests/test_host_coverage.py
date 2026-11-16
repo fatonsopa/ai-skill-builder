@@ -387,5 +387,51 @@ class PublicDeliveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'No actual public'):
             public_delivery_match(self.report, '001-case')
 
+
+class ScopedHostTests(unittest.TestCase):
+    setUp = HostCoverageTests.setUp
+    bundle = HostCoverageTests.bundle
+    def test_explicit_inapplicability_is_frozen_but_case_required_hosts_cannot_be_skipped(self):
+        other={**self.case,'id':'other'}
+        (self.package/'evals/cases.json').write_text(json.dumps([self.case,other]))
+        config={**self.config,'applicability':[{'case_id':'other','host':'claude-code','required':False,'reason':'Focused domain method; native integration remains covered by audit.'}]}
+        plan=matrix.freeze(self.package,config)
+        self.assertEqual(len([c for c in plan['cells'] if c['required']]),3)
+        other['required_hosts']=['codex','claude-code']
+        (self.package/'evals/cases.json').write_text(json.dumps([self.case,other]))
+        with self.assertRaisesRegex(ValueError,'cannot be omitted'):matrix.freeze(self.package,config)
+
+    def test_reviewed_unchanged_dependencies_retain_original_host_evidence(self):
+        config={**self.config,'case_dependencies':{'audit':['SKILL.md']},'dependency_reviews':{'audit':{'accepted':True,'reviewer':'authored control','evidence':'Only entry instructions govern this source-free task.'}}}
+        old=matrix.freeze(self.package,config);source=self.root/'original-plan.json';source.write_text(json.dumps(old))
+        bundle=self.bundle('codex')
+        (self.package/'notes.txt').write_text('An unrelated addition.')
+        current=matrix.freeze(self.package,config)
+        with self.assertRaisesRegex(ValueError,'equivalence review'):matrix.assess(current,self.package,[bundle])
+        report_hash=matrix.digest(Path(bundle['report']).read_bytes())
+        bundle['reuse']={'source_plan':str(source),'current_plan_sha256':current['plan_sha256'],'report_sha256':report_hash,'accepted':True,'reviewer':{'kind':'authored_control','identity':'test','method':'Compare declared inputs'},'rationale':'Only unrelated notes changed; original artifact remains explicit.'}
+        result=matrix.assess(current,self.package,[bundle])
+        self.assertTrue(result['attempt_history'][0]['retained'])
+        self.assertFalse(result['accepted'])
+        (self.package/'SKILL.md').write_text('Changed governing instructions.')
+        changed=matrix.freeze(self.package,config);bundle['reuse']['current_plan_sha256']=changed['plan_sha256']
+        with self.assertRaisesRegex(ValueError,'dependencies'):matrix.assess(changed,self.package,[bundle])
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class LegacyEquivalenceTests(unittest.TestCase):
+    setUp = HostCoverageTests.setUp
+    bundle = HostCoverageTests.bundle
+
+    def test_explicit_equivalence_cannot_waive_changed_instructions_or_criteria(self):
+        source=self.root/'original-plan.json';source.write_text(json.dumps(self.plan))
+        bundle=self.bundle('codex')
+        (self.package/'metadata.json').write_text('{"unrelated":true}')
+        current=matrix.freeze(self.package,self.config)
+        bundle['reuse']={'source_plan':str(source),'current_plan_sha256':current['plan_sha256'],'report_sha256':matrix.digest(Path(bundle['report']).read_bytes()),'accepted':True,'reviewer':{'kind':'authored_control','identity':'test','method':'Inspect exact changed files and their consumers'},'rationale':'The added metadata is outside this source-free native audit task.','equivalent_changes':[{'path':'metadata.json','before_sha256':None,'after_sha256':current['package_hashes']['metadata.json'],'reason':'No task input, instruction, criterion, authority or profile changed.'}]}
+        result=matrix.assess(current,self.package,[bundle]);self.assertTrue(result['attempt_history'][0]['retained']);self.assertFalse(result['accepted'])
+        (self.package/'SKILL.md').write_text('Changed instructions.')
+        changed=matrix.freeze(self.package,self.config);bundle['reuse']['current_plan_sha256']=changed['plan_sha256'];bundle['reuse']['equivalent_changes'].append({'path':'SKILL.md','before_sha256':self.plan['package_hashes']['SKILL.md'],'after_sha256':changed['package_hashes']['SKILL.md'],'reason':'A declared equivalence cannot waive changed governing instructions.'})
+        with self.assertRaisesRegex(ValueError,'governing instructions'):matrix.assess(changed,self.package,[bundle])
