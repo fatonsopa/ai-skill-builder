@@ -15,7 +15,7 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from evaluate import run_process, json_hash
+from evaluate import run_process, json_hash, write_json
 from case_inputs import prepare_inputs, stage_sources
 from repository_files import inventory, copy_repository, skill_name, PRIVATE_DIRS
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -138,6 +138,8 @@ def run(config_path, output, executable=None):
         if type(config.get(field)) is not int or config[field] < 0 or (field == 'max_seconds' and not config[field]):
             raise ValueError('Configure a bounded invocation/time allowance.')
     effort = config.get('reasoning_effort')
+    if type(config.get('capture_content', False)) is not bool:
+        raise ValueError('capture_content must be an explicit boolean; metadata-only capture is the default.')
     if effort is not None and (not isinstance(effort, str) or effort not in {'low', 'medium', 'high', 'xhigh'}):
         raise ValueError('Select a supported reasoning effort or preserve the host default.')
     sandbox = config.get('sandbox_mode', 'host-tools' if host == 'claude-code' else 'workspace-write')
@@ -294,13 +296,20 @@ def run(config_path, output, executable=None):
             calls += 1
             save(output / 'allowance.json', {'max_invocations': config['max_invocations'], 'used': calls, 'max_seconds': config['max_seconds']})
             call_started = time.monotonic()
+            live_events = []
+            def capture_line(line):
+                events = behavior_hosts.capture(line)['events'] if host == 'claude-code' else public_events(line)
+                if events:
+                    live_events.extend({**(event if config.get('capture_content', False) else behavior_hosts.event_metadata(event)), 'captured_at_unix': time.time()} for event in events)
+                    write_json(folder / 'public-events.json', live_events)
             try:
                 environment = dict(os.environ)
                 if 'technical-writer' in dependencies:
                     environment['SKILL_BUILDER_TECHNICAL_WRITER'] = dependencies['technical-writer']['path']
-                result = run_process(argv, input=prompt, cwd=work, timeout=min(remaining, config.get('per_call_seconds', 180)), **({'env': environment} if dependencies else {}))
+                result = run_process(argv, input=prompt, cwd=work, timeout=min(remaining, config.get('per_call_seconds', 180)), on_stdout_line=capture_line, **({'env': environment} if dependencies else {}))
                 captured = behavior_hosts.capture(result.stdout) if host == 'claude-code' else None
-                events = captured['events'] if captured else public_events(result.stdout)
+                parsed_events = captured['events'] if captured else public_events(result.stdout)
+                events = live_events or [event if config.get('capture_content', False) else behavior_hosts.event_metadata(event) for event in parsed_events]
                 if captured and captured['final'] is not None:
                     final.write_text(captured['final'])
                 save(folder / 'public-events.json', events)
@@ -319,6 +328,7 @@ def run(config_path, output, executable=None):
                 if captured:
                     row['resolved_model'] = captured['resolved_model']
                 row['execution_host'] = host
+                row['capture_content'] = config.get('capture_content', False)
                 if captured and captured['provider_error']:
                     execution_block = captured['provider_error']
                     row.update(provider_error=execution_block, failure_kind='provider_usage_limit')
@@ -332,7 +342,8 @@ def run(config_path, output, executable=None):
                     row.update(status='pending_review', output=final.read_text(), provenance={'kind': 'provider_cli', 'host': host, 'model': config['model'], 'source': str(folder / 'public-events.json')})
             except subprocess.TimeoutExpired as error:
                 captured_timeout = behavior_hosts.capture(error.output or '') if host == 'claude-code' else None
-                partial = captured_timeout['events'] if captured_timeout else public_events(error.output or '')
+                parsed_events = captured_timeout['events'] if captured_timeout else public_events(error.output or '')
+                partial = live_events or [event if config.get('capture_content', False) else behavior_hosts.event_metadata(event) for event in parsed_events]
                 if captured_timeout and captured_timeout['provider_error']:
                     execution_block = captured_timeout['provider_error']
                     row.update(provider_error=execution_block)

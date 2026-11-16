@@ -1,5 +1,6 @@
 """Objective-wide completion controls; trusted local workflow state, not a sandbox."""
 import fnmatch
+import json
 from pathlib import Path
 import subprocess
 import time
@@ -121,7 +122,7 @@ def enroll(path, run, request):
     path, run = Path(path).resolve(), Path(run).resolve()
     state = read(path)
     if not run.is_relative_to(Path(state['workspace'])) or run.is_relative_to(Path(state['contract']['project'])):
-        raise Invalid('The run must use the completion workspace outside the project.')
+        raise Invalid(f"The run must use the completion workspace outside the project: workspace={state['workspace']}, project={state['contract']['project']}, requested_run={run}.")
     if request.get('source') and Path(request['source']).resolve() != Path(state['contract']['project']):
         raise Invalid('The run targets a different completion project.')
     if request.get('checkpoint'):
@@ -182,9 +183,21 @@ def freeze_plan(state, spec, plan):
                           for identifier in [c['id'], *c.get('test_ids', [])]}
         behavior_ids = {c.get('case_id', c['id']) for c in checks.values() if c['kind'] == 'behavior'}
         if state['request']['operation'] not in ('audit', 'plan', 'specify'):
+            unbound = []
             for case in plan['cases']:
-                if case['id'] not in (behavior_ids if case.get('kind', 'command') == 'behavior' else mechanical_ids):
-                    raise Invalid('Plan adds validation outside the frozen completion check list; use declared mechanical test_ids or a behavioral case_id.')
+                group = case.get('completion_check')
+                if group is not None:
+                    check = checks.get(group)
+                    if case.get('kind', 'command') == 'behavior' or not check or check['kind'] != 'mechanical' or ('test_ids' in check and case['id'] not in check['test_ids']):
+                        raise Invalid(f"Case {case['id']} has an invalid mechanical completion_check: {group}. Existing explicit test_ids and behavioral case_id bindings remain fixed.")
+                elif case['id'] not in (behavior_ids if case.get('kind', 'command') == 'behavior' else mechanical_ids):
+                    unbound.append(case['id'])
+            if unbound:
+                raise Invalid('Plan adds validation outside the frozen completion check list: '
+                              + json.dumps({'unbound_case_ids': unbound,
+                                            'declared_mechanical_ids': sorted(mechanical_ids),
+                                            'declared_behavior_ids': sorted(behavior_ids)}, sort_keys=True)
+                              + '. The plan was not frozen. Bind legitimate mechanical members to an existing group with completion_check; explicit test_ids remain fixed. Correct the response to the agreed checks. Use completion-amend only for an authorized material change; that amendment requires a new run with the same policy and retained budget.')
             scope = policy['contract']['scope']
             if any(not any(fnmatch.fnmatchcase(name, pattern) for pattern in scope) for name in plan.get('allowed_candidate_paths', [])):
                 raise Invalid('Completion scope and dependencies are relative to the project root, not the workspace or destination prefix. Resolve the declared edit scope before production.')
@@ -443,7 +456,8 @@ def sync_native(root, state, review=None):
         elif check['kind'] == 'report':
             passed = state['request']['operation'] in ('audit', 'plan', 'specify') and state.get('phase') == 'complete'
         elif check['kind'] == 'mechanical':
-            result = [rows.get(identifier) for identifier in check.get('test_ids', [check['id']])]
+            members = [case['id'] for case in policy.get('plan', {}).get('plan', {}).get('cases', []) if case.get('completion_check') == check['id']]
+            result = [rows.get(identifier) for identifier in check.get('test_ids', members or [check['id']])]
             passed = bool(result) and all(row and row.get('status') == 'passed' for row in result)
         else:
             passed = bool(result and result.get('status') == 'passed')

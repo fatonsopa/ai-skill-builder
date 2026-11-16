@@ -176,3 +176,31 @@ class SourceRecoveryTests(unittest.TestCase):
             with self.assertRaisesRegex(Invalid,'revision changed'):read_source(path,ref['sha256'],1,1)
             small=source_reference(path)
             self.assertTrue(small['complete']);self.assertEqual(small['text'],'new revision')
+
+
+class IsolatedCliEntryTests(unittest.TestCase):
+    def test_isolated_python_resolves_the_actual_package_from_another_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run([sys.executable, '-I', str(ROOT / 'scripts/skill_builder_cli.py'), 'schema', 'request'],
+                                    cwd=directory, text=True, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('operation', json.loads(result.stdout)['properties'])
+
+
+class RejectedOperationLoggingTests(unittest.TestCase):
+    def test_rejected_cli_operation_records_correlated_metadata_without_reason_content(self):
+        import contextlib, io
+        from skill_builder_cli import main
+        writer_fixture(self)
+        with tempfile.TemporaryDirectory() as directory:
+            run=Path(directory)/'run'
+            state=workflow.start(run,{'operation':'create','skill_name':'example','brief':'A bounded task.'},protocol_version=1)
+            with contextlib.redirect_stderr(io.StringIO()):
+                status=main(['revise','--run',str(run),'--phase','plan','--hypothesis','SENSITIVE_REASON'])
+            self.assertEqual(status,2)
+            event=json.loads((run/'events.jsonl').read_text().splitlines()[-1])
+            self.assertEqual(event['event'],'operation_failed')
+            self.assertEqual(event['run_id'],state['run_id'])
+            self.assertEqual(event['phase'],'research')
+            self.assertEqual(event['data']['error_type'],'Invalid')
+            self.assertNotIn('SENSITIVE_REASON',json.dumps(event))

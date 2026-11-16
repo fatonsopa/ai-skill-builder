@@ -28,6 +28,12 @@ Keep repository workflow rules in AGENTS.md. Always provide CLAUDE.md with an @A
 
 Agents and skills author substantive content and judgments; code executes agreed mechanics. Add components, tests, reviews or evidence only for a named unmet requirement, material risk or unresolved failure. Reuse valid evidence, preserve useful safeguards and repair the responsible owner and consumers. Stop expanding when the agreed criteria pass.
 
+## Execution records
+
+Keep a structured execution record for each task using the host’s public tool history by default. When an existing executor supports durable records, save them in the authorized task workspace outside the installed skill. Link the task/run, phase, tool call, observed outcome, error, duration, retry and artifact version using available IDs and hashes. Record only observed events; disclose unavailable evidence.
+
+Capture metadata by default. Include prompt, argument or result content only when authorized and needed; exclude credentials, secrets and private model reasoning. Restrict access to task records and follow the project’s retention rules without deleting evidence still required for recovery or review. Use failures to identify a cause and add a focused regression for a demonstrated defect. Resume from the earliest affected checkpoint and retain valid earlier results, original history and consumed budgets.
+
 ## Repository maintenance
 
 Use the objective-wide completion policy in [maintenance](references/maintenance.md#freeze-the-delivery-contract). New Builder runs require its persistent policy path; new run directories cannot reset its limits.

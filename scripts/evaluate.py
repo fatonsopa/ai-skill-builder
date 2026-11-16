@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import threading
 import math
 import fcntl
 from continuation import MAX_EXTENSIONS, extension as routine_extension
@@ -30,12 +31,31 @@ def write_json(path, value):
     os.replace(temporary, path)
 
 
-def run_process(command, *, input, cwd, timeout, env=None):
+def run_process(command, *, input, cwd, timeout, env=None, on_stdout_line=None):
     """Bound the whole process group, including children holding output pipes."""
+    deadline = None if timeout is None else time.monotonic() + timeout
     process = subprocess.Popen(
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True, cwd=cwd, shell=False, start_new_session=True, env=env,
     )
+    lines, capture_errors = [], []
+    reader = None
+    if on_stdout_line is not None:
+        stream = process.stdout
+        def capture():
+            with stream:
+                for line in stream:
+                    lines.append(line)
+                    try:
+                        on_stdout_line(line)
+                    except Exception as error:
+                        if not capture_errors:
+                            capture_errors.append(error)
+        reader = threading.Thread(target=capture, daemon=True)
+        reader.start()
+        # communicate still drains stderr and handles stdin and the deadline;
+        # the reader owns stdout so it can expose public progress immediately.
+        process.stdout = None
     try:
         stdout, stderr = process.communicate(input=input, timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -44,7 +64,22 @@ def run_process(command, *, input, cwd, timeout, env=None):
         except ProcessLookupError:
             pass
         stdout, stderr = process.communicate()
+        if reader is not None:
+            reader.join()
+            stdout = ''.join(lines)
         raise subprocess.TimeoutExpired(command, timeout, output=stdout, stderr=stderr)
+    if reader is not None:
+        reader.join(None if deadline is None else max(0, deadline - time.monotonic()))
+        if reader.is_alive():
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            reader.join()
+            raise subprocess.TimeoutExpired(command, timeout, output=''.join(lines), stderr=stderr)
+        stdout = ''.join(lines)
+    if capture_errors:
+        raise RuntimeError('Live output capture failed: ' + str(capture_errors[0]))
     return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 

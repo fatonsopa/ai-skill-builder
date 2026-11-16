@@ -149,3 +149,27 @@ class BehaviorEvaluationTests(unittest.TestCase):
         self.assertTrue(all(case['semantic'] and case['critical'] and case['request'] and case['resources'] for case in behaviors))
         rubric_text = json.dumps(rubric)
         self.assertTrue(all(case['id'] in rubric_text for case in behaviors))
+
+
+class LiveProcessCaptureTests(unittest.TestCase):
+    def test_output_is_available_before_the_child_can_finish(self):
+        from evaluate import run_process
+        with tempfile.TemporaryDirectory() as directory:
+            flag = Path(directory) / 'received'
+            code = "import pathlib,time; print('public progress',flush=True); p=pathlib.Path('received'); deadline=time.monotonic()+3\nwhile not p.exists() and time.monotonic()<deadline: time.sleep(0.01)\nassert p.exists(), 'output was buffered until exit'"
+            result = run_process([sys.executable, '-u', '-c', code], input='', cwd=directory, timeout=5,
+                                 on_stdout_line=lambda line: flag.write_text(line))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'public progress\n')
+            self.assertEqual(flag.read_text(), result.stdout)
+
+    def test_timeout_preserves_streamed_output_and_the_deadline(self):
+        from evaluate import run_process
+        commands = ["import time; print('started',flush=True); time.sleep(10)",
+                    "import subprocess,sys; subprocess.Popen([sys.executable,'-c','import time; time.sleep(10)']); print('started',flush=True)"]
+        for code in commands:
+            seen = []
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as directory, self.assertRaises(subprocess.TimeoutExpired) as error:
+                run_process([sys.executable, '-u', '-c', code], input='', cwd=directory, timeout=0.5, on_stdout_line=seen.append)
+            self.assertEqual(seen, ['started\n'])
+            self.assertEqual(error.exception.output, 'started\n')

@@ -213,9 +213,9 @@ PHASES = {**PHASES, "plan": PLAN, "review": REVIEW}
 
 def response_schema(phase, protocol_version=None):
     protocol_version = PROTOCOL_VERSION if protocol_version is None else protocol_version
-    if protocol_version not in (1, 2, 3, 4, PROTOCOL_VERSION):
+    if protocol_version not in (1, 2, 3, 4, 5, PROTOCOL_VERSION):
         raise ValueError("Unsupported authoring protocol version.")
-    phases = {1: LEGACY_PHASES, 2: V2_PHASES, 3: V4_PHASES, 4: V4_PHASES, 5: PHASES}[protocol_version]
+    phases = {1: LEGACY_PHASES, 2: V2_PHASES, 3: V4_PHASES, 4: V4_PHASES, 5: V5_PHASES, 6: PHASES}[protocol_version]
     return obj({
         "run_id": TEXT, "phase": {"const": phase},
         "packet_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
@@ -277,3 +277,16 @@ FIXTURE = obj({'path': TEXT, 'destination': TEXT, 'sha256': TEXT, 'media_type': 
 CASE = obj({**CASE['properties'], 'fixtures': array(FIXTURE)}, required=CASE['required'])
 PLAN = obj({**PLAN['properties'], 'cases': array(CASE, 1)}, required=PLAN['required'])
 PHASES = {**PHASES, 'plan': PLAN}
+
+
+# Keep completed v5 records readable; new packages explicitly bind default logging.
+V5_PHASES = dict(PHASES)
+PROTOCOL_VERSION = 6
+CASE = obj({**CASE['properties'], 'completion_check': TEXT}, required=CASE['required'])
+PLAN = obj({**PLAN['properties'], 'cases': array(CASE, 1)}, required=PLAN['required'])
+EXECUTION_LOGGING = obj({'mode': {'enum': ['host_public', 'structured_file']}, 'owner': TEXT,
+                         'record_location': TEXT, 'rules_sha256': TEXT, 'capture_content': BOOL},
+                        required=['mode', 'owner', 'record_location', 'rules_sha256'])
+PRODUCE = obj({**PRODUCE['properties'], 'execution_logging': EXECUTION_LOGGING},
+              required=[*PRODUCE['required'], 'execution_logging'])
+PHASES = {**PHASES, 'plan': PLAN, 'produce': PRODUCE}

@@ -7,6 +7,10 @@ import sys
 import tempfile
 import shutil
 
+# Keep this entry point usable with Python's isolated mode as well as through
+# a task-local skill symlink; imports belong to this installed package.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from runtime import contracts, workflow, completion
 from runtime.artifacts import check_package
 from runtime.common import Invalid, load, locked, save
@@ -80,6 +84,7 @@ def parser():
     revise = commands.add_parser("revise")
     revise.add_argument("--run", type=Path, required=True)
     revise.add_argument("--hypothesis", required=True)
+    revise.add_argument('--phase', choices=['research', 'specify', 'plan'], help='Correct an unfrozen planning phase in the same run; preserve earlier results and cumulative limits.')
     apply = commands.add_parser("apply")
     apply.add_argument("--run", type=Path, required=True)
     apply.add_argument("--destination", type=Path)
@@ -163,7 +168,10 @@ def replay(root):
         if request.get("source"):
             request["source"] = str((Path(root) / "baseline").resolve())
         workflow.start(target, request, protocol_version=state.get("protocol_version", 1), replay_only=True)
-        for path in sorted((Path(root) / "responses").glob("*.json")):
+        for response_index, path in enumerate(sorted((Path(root) / "responses").glob("*.json"))):
+            for revision in state.get('planning_revisions', []):
+                if revision['after_responses'] == response_index:
+                    workflow.revise(target, revision['hypothesis'], phase=revision['phase'])
             original = load(path)
             current_state = workflow.read_state(target)
             if original["phase"] == "produce" and current_state["phase"] != "produce":
@@ -200,6 +208,9 @@ def replay(root):
                 "packet_sha256": current_packet["packet_sha256"],
             }
             workflow.submit(target, adapted)
+        for revision in state.get('planning_revisions', []):
+            if revision['after_responses'] == len(responses):
+                workflow.revise(target, revision['hypothesis'], phase=revision['phase'])
         rebuilt = workflow.read_state(target)
         files = workflow.inventory(target / "candidate")
     return {
@@ -310,7 +321,7 @@ def main(argv=None):
                 elif args.command == "evaluate":
                     value = workflow.run_evaluation(args.run, args.allow_exec, args.baseline, args.observations)
                 elif args.command == "revise":
-                    value = workflow.revise(args.run, args.hypothesis)
+                    value = workflow.revise(args.run, args.hypothesis, args.phase)
                 elif args.command == "apply":
                     value = workflow.apply(args.run, args.destination)
                 elif args.command == "recover":
@@ -341,6 +352,14 @@ def main(argv=None):
             return 1
         return 0
     except (Invalid, OSError, ValueError, KeyError) as error:
+        run = getattr(args, 'run', None)
+        if run and (Path(run) / 'state.json').is_file():
+            try:
+                from runtime.common import digest
+                workflow.event(run, 'operation_failed', {'operation': args.command,
+                    'error_type': type(error).__name__, 'error_sha256': digest(str(error).encode())})
+            except (OSError, ValueError, KeyError):
+                pass  # A logging failure must not replace the original operation error.
         print(json.dumps({"error": str(error), "type": type(error).__name__}), file=sys.stderr)
         return 2
 

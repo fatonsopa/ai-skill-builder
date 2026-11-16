@@ -1195,5 +1195,46 @@ class ManagedRefreshTests(unittest.TestCase):
         with self.assertRaisesRegex(Invalid,'dependencies'):
             selected_mechanics({'package_profile':'maintained','components':[{'path':'scripts/evaluate.py'}]})
 
+
+class PlanningReplayTests(unittest.TestCase):
+    setUp = RuntimeTests.setUp
+    start = RuntimeTests.start
+    submit = RuntimeTests.submit
+    def test_planning_correction_replays_without_repeating_work_or_running_commands(self):
+        self.start()
+        self.submit('research')
+        self.submit('specify')
+        workflow.revise(self.run, 'Correct the specification before freezing its plan.', phase='specify')
+        self.submit('specify')
+        self.submit('plan')
+        self.submit('produce')
+        with patch('subprocess.run', side_effect=AssertionError('Replay must not execute commands.')):
+            result = replay(self.run)
+        self.assertEqual(result['rebuilt_files'], inventory(self.run/'candidate'))
+
+
+class DefaultExecutionRecordsTests(unittest.TestCase):
+    def test_native_and_maintained_packages_bind_authored_defaults_without_new_logging_scripts(self):
+        from runtime.artifacts import render, execution_logging_rules
+        rules = execution_logging_rules()
+        for profile in ['native','maintained']:
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory() as directory:
+                root=Path(directory)/'candidate'
+                text='# Task guide\n\nRead supplied facts and preserve exceptions.\n'
+                plan={**deepcopy(PLAN),'domains':[{'name':'guide','purpose':'Host-native guidance','owned_paths':['SKILL.md'],'depends_on':[]}], 'package_profile':profile,'automations':[],'components':[], 'authored_outputs':[{'path':p,'owner':'author','consumers':['primary']} for p in ['SKILL.md','README.md','AGENTS.md','CLAUDE.md']], 'execution':{'mode':'single'}}
+                produced={**deepcopy(PRODUCE),'files':{},'instructions':'Read supplied facts and follow AGENTS.md.', 'repository_instructions':'# Repository instructions\n\n'+rules, 'documentation':{'schema_version':2,'owner':'author','profiles':{'source':text,'runtime':text},'commands':[]}, 'execution_logging':{'mode':'host_public','owner':'current host','record_location':'Public tool history for this task','rules_sha256':digest(rules.encode())}}
+                validate(produced, contracts.response_schema('produce')['properties']['data'])
+                render(root,{'operation':'create','skill_name':'task-guide','copyright_holder':'Fixture'},SPEC,plan,produced)
+                record=load(root/'config/build_record.json')['source']['execution_logging']
+                self.assertFalse(record['capture_content'])
+                self.assertIn(rules.strip(),(root/'AGENTS.md').read_text())
+                self.assertFalse((root/'scripts').exists())
+                stale=deepcopy(produced);stale['execution_logging']['rules_sha256']='0'*64
+                with self.assertRaisesRegex(Invalid,'stale or missing'):
+                    render(Path(directory)/'stale',{'operation':'create','skill_name':'task-guide','copyright_holder':'Fixture'},SPEC,plan,stale)
+                legacy={k:v for k,v in produced.items() if k!='execution_logging'}
+                validate(legacy, contracts.response_schema('produce',5)['properties']['data'])
+                with self.assertRaises(Invalid):validate(legacy, contracts.response_schema('produce',6)['properties']['data'])
+
 if __name__ == "__main__":
     unittest.main()

@@ -21,7 +21,7 @@ from continuation import MAX_EXTENSIONS, check_totals, extension as routine_exte
 
 
 def start(root, request, *, protocol_version=contracts.PROTOCOL_VERSION, replay_only=False):
-    if protocol_version not in (1, 2, 3, 4, contracts.PROTOCOL_VERSION):
+    if protocol_version not in (1, 2, 3, 4, 5, contracts.PROTOCOL_VERSION):
         raise Invalid("Unsupported authoring protocol version.")
     validate(request, contracts.REQUEST if protocol_version >= 4 else contracts.LEGACY_REQUEST)
     if protocol_version >= 4 and not request.get('completion_policy'):
@@ -92,9 +92,15 @@ def event(root, name, data):
     path = Path(root) / "events.jsonl"
     rows = path.read_text().splitlines() if path.exists() else []
     previous = json.loads(rows[-1])["sha256"] if rows else None
-    item = {"event": name, "data": data, "previous": previous}
+    state = load(Path(root) / 'state.json')
+    metadata = dict(data)
+    for field in ('hypothesis', 'authorization_note'):
+        if field in metadata:
+            metadata[field + '_sha256'] = digest(metadata.pop(field))
+    item = {"event": name, "data": metadata, "previous": previous,
+            'run_id': state['run_id'], 'phase': state['phase'], 'timestamp_unix': time.time()}
     item["sha256"] = digest(item)
-    with path.open("a") as stream:
+    with os.fdopen(os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600), 'a', encoding='utf-8') as stream:
         stream.write(json.dumps(item, ensure_ascii=False) + "\n")
 
 
@@ -129,6 +135,13 @@ def packet(root):
         'artifact_contract': {**instruction_content['artifact_contract'], 'managed_files': sorted(MANAGED), 'process_trace_schema': contracts.PROCESS_TRACE, 'process_trace_example': contracts.PROCESS_TRACE_EXAMPLE},
         'instruction_source': instruction_source,
     }
+    if state.get('planning_revisions'):
+        value['planning_revision'] = state['planning_revisions'][-1]
+    if state.get('protocol_version', 1) >= 6:
+        from .artifacts import execution_logging_rules
+        rules = execution_logging_rules()
+        value['execution_logging'] = {'instructions': rules, 'rules_sha256': digest(rules.encode()),
+                                      'source': 'assets/AGENTS.md#execution-records', 'capture_content': False}
     if phase == "plan" and state.get("protocol_version", 1) >= 2:
         value["required_workflow_tests"] = workflow_requirements(state["data"]["specify"])
     guides = []
@@ -199,6 +212,8 @@ def submit(root, response):
     state = read_state(root)
     response_hash = digest(response)
     if response_hash in state["accepted_responses"]:
+        if response['phase'] not in state['data']:
+            raise Invalid('This response was superseded by a planning revision. Read the current packet before resubmitting.')
         return state
     completion.guard(state)
     current = packet(root)
@@ -213,7 +228,7 @@ def submit(root, response):
         next_phase = "audit" if operation == "audit" else "specify"
     elif phase == "specify":
         if data["ambiguities"]:
-            raise Invalid("Resolve material ambiguities before accepting the specification.")
+            raise Invalid('Resolve material ambiguities before accepting the specification: ' + json.dumps(data['ambiguities'], ensure_ascii=False))
         next_phase = None if operation == "specify" else "plan"
     elif phase == "plan":
         check_plan(state["data"]["specify"], data, require_workflows=state.get("protocol_version", 1) >= 2)
@@ -426,17 +441,43 @@ def decide(root, state):
         state["stagnant_experiments"] = max(0, state["stagnant_experiments"] - 1)
 
 
-def revise(root, hypothesis):
+def revise(root, hypothesis, phase=None):
     root = Path(root)
     state = read_state(root)
     completion.guard(state)
+    if phase is not None:
+        phases = ['research', 'specify', 'plan']
+        if phase not in phases or state['phase'] not in phases or phases.index(phase) > phases.index(state['phase']):
+            raise Invalid('Planning revision must target the current or an earlier pre-production phase.')
+        if state.get('objective_sha256') or 'produce' in state['data'] or (state.get('completion') and completion.read(state['completion']['path']).get('plan')):
+            raise Invalid('The objective is already frozen; planning revision cannot change its requirements or cases.')
+        limits = state['request'].get('limits', {})
+        revisions = state.get('planning_revisions', [])
+        if state['experiment'] + len(revisions) + 1 >= limits.get('max_experiments', 5):
+            raise Invalid('Experiment limit reached; planning revisions retain the consumed allowance.')
+        if state['elapsed_seconds'] >= limits.get('max_seconds', 600):
+            raise Invalid('Execution time limit reached.')
+        if not hypothesis.strip():
+            raise Invalid('Explain the correction before revising a planning phase.')
+        if state.get('completion'):
+            completion.reserve(state['completion']['path'], 'revisions', detail=hypothesis)
+        affected = phases[phases.index(phase):]
+        revision = {'number': len(revisions) + 1, 'phase': phase,
+                    'after_responses': len(state['history']), 'hypothesis': hypothesis,
+                    'invalidated': {name: digest(state['data'][name]) for name in affected if name in state['data']}}
+        state.setdefault('planning_revisions', []).append(revision)
+        state['data'] = {name: value for name, value in state['data'].items() if name not in affected}
+        state.update(phase=phase, status='awaiting_ai')
+        save(root / 'state.json', state)
+        event(root, 'planning_revised', revision)
+        return state
     if state["request"]["operation"] in {"audit", "specify", "plan"} or "produce" not in state["data"]:
         raise Invalid("There is no implementation candidate to revise.")
     limits = state["request"].get("limits", {})
     policy_blocker = state.get('completion') and any(f['classification'] == 'blocker' and not f['resolved'] for f in completion.read(state['completion']['path'])['findings'])
     if state["status"] == 'applied' or state['status'] == 'ready' and not policy_blocker:
         raise Invalid("Target already met; establish a new run for a different objective.")
-    if state["experiment"] + 1 >= limits.get("max_experiments", 5):
+    if state["experiment"] + len(state.get('planning_revisions', [])) + 1 >= limits.get("max_experiments", 5):
         raise Invalid("Experiment limit reached.")
     if state["elapsed_seconds"] >= limits.get("max_seconds", 600):
         raise Invalid("Execution time limit reached.")

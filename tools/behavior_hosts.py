@@ -116,3 +116,28 @@ def public_value(value):
     if isinstance(value, dict):
         return {k: public_value(v) for k, v in value.items() if k not in {'thinking', 'reasoning', 'analysis', 'encrypted_content', 'signature'}}
     return value
+
+
+def event_metadata(event):
+    """Default execution telemetry excludes prompt, argument and result bodies."""
+    event = public_value(event)
+    result = {key: event[key] for key in ('type', 'subtype', 'uuid', 'session_id', 'thread_id', 'parent_tool_use_id', 'model', 'is_error', 'stop_reason', 'duration_ms', 'duration_api_ms') if key in event}
+    usage = event.get('usage')
+    if isinstance(usage, dict):
+        result['usage'] = {key: value for key, value in usage.items() if key in {'input_tokens', 'output_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'} and type(value) in (int, float)}
+    if type(event.get('total_cost_usd')) in (int, float):
+        result['provider_reported_cost_usd'] = event['total_cost_usd']
+    if event.get('type') == 'result':
+        error = claude_result_error(event)
+        provider_error = (error or {}).get('provider_error')
+        if provider_error and provider_error.get('code') in {'usage_limit_reached', 'rate_limit_error', 'overloaded_error'}:
+            result['error_code'] = provider_error['code']
+    for key in ('item', 'message'):
+        if isinstance(event.get(key), dict):
+            item = event[key]
+            result[key] = {name: item[name] for name in ('type', 'id', 'role', 'model', 'status', 'name', 'tool_name', 'thread_id') if name in item}
+            if isinstance(item.get('content'), list):
+                result[key]['content'] = [{name: block[name] for name in ('type', 'id', 'name', 'tool_use_id', 'is_error') if name in block}
+                                          for block in item['content'] if isinstance(block, dict) and block.get('type') in {'tool_use', 'tool_result'}]
+    result['public_event_sha256'] = hashlib.sha256(json.dumps(event, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    return result

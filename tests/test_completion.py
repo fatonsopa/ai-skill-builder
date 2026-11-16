@@ -306,8 +306,12 @@ class NativeCheckBindingTests(unittest.TestCase):
         policy=self.policy(checks=[{'id':'group','kind':'mechanical','test_ids':['case-a','case-b'],'dependencies':['run.py']}])
         state={'completion':{'path':str(policy)},'request':{'operation':'create'},'run_id':'authored-native-control','source':str(self.project),'data':{},'phase':'review'}
         spec={'requirements':[]};plan={'cases':[{'id':'case-a','kind':'command'},{'id':'case-b','kind':'artifact'}],'allowed_candidate_paths':['run.py']}
-        with self.assertRaisesRegex(Invalid,'outside the frozen'):
+        with self.assertRaisesRegex(Invalid,'outside the frozen') as failure:
             completion.freeze_plan(state,spec,{**plan,'cases':[*plan['cases'],{'id':'unplanned','kind':'command'}]})
+        self.assertIn('"unbound_case_ids": ["unplanned"]', str(failure.exception))
+        self.assertIn('The plan was not frozen', str(failure.exception))
+        with self.assertRaisesRegex(Invalid,'invalid mechanical completion_check'):
+            completion.freeze_plan(state,spec,{**plan,'cases':[{'id':'unplanned','kind':'command','completion_check':'group'}]})
         completion.freeze_plan(state,spec,plan)
         run=self.workspace/'native-run';run.mkdir()
         state['evaluation']={'package_hashes':inventory(self.project),'attempts':[{'id':'case-a','status':'passed'},{'id':'case-b','status':'not_run'}]}
@@ -321,3 +325,50 @@ class NativeCheckBindingTests(unittest.TestCase):
         run=self.workspace/'document-run';run.mkdir()
         completion.sync_native(run,state)
         self.assertFalse(completion.status(policy,self.project)['checks'][0]['valid'])
+
+
+class PlanningRecoveryTests(unittest.TestCase):
+    setUp = CompletionTests.setUp
+    policy = CompletionTests.policy
+    request = CompletionTests.request
+    def test_phase_correction_retains_checkpoint_history_and_budget_and_rejects_stale_packets(self):
+        from fixtures import SPEC
+        policy = self.policy()
+        run = self.workspace / 'recoverable-run'
+        state = workflow.start(run, self.request(policy, limits={'max_experiments': 2}))
+        def submit(data):
+            packet = workflow.packet(run)
+            response = {**{k: packet[k] for k in ('run_id', 'phase', 'packet_sha256')}, 'data': deepcopy(data)}
+            workflow.submit(run, response)
+            return response
+        submit(RESEARCH)
+        spec = {**deepcopy(SPEC), 'workflows': [{'id':'transform', 'purpose':'One atomic transformation', 'trigger':'A supplied record', 'steps':['transform'], 'boundaries':[], 'branches':[], 'recovery':[]}]}
+        original = submit(spec)
+        records = {p.name:p.read_bytes() for p in (run/'responses').glob('*.json')}
+        before = completion.read(policy)
+        fixed = workflow.revise(run, 'Correct the workflow definition; preserve accepted research.', phase='specify')
+        self.assertEqual(fixed['run_id'], state['run_id'])
+        self.assertEqual(fixed['data'], {'research':RESEARCH})
+        self.assertEqual(fixed['source_snapshot'], state['source_snapshot'])
+        self.assertEqual({p.name:p.read_bytes() for p in (run/'responses').glob('*.json')}, records)
+        self.assertEqual(completion.read(policy)['usage'], {**before['usage'], 'revisions':1})
+        self.assertEqual(completion.read(policy)['created_unix'], before['created_unix'])
+        with self.assertRaisesRegex(Invalid,'superseded'):workflow.submit(run, original)
+        with self.assertRaisesRegex(Invalid,'Experiment limit'):workflow.revise(run, 'Repeat unchanged work.', phase='specify')
+        submit(spec)
+        completion.freeze_plan(workflow.read_state(run), spec, {'cases':[{'id':'unit','kind':'command'}]})
+        with self.assertRaisesRegex(Invalid,'already frozen'):workflow.revise(run, 'Change accepted criteria.', phase='specify')
+
+    def test_explicit_mechanical_group_membership_freezes_once_and_requires_every_case(self):
+        policy = self.policy(checks=[{'id':'normalization','kind':'mechanical','dependencies':['run.py']}])
+        state={'completion':{'path':str(policy)}, 'request':{'operation':'create'}, 'run_id':'group-control', 'source':str(self.project), 'data':{}, 'phase':'review'}
+        cases=[{'id':name,'kind':'command','completion_check':'normalization'} for name in ['positive','reject-invalid']]
+        plan={'cases':cases, 'allowed_candidate_paths':['run.py']}
+        completion.freeze_plan(state, {'requirements':[]}, plan)
+        with self.assertRaisesRegex(Invalid,'frozen requirements'):
+            completion.freeze_plan(state, {'requirements':[]}, {**plan,'cases':[*cases,{'id':'extra','kind':'command','completion_check':'normalization'}]})
+        run=self.workspace/'group-run';run.mkdir()
+        state['evaluation']={'package_hashes':inventory(self.project),'attempts':[{'id':'positive','status':'passed'},{'id':'reject-invalid','status':'not_run'}]}
+        completion.sync_native(run,state);self.assertFalse(completion.status(policy,self.project)['checks'][0]['valid'])
+        state['evaluation']['attempts'][1]['status']='passed'
+        completion.sync_native(run,state);self.assertTrue(completion.status(policy,self.project)['checks'][0]['valid'])

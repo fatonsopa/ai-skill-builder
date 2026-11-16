@@ -30,7 +30,7 @@ class HostCoverageTests(unittest.TestCase):
         (self.package / 'evals').mkdir()
         self.case = {'id': 'audit', 'kind': 'behavior', 'request': {'instruction': 'Audit only.'}, 'critical': True, 'semantic': True, 'expect': {'exit_code': 0}}
         (self.package / 'evals/cases.json').write_text(json.dumps([self.case]))
-        self.config = {'required_hosts': ['codex', 'claude-code'], 'case_files': [{'path': 'evals/cases.json'}]}
+        self.config = {'capture_content': True, 'required_hosts': ['codex', 'claude-code'], 'case_files': [{'path': 'evals/cases.json'}]}
         self.plan = matrix.freeze(self.package, self.config)
 
     def run_harness(self, config_path, output):
@@ -166,7 +166,7 @@ class HostCoverageTests(unittest.TestCase):
     def test_claude_transport_invokes_the_local_skill_with_tools_and_keeps_public_evidence(self):
         config = {'subject': str(self.package), 'cases': str(self.package / 'evals/cases.json'), 'host': 'claude-code', 'model': 'fixture-model', 'reasoning_effort': 'medium', 'max_invocations': 1, 'max_seconds': 30}
         (self.root / 'config.json').write_text(json.dumps(config))
-        def perform(argv, *, input, cwd, timeout):
+        def perform(argv, *, input, cwd, timeout, on_stdout_line=None):
             self.assertNotIn('--bare', argv)
             self.assertNotIn('--disable-slash-commands', argv)
             self.assertNotIn('--sandbox', argv)
@@ -196,7 +196,7 @@ class HostCoverageTests(unittest.TestCase):
         row = result['attempts'][0]
         self.assertEqual(result['model_invocations'], 1)
         self.assertEqual(row['status'], 'failed')
-        self.assertIn('Started audit', Path(self.root / 'timed-out-run' / row['id'] / 'public-events.json').read_text())
+        self.assertEqual(json.loads(Path(self.root / 'timed-out-run' / row['id'] / 'public-events.json').read_text())[0]['type'], 'assistant')
 
     def test_workspace_capture_keeps_internal_target_skill_links_and_both_controlled_aliases(self):
         work = self.root / 'links-work';work.mkdir()
@@ -238,7 +238,7 @@ class HostCoverageTests(unittest.TestCase):
     def test_capture_failure_keeps_earlier_case_results_and_the_actual_public_trace(self):
         config = {'subject': str(self.package), 'cases': str(self.package/'evals/cases.json'), 'model':'fixture-model','max_invocations':2,'max_seconds':30,'repetitions':2}
         (self.root/'capture-config.json').write_text(json.dumps(config));calls=[]
-        def perform(argv, *, input, cwd, timeout):
+        def perform(argv, *, input, cwd, timeout, on_stdout_line=None):
             calls.append(str(cwd));Path(argv[argv.index('--output-last-message')+1]).write_text('Actual fixture response.')
             if len(calls)==2:(Path(cwd)/'escape').symlink_to(self.package)
             return subprocess.CompletedProcess(argv,0,json.dumps({'type':'thread.started','thread_id':'authored-control'}),'')

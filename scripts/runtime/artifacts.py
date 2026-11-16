@@ -17,6 +17,12 @@ from .readme import render as render_readme, check as check_readme
 
 MANAGED = {"scripts/case_inputs.py", "scripts/provider_results.py", "scripts/host_coverage.py", "config/host_validation.json", "scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
 EVALUATOR = Path(__file__).resolve().parents[1] / "evaluate.py"
+
+
+def execution_logging_rules():
+    """Read the authored default; assembly never invents logging policy."""
+    shared = (EVALUATOR.parent.parent / 'assets/AGENTS.md').read_text()
+    return '## Execution records\n' + shared.split('## Execution records\n', 1)[1]
 MECHANIC_DEPENDENCIES = {
     'scripts/evaluate.py': {'scripts/continuation.py', 'scripts/repository_files.py', 'scripts/case_inputs.py'},
     'scripts/run_tests.py': {'scripts/repository_files.py'},
@@ -101,7 +107,11 @@ def check_workflow_coverage(spec, plan):
                 raise Invalid("Trace assertions name unknown or absent workflow steps.")
         if "success" in labels and len(flow["steps"]) > 1:
             if not process or process["order"] != flow["steps"] or not case["semantic"]:
-                raise Invalid("A multi-step success case needs its full ordered trace and semantic evidence review.")
+                raise Invalid('A multi-step success case needs its full ordered trace and semantic evidence review: '
+                              + json.dumps({'case_id': case['id'], 'workflow_id': identifier,
+                                            'required_order': flow['steps'], 'actual_process': process,
+                                            'semantic': case['semantic']}, sort_keys=True)
+                              + '. If the declared workflow is incorrect, use revise --phase specify before the plan is frozen; do not invent an order requirement or trace.')
         covered[identifier].update(labels)
     missing = {name: sorted(set(checks) - covered[name]) for name, checks in required.items() if set(checks) - covered[name]}
     if missing:
@@ -173,7 +183,8 @@ def check_plan(spec, plan, require_workflows=False):
     names = {row["name"] for row in domains}
     for row in domains:
         if set(row["depends_on"]) - names:
-            raise Invalid("A domain refers to an unknown dependency.")
+            raise Invalid('A domain refers to an unknown dependency: '
+                          + json.dumps({'domain': row['name'], 'unknown_dependencies': sorted(set(row['depends_on']) - names), 'declared_domains': sorted(names)}, sort_keys=True))
         for path in row["owned_paths"]:
             relative(path.rstrip("/"))
             if any(path == old or path.endswith("/") and old.startswith(path) or old.endswith("/") and path.startswith(old) for old in owners):
@@ -338,6 +349,14 @@ def render(root, request, spec, plan, response, source=None):
         if 'authored_outputs' in plan:
             if not response.get('repository_instructions', '').strip():
                 raise Invalid('Missing authored reconciled repository instructions.')
+            if 'execution_logging' in response:
+                rules = execution_logging_rules()
+                logging = response['execution_logging']
+                if logging['rules_sha256'] != digest(rules.encode()) or rules.strip() not in response['repository_instructions']:
+                    raise Invalid('Include the exact authored execution-record rules from the current packet in repository_instructions; stale or missing defaults cannot be assembled.')
+                if 'AGENTS.md' not in response['instructions']:
+                    raise Invalid('Route runtime instructions to AGENTS.md so default execution records reach the skill user.')
+                data['execution_logging'] = {**logging, 'capture_content': logging.get('capture_content', False)}
             (root / 'AGENTS.md').write_text(response['repository_instructions'])
             (root / 'SKILL.md').write_text(f"---\n{metadata}\n---\n\n" + response['instructions'])
         else:

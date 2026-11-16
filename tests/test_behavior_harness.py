@@ -31,7 +31,7 @@ class BehaviorHarnessTests(unittest.TestCase):
         (self.subject / 'scripts/words.test.py').write_text('Another hidden development control')
         self.cases = [{'id': 'audit', 'kind': 'behavior', 'critical': True, 'semantic': True, 'request': {'instruction': 'Audit the source only.', 'source': '# Source\nKeep this command.'}, 'resources': ['SKILL.md'], 'expect': {'exit_code': 0, 'contains': ['A hidden answer']}}]
         (self.root / 'cases.json').write_text(json.dumps(self.cases))
-        self.config = {'subject': str(self.subject), 'cases': 'cases.json', 'model': 'fixture-model', 'max_invocations': 1, 'max_seconds': 30, 'repetitions': 2}
+        self.config = {'capture_content': True, 'subject': str(self.subject), 'cases': 'cases.json', 'model': 'fixture-model', 'max_invocations': 1, 'max_seconds': 30, 'repetitions': 2}
         self.config['reasoning_effort'] = 'medium'
 
     def run_harness(self):
@@ -65,7 +65,7 @@ class BehaviorHarnessTests(unittest.TestCase):
             self.config[field] = value
 
     def test_fresh_attempts_use_local_skill_and_do_not_expose_answers(self):
-        def perform(argv, *, input, cwd, timeout):
+        def perform(argv, *, input, cwd, timeout, on_stdout_line=None):
             self.assertIn('--sandbox', argv)
             self.assertIn('workspace-write', argv)
             self.assertEqual(argv[argv.index('--model') + 1], 'fixture-model')
@@ -78,6 +78,11 @@ class BehaviorHarnessTests(unittest.TestCase):
             self.assertNotIn('A hidden answer', input)
             final = Path(argv[argv.index('--output-last-message') + 1])
             final.write_text('Audit findings and recommended fixes.')
+            on_stdout_line(json.dumps({'type': 'item.completed', 'item': {'type': 'reasoning', 'text': 'PRIVATE'}}) + '\n')
+            on_stdout_line(json.dumps({'type': 'item.completed', 'item': {'type': 'agent_message', 'text': 'Visible before exit.'}}) + '\n')
+            live = json.loads((Path(cwd).parent / 'public-events.json').read_text())
+            self.assertEqual(len(live), 1)
+            self.assertNotIn('PRIVATE', json.dumps(live))
             return subprocess.CompletedProcess(argv, 0, json.dumps({'type': 'item.completed', 'item': {'type': 'agent_message', 'text': 'Audit findings.'}}), '')
         with patch.object(harness.shutil, 'which', return_value='/fixture-codex'), patch.object(harness, 'run_process', side_effect=perform) as call:
             result = self.run_harness()
@@ -96,7 +101,7 @@ class BehaviorHarnessTests(unittest.TestCase):
 
     def test_failed_preflight_uses_the_task_sandbox_and_spends_no_model_calls(self):
         self.config['preflight_command'] = ['{python}', '-c', 'print("probe")']
-        def fail(argv, *, input, cwd, timeout):
+        def fail(argv, *, input, cwd, timeout, on_stdout_line=None):
             self.assertIn('sandbox', argv)
             self.assertIn('sandbox_mode="workspace-write"', argv)
             self.assertEqual(Path(cwd).name, 'preflight')
@@ -112,7 +117,7 @@ class BehaviorHarnessTests(unittest.TestCase):
     def completed_preflight_control(self):
         self.config.update(sandbox_mode='danger-full-access', preflight_command=['{python}', '-c', 'print("ready")'])
         order = []
-        def perform(argv, *, input, cwd, timeout):
+        def perform(argv, *, input, cwd, timeout, on_stdout_line=None):
             if not order:
                 self.assertEqual(argv[0], sys.executable)
                 self.assertEqual(Path(cwd).name, 'preflight')
@@ -243,3 +248,28 @@ class CandidateRoleTests(unittest.TestCase):
         self.assertEqual(captured['parent_tool_use_id'],'dispatch-1')
         self.assertIn('returned finding F1',json.dumps(captured))
         self.assertNotIn('private',json.dumps(captured))
+
+
+class DefaultMetadataCaptureTests(unittest.TestCase):
+    setUp = BehaviorHarnessTests.setUp
+    run_harness = BehaviorHarnessTests.run_harness
+    def test_default_capture_retains_tool_identity_and_excludes_content(self):
+        self.config.pop('capture_content')
+        event={'type':'item.completed','item':{'type':'command_execution','id':'tool-1','status':'completed','command':'SENSITIVE_ARGUMENT'}}
+        def perform(argv, *, input, cwd, timeout, on_stdout_line):
+            raw=json.dumps(event)+'\n'
+            on_stdout_line(raw)
+            Path(argv[argv.index('--output-last-message')+1]).write_text('A bounded result.')
+            return subprocess.CompletedProcess(argv,0,raw,'')
+        with patch.object(harness.shutil,'which',return_value='/fixture-codex'),patch.object(harness,'run_process',side_effect=perform):
+            result=self.run_harness()
+        row=result['attempts'][0];events=json.loads(Path(row['public_events']).read_text())
+        self.assertFalse(row['capture_content'])
+        self.assertNotIn('SENSITIVE_ARGUMENT',json.dumps(events))
+        self.assertEqual(events[0]['item']['id'],'tool-1')
+        self.assertEqual(events[0]['item']['type'],'command_execution')
+
+        metadata=harness.behavior_hosts.event_metadata({'type':'result','subtype':'success','result':'SENSITIVE_BODY','usage':{'input_tokens':2,'output_tokens':3,'content':'SENSITIVE_BODY'},'total_cost_usd':0.01})
+        self.assertEqual(metadata['usage'],{'input_tokens':2,'output_tokens':3})
+        self.assertEqual(metadata['provider_reported_cost_usd'],0.01)
+        self.assertNotIn('SENSITIVE_BODY',json.dumps(metadata))
