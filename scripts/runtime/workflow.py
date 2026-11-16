@@ -10,7 +10,7 @@ import math
 
 from . import contracts, technical_writer, completion
 from .execution import check_execution, instruction_bundles, review_execution
-from .artifacts import MANAGED, check_package, check_plan, render, workflow_requirements
+from .artifacts import MANAGED, check_package, check_plan, check_plan_metadata_change, render, workflow_requirements
 from .common import Invalid, digest, inside, inventory, load, relative, save, validate, copy_package
 from .examples import development_packet
 from .hosts import route
@@ -135,6 +135,14 @@ def packet(root):
         'artifact_contract': {**instruction_content['artifact_contract'], 'managed_files': sorted(MANAGED), 'process_trace_schema': contracts.PROCESS_TRACE, 'process_trace_example': contracts.PROCESS_TRACE_EXAMPLE},
         'instruction_source': instruction_source,
     }
+    if state['request'].get('checkpoint') and state.get('completion'):
+        from .common import source_reference
+        policy = completion.read(state['completion']['path'])
+        declaration = next(row for row in policy['contract']['checkpoints'] if row['id'] == state['request']['checkpoint'])
+        value['accepted_dependencies'] = {
+            identifier: {check_id: source_reference(Path(policy['receipts'][check_id]['evidence']))
+                         for check_id in policy['checkpoints'][identifier]['checks']}
+            for identifier in declaration['depends_on']}
     if state.get('planning_revisions'):
         value['planning_revision'] = state['planning_revisions'][-1]
     if state.get('protocol_version', 1) >= 6:
@@ -212,7 +220,7 @@ def submit(root, response):
     state = read_state(root)
     response_hash = digest(response)
     if response_hash in state["accepted_responses"]:
-        if response['phase'] not in state['data']:
+        if response['phase'] not in state['data'] or state['phase'] == 'plan' and (state.get('planning_revisions') or [{}])[-1].get('metadata_only') and response['phase'] == 'plan':
             raise Invalid('This response was superseded by a planning revision. Read the current packet before resubmitting.')
         return state
     completion.guard(state)
@@ -231,7 +239,10 @@ def submit(root, response):
             raise Invalid('Resolve material ambiguities before accepting the specification: ' + json.dumps(data['ambiguities'], ensure_ascii=False))
         next_phase = None if operation == "specify" else "plan"
     elif phase == "plan":
-        check_plan(state["data"]["specify"], data, require_workflows=state.get("protocol_version", 1) >= 2)
+        if (state.get('planning_revisions') or [{}])[-1].get('metadata_only'):
+            check_plan_metadata_change(state['data']['plan'], data)
+        required_roots = {'SKILL.md', 'README.md', 'AGENTS.md', 'CLAUDE.md'} & set(state['request']['allowed_paths']) if operation in {'modify', 'refactor'} else None
+        check_plan(state["data"]["specify"], data, require_workflows=state.get("protocol_version", 1) >= 2, required_root_outputs=required_roots)
         if state.get("protocol_version", 1) >= 3:
             check_execution(state["data"]["specify"], data, legacy_paths=state["source_snapshot"] if operation in {"modify", "refactor"} and not state["request"].get("repair_structure") else ())
         target = state["request"].get("target_success_percent")
@@ -447,9 +458,10 @@ def revise(root, hypothesis, phase=None):
     completion.guard(state)
     if phase is not None:
         phases = ['research', 'specify', 'plan']
-        if phase not in phases or state['phase'] not in phases or phases.index(phase) > phases.index(state['phase']):
+        metadata_only = phase == 'plan' and state['phase'] == 'produce' and 'produce' not in state['data'] and not (root / 'candidate').exists()
+        if not metadata_only and (phase not in phases or state['phase'] not in phases or phases.index(phase) > phases.index(state['phase'])):
             raise Invalid('Planning revision must target the current or an earlier pre-production phase.')
-        if state.get('objective_sha256') or 'produce' in state['data'] or (state.get('completion') and completion.read(state['completion']['path']).get('plan')):
+        if not metadata_only and (state.get('objective_sha256') or 'produce' in state['data'] or (state.get('completion') and completion.frozen_plan(completion.read(state['completion']['path']), state['request'].get('checkpoint')))):
             raise Invalid('The objective is already frozen; planning revision cannot change its requirements or cases.')
         limits = state['request'].get('limits', {})
         revisions = state.get('planning_revisions', [])
@@ -465,8 +477,11 @@ def revise(root, hypothesis, phase=None):
         revision = {'number': len(revisions) + 1, 'phase': phase,
                     'after_responses': len(state['history']), 'hypothesis': hypothesis,
                     'invalidated': {name: digest(state['data'][name]) for name in affected if name in state['data']}}
+        if metadata_only:
+            revision['metadata_only'] = True
         state.setdefault('planning_revisions', []).append(revision)
-        state['data'] = {name: value for name, value in state['data'].items() if name not in affected}
+        if not metadata_only:
+            state['data'] = {name: value for name, value in state['data'].items() if name not in affected}
         state.update(phase=phase, status='awaiting_ai')
         save(root / 'state.json', state)
         event(root, 'planning_revised', revision)

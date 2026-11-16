@@ -84,7 +84,7 @@ def parser():
     revise = commands.add_parser("revise")
     revise.add_argument("--run", type=Path, required=True)
     revise.add_argument("--hypothesis", required=True)
-    revise.add_argument('--phase', choices=['research', 'specify', 'plan'], help='Correct an unfrozen planning phase in the same run; preserve earlier results and cumulative limits.')
+    revise.add_argument('--phase', choices=['research', 'specify', 'plan'], help='Correct planning in the same run; before the first candidate, plan metadata can be corrected while frozen criteria and cumulative limits remain fixed.')
     apply = commands.add_parser("apply")
     apply.add_argument("--run", type=Path, required=True)
     apply.add_argument("--destination", type=Path)

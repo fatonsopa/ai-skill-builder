@@ -136,7 +136,9 @@ def enroll(path, run, request):
     with locked(path.parent):
         state = read(path)
         _available(state)
-        if state.get('request_identity') not in (None, identity):
+        identities = state.setdefault('checkpoint_requests', {}) if request.get('checkpoint') else state
+        identity_key = request.get('checkpoint') or 'request_identity'
+        if identities.get(identity_key) not in (None, identity):
             raise Invalid('Request changes the frozen objective; classify it before expanding work.')
         if str(run) in state['runs']:
             raise Invalid('This run is already enrolled.')
@@ -148,7 +150,7 @@ def enroll(path, run, request):
                 state.setdefault('activity_intervals', []).append({'checkpoint': request['checkpoint'], 'started_unix': time.time(), 'ended_unix': None})
         state['usage']['runs'] += 1
         state['events'].append({'event': 'reserved', 'unit': 'runs', 'detail': str(run), 'at': time.time()})
-        state['request_identity'] = identity
+        identities[identity_key] = identity
         state['runs'][str(run)] = {'status': 'enrolled'}
         save(path, state)
     return {'path': str(path), 'contract_sha256': state['contract_sha256']}
@@ -159,7 +161,7 @@ def guard(state, *, delivery=False):
     if not binding:
         return  # Historical protocol runs retain their recorded contract.
     policy = read(binding['path'])
-    if policy['contract_sha256'] != binding['contract_sha256']:
+    if policy['contract_sha256'] != binding['contract_sha256'] and not budget_only_binding(policy, binding['contract_sha256']):
         raise Invalid('Run completion binding changed.')
     _available(policy, delivery=delivery)
     if not delivery:
@@ -169,6 +171,47 @@ def guard(state, *, delivery=False):
             raise Invalid('Waiting for actual user authorization.')
 
 
+def budget_only_change(previous, current):
+    return {k: v for k, v in previous.items() if k != 'budget'} == {k: v for k, v in current.items() if k != 'budget'}
+
+
+def budget_only_binding(policy, captured_sha256):
+    """Follow verified amendment history; a material change breaks the chain."""
+    current, current_sha = policy['contract'], policy['contract_sha256']
+    for amendment in reversed(policy.get('amendments', [])):
+        if current_sha == captured_sha256:
+            return True
+        previous = amendment['previous_contract']
+        if digest(previous) != amendment['previous_sha256'] or not budget_only_change(previous, current):
+            return False
+        current, current_sha = previous, amendment['previous_sha256']
+    return current_sha == captured_sha256
+
+
+def checkpoint_checks(policy, identifier=None):
+    checks = policy['contract']['checks']
+    if identifier is None:
+        return checks
+    declarations = {row['id']: row for row in policy['contract'].get('checkpoints', [])}
+    if identifier not in declarations:
+        raise Invalid('Unknown frozen checkpoint.')
+    return [check for check in checks if check['id'] in declarations[identifier]['checks']]
+
+
+def frozen_plan(policy, checkpoint=None):
+    return policy.get('checkpoint_plans', {}).get(checkpoint, {}) if checkpoint else policy.get('plan', {})
+
+
+def native_case(policy, check_id, case_id):
+    plans = [policy.get('plan', {})]
+    plans += [plan for identifier, plan in policy.get('checkpoint_plans', {}).items()
+              if check_id in {check['id'] for check in checkpoint_checks(policy, identifier)}]
+    cases = [case for plan in plans for case in plan.get('plan', {}).get('cases', []) if case['id'] == case_id]
+    if cases and any(case != cases[0] for case in cases):
+        raise Invalid('Conflicting frozen cases share this completion check.')
+    return cases[0] if cases else None
+
+
 def freeze_plan(state, spec, plan):
     if not state.get('completion'):
         return
@@ -176,9 +219,17 @@ def freeze_plan(state, spec, plan):
     with locked(path.parent):
         policy = read(path)
         frozen = {'spec': spec, 'plan': plan}
-        if policy.get('plan') not in (None, frozen):
-            raise Invalid('A new run cannot change frozen requirements, cases or definition of done.')
-        checks = {c['id']: c for c in policy['contract']['checks']}
+        checkpoint = state['request'].get('checkpoint')
+        previous = frozen_plan(policy, checkpoint)
+        if previous and previous != frozen:
+            revision = (state.get('planning_revisions') or [{}])[-1]
+            if not revision.get('metadata_only') or spec != previous['spec'] or revision['invalidated'].get('plan') != digest(previous['plan']):
+                raise Invalid('A new run cannot change frozen requirements, cases or definition of done.')
+            from .artifacts import check_plan_metadata_change
+            check_plan_metadata_change(previous['plan'], plan)
+            policy['events'].append({'event': 'plan_metadata_corrected', 'before_sha256': digest(previous),
+                                     'after_sha256': digest(frozen), 'run_id': state['run_id'], 'at': time.time()})
+        checks = {c['id']: c for c in checkpoint_checks(policy, checkpoint)}
         mechanical_ids = {identifier for c in checks.values() if c['kind'] == 'mechanical'
                           for identifier in [c['id'], *c.get('test_ids', [])]}
         behavior_ids = {c.get('case_id', c['id']) for c in checks.values() if c['kind'] == 'behavior'}
@@ -201,7 +252,10 @@ def freeze_plan(state, spec, plan):
             scope = policy['contract']['scope']
             if any(not any(fnmatch.fnmatchcase(name, pattern) for pattern in scope) for name in plan.get('allowed_candidate_paths', [])):
                 raise Invalid('Completion scope and dependencies are relative to the project root, not the workspace or destination prefix. Resolve the declared edit scope before production.')
-        policy['plan'] = frozen
+        if checkpoint:
+            policy.setdefault('checkpoint_plans', {})[checkpoint] = frozen
+        else:
+            policy['plan'] = frozen
         save(path, policy)
 
 
@@ -220,6 +274,9 @@ def _retained_inputs_valid(receipt):
     proof = load(receipt['evidence'])
     document = proof.get('document_artifact')
     if document is not None and inventory(document['root']) != document['files']:
+        return False
+    report_source = proof.get('report_source')
+    if report_source is not None and inventory(report_source['root']) != report_source['files']:
         return False
     retained = proof.get('retained_host_inputs')
     if retained is None:
@@ -314,7 +371,7 @@ def authorize_case(path, case_id, package, *, case=None, profile=None, check_id=
             expected = policy.setdefault('task_bindings', {}).get(identifier)
             if expected is not None and expected != digest(task):
                 raise Invalid('Behavioral task or criteria changed after first authorization.')
-            native = next((c for c in policy.get('plan', {}).get('plan', {}).get('cases', []) if c['id'] == case_id), None)
+            native = native_case(policy, identifier, case_id)
             if native and {k: native.get(k) for k in task} != task:
                 raise Invalid('Behavioral task differs from the frozen native plan.')
             policy['task_bindings'][identifier] = digest(task)
@@ -330,7 +387,7 @@ def finding(path, classification, requirement, text, checks=()):
     path = Path(path)
     with locked(path.parent):
         policy = read(path)
-        ids = {r['id'] for r in policy.get('plan', {}).get('spec', {}).get('requirements', [])}
+        ids = {r['id'] for plan in [policy.get('plan', {}), *policy.get('checkpoint_plans', {}).values()] for r in plan.get('spec', {}).get('requirements', [])}
         known_checks = {c['id'] for c in policy['contract']['checks']}
         if policy['phase'] == 'delivered' and classification == 'blocker':
             raise Invalid('Use a new objective for work after delivery; retain this completed history.')
@@ -447,7 +504,9 @@ def sync_native(root, state, review=None):
     if state.get('evaluation') and inventory(package) != state['evaluation']['package_hashes']:
         return
     rows = {c['id']: c for c in state.get('evaluation', {}).get('attempts', [])}
-    for check in policy['contract']['checks']:
+    checkpoint = state['request'].get('checkpoint')
+    plan = frozen_plan(policy, checkpoint)
+    for check in checkpoint_checks(policy, checkpoint):
         if check.get('profile'):
             continue  # A specific external profile needs its bound host assessment.
         result = rows.get(check.get('case_id', check['id']))
@@ -456,7 +515,7 @@ def sync_native(root, state, review=None):
         elif check['kind'] == 'report':
             passed = state['request']['operation'] in ('audit', 'plan', 'specify') and state.get('phase') == 'complete'
         elif check['kind'] == 'mechanical':
-            members = [case['id'] for case in policy.get('plan', {}).get('plan', {}).get('cases', []) if case.get('completion_check') == check['id']]
+            members = [case['id'] for case in plan.get('plan', {}).get('cases', []) if case.get('completion_check') == check['id']]
             result = [rows.get(identifier) for identifier in check.get('test_ids', members or [check['id']])]
             passed = bool(result) and all(row and row.get('status') == 'passed' for row in result)
         else:
@@ -467,6 +526,11 @@ def sync_native(root, state, review=None):
                  'native_review': review, 'document_check': state.get('document_check'), 'document_artifact': state.get('document_artifact'),
                  'report_data': state.get('data') if check['kind'] == 'report' else None,
                  'artifact': inventory(package)}
+        if check['kind'] == 'report' and state.get('source'):
+            baseline = root / 'baseline'
+            if not baseline.is_dir() or inventory(baseline) != state.get('source_snapshot'):
+                raise Invalid('Report evidence needs its unchanged captured source baseline.')
+            proof['report_source'] = {'root': str(baseline.resolve()), 'files': state['source_snapshot']}
         evidence = root / 'completion-evidence' / (digest(proof) + '.json')
         save(evidence, proof)
         record(path, check['id'], package, evidence, origin='native_accepted_evidence', native_passed=True)
@@ -490,7 +554,7 @@ def record_hosts(path, package, manifest):
             continue
         identifier = check.get('case_id', check['id'])
         expected = policy.get('case_bindings', {}).get(check['id'])
-        native = next((c for c in policy.get('plan', {}).get('plan', {}).get('cases', []) if c['id'] == identifier), None)
+        native = native_case(policy, check['id'], identifier)
         if expected is None and native is not None:
             expected = case_digest(native)
         observed = next(c['case_sha256'] for c in plan['cases'] if c['id'] == identifier)
@@ -525,16 +589,19 @@ def amend(path, definition, authority):
             raise Invalid('Amend only this unfinished objective; do not replace its identity.')
         if any(definition['budget'][k] < state['usage'][k] for k in state['usage']):
             raise Invalid('A material replan cannot erase already consumed budget.')
+        budget_only = budget_only_change(state['contract'], definition)
         state.setdefault('amendments', []).append({'authority': authority.strip(),
             'previous_contract': state['contract'], 'previous_sha256': state['contract_sha256'],
-            'previous_plan': state.get('plan'), 'previous_receipts': state['receipts'],
+            **({} if budget_only else {'previous_plan': state.get('plan'), 'previous_checkpoint_plans': state.get('checkpoint_plans'), 'previous_checkpoint_requests': state.get('checkpoint_requests'), 'previous_receipts': state['receipts']}),
             'usage': dict(state['usage']), 'at': time.time()})
         delivery = definition['delivery']
         if delivery['kind'] == 'git_push' and (not delivery.get('remote') or not delivery.get('ref', '').startswith('refs/heads/')):
             raise Invalid('Authorized Git delivery needs its exact remote and branch ref.')
-        state.update(contract=definition, contract_sha256=digest(definition), phase='working', receipts={})
-        for key in ('plan', 'request_identity', 'task_bindings', 'case_bindings', 'delivery_artifact'):
-            state.pop(key, None)
+        state.update(contract=definition, contract_sha256=digest(definition))
+        if not budget_only:
+            state.update(phase='working', receipts={})
+            for key in ('plan', 'request_identity', 'checkpoint_plans', 'checkpoint_requests', 'checkpoints', 'task_bindings', 'case_bindings', 'delivery_artifact'):
+                state.pop(key, None)
         save(path, state)
     return status(path)
 

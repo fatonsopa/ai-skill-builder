@@ -61,3 +61,14 @@ class AuthoredCaseReviewTests(unittest.TestCase):
         plan['case_review']['accepted']=True
         plan['cases'][0]['stdin']={'id':'changed'}
         with self.assertRaisesRegex(Invalid,'bound to their actual bytes'):check_plan(SPEC,plan)
+
+
+class ScopedOwnershipTests(unittest.TestCase):
+    def test_narrow_maintenance_requires_only_authorized_root_outputs_while_full_creation_stays_strict(self):
+        from runtime.common import digest
+        plan={**deepcopy(PLAN),'package_profile':'maintained','components':[], 'resources':[], 'authored_outputs':[{'path':'SKILL.md','owner':'repair author','consumers':['primary']}]}
+        plan['case_review']={'reviewer':{'kind':'authored_control','identity':'test','method':'Scope regression; not model performance.'},'cases_sha256':digest(plan['cases']),'accepted':True,'evidence':'Preserve frozen cases while correcting ownership scope.'}
+        check_plan(SPEC,plan,required_root_outputs={'SKILL.md'})
+        with self.assertRaisesRegex(Invalid,'README.md'):check_plan(SPEC,plan)
+        plan['authored_outputs']=[]
+        with self.assertRaisesRegex(Invalid,'SKILL.md'):check_plan(SPEC,plan,required_root_outputs={'SKILL.md'})

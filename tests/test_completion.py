@@ -372,3 +372,128 @@ class PlanningRecoveryTests(unittest.TestCase):
         completion.sync_native(run,state);self.assertFalse(completion.status(policy,self.project)['checks'][0]['valid'])
         state['evaluation']['attempts'][1]['status']='passed'
         completion.sync_native(run,state);self.assertTrue(completion.status(policy,self.project)['checks'][0]['valid'])
+
+
+class FrozenMetadataRecoveryTests(unittest.TestCase):
+    setUp = CompletionTests.setUp
+    policy = CompletionTests.policy
+
+    def test_missing_component_metadata_can_be_corrected_without_changing_cases_or_restarting(self):
+        from fixtures import SPEC, PLAN, PROGRAM, PRODUCE
+        from runtime.artifacts import execution_logging_rules
+        from skill_builder_cli import replay
+        spec={**deepcopy(SPEC),'workflows':[{'id':'normalize','purpose':'Atomic transformation','trigger':'Supplied JSON','steps':['normalize'],'boundaries':[],'branches':[],'recovery':[]}]}
+        plan=deepcopy(PLAN)
+        for case in plan['cases']:
+            case['quality']={'source_clauses':case['requirements'],'actor':'executor','feasibility':'Authored state-machine fixture, not model performance.','input_validity':'Controlled JSON or deliberate malformed input.','runtime':'Python standard library.','correction_obligations':[]}
+        plan['cases'][0]['workflow']={'id':'normalize','scenario':'success','covers':[]}
+        plan['cases'][3]['workflow']={'id':'normalize','scenario':'invalid_input','covers':[]}
+        behavior={'id':'native-use','kind':'behavior','critical':True,'semantic':True,'requirements':['R-1'],'request':{'instruction':'Use the supplied normalizer and report actual output.'},'resources':['SKILL.md'],'expect':{'exit_code':0},'workflow':{'id':'normalize','scenario':'behavior','covers':[]},'quality':deepcopy(plan['cases'][0]['quality'])}
+        plan['cases'].append(behavior)
+        plan.update(package_profile='maintained',components=[],authored_outputs=[{'path':p,'owner':'author','consumers':['primary']} for p in ['SKILL.md','README.md','AGENTS.md','CLAUDE.md']],execution={'mode':'single','rationale':'One task owner.','file_workflow':False,'file_reason':'JSON arrives on stdin.','bindings':[],'document_context':{'applicable':False,'reason':'Synthetic protocol fixture.','sources':[]}})
+        plan['case_review']={'reviewer':{'kind':'authored_control','identity':'test','method':'State-machine control only.'},'cases_sha256':digest(plan['cases']),'accepted':True,'evidence':'Feasible fixture; no actual model result is claimed.'}
+        target=self.workspace/'target'
+        policy=self.policy(project=str(target),scope=['**'],checks=[{'id':'mechanical','kind':'mechanical','test_ids':[c['id'] for c in plan['cases'] if c['kind']!='behavior'],'dependencies':['scripts/normalize.py']},{'id':'native-use','kind':'behavior','dependencies':['SKILL.md']}])
+        run=self.workspace/'run'
+        state=workflow.start(run,{'operation':'create','skill_name':'normalize-customers','brief':'Verify bounded metadata correction.','copyright_holder':'Fixture','completion_policy':str(policy)})
+        def submit(data):
+            packet=workflow.packet(run)
+            response={**{k:packet[k] for k in ['run_id','phase','packet_sha256']},'data':deepcopy(data)}
+            workflow.submit(run,response)
+            return response
+        submit(RESEARCH);submit(spec);original=submit(plan)
+        original_cases=digest(plan['cases']);original_run=state['run_id']
+        workflow.revise(run,'Declare the already planned normalization executable.',phase='plan')
+        corrected=deepcopy(plan);corrected['components']=[{'path':'scripts/normalize.py','requirements':['R-1','R-2','R-3'],'reason':'The already planned deterministic transformation.'}]
+        with self.assertRaisesRegex(Invalid,'superseded'):workflow.submit(run,original)
+        changed=deepcopy(corrected);changed['target_success_percent']=99
+        with self.assertRaisesRegex(Invalid,'Frozen plan criteria'):submit(changed)
+        changed=deepcopy(corrected);changed['components'][0]['path']='unplanned.py'
+        with self.assertRaisesRegex(Invalid,'unplanned output'):submit(changed)
+        submit(corrected)
+        current=workflow.read_state(run)
+        self.assertEqual(current['run_id'],original_run)
+        self.assertEqual(digest(current['data']['plan']['cases']),original_cases)
+        self.assertEqual(completion.read(policy)['usage']['runs'],1)
+        self.assertEqual(completion.read(policy)['usage']['revisions'],1)
+        rules=execution_logging_rules();text='# Fixture guide\n\nA protocol control only.\n'
+        produced={**deepcopy(PRODUCE),'instructions':'Use scripts/normalize.py and follow AGENTS.md.','repository_instructions':'# Repository instructions\n\n'+rules,'documentation':{'schema_version':2,'owner':'author','profiles':{'source':text,'runtime':text},'commands':[]},'execution_logging':{'mode':'host_public','owner':'host','record_location':'Task public tool history','rules_sha256':digest(rules.encode())}}
+        submit(produced)
+        self.assertTrue((run/'candidate/scripts/normalize.py').is_file())
+        with self.assertRaises(Invalid):workflow.revise(run,'Change metadata after implementation.',phase='plan')
+        with patch('subprocess.run',side_effect=AssertionError('Replay cannot run commands.')):
+            self.assertEqual(replay(run)['rebuilt_files'],inventory(run/'candidate'))
+
+
+class BudgetOnlyAmendmentTests(unittest.TestCase):
+    setUp = CompletionTests.setUp
+    policy = CompletionTests.policy
+    request = CompletionTests.request
+    evidence = CompletionTests.evidence
+
+    def test_budget_extension_retains_run_plan_receipts_and_usage_but_scope_change_does_not(self):
+        checks=[*deepcopy(self.definition['checks']),{'id':'document','kind':'document','dependencies':['notes.md']}]
+        policy=self.policy(checks=checks)
+        run=self.workspace/'active-run';state=workflow.start(run,self.request(policy))
+        completion.freeze_plan(state,{'requirements':[]},{'cases':[{'id':'unit','kind':'command'}]})
+        completion.record(policy,'unit',self.project,self.evidence())
+        completion.reserve(policy,'model_calls',detail='Authored bounded retry control.')
+        before=completion.read(policy);definition=deepcopy(before['contract'])
+        definition['budget']['runs']+=1;definition['budget']['model_calls']+=1
+        completion.amend(policy,definition,'Authored authorized budget-only control; no actual user permission or model result is claimed.')
+        current=completion.read(policy);completion.guard(state)
+        self.assertEqual(current['plan'],before['plan'])
+        self.assertEqual(current['receipts'],before['receipts'])
+        self.assertEqual(current['usage'],before['usage'])
+        self.assertEqual(current['created_unix'],before['created_unix'])
+        self.assertTrue(next(c for c in completion.status(policy,self.project)['checks'] if c['id']=='unit')['valid'])
+        definition['scope'].append('extra.py')
+        completion.amend(policy,definition,'Authored scope-change rejection control, not real authority.')
+        with self.assertRaisesRegex(Invalid,'binding changed'):completion.guard(state)
+
+
+class AuditRepairCheckpointTests(unittest.TestCase):
+    setUp = CompletionTests.setUp
+    policy = CompletionTests.policy
+    request = CompletionTests.request
+
+    def test_audit_then_repair_keeps_bound_report_and_budget_under_one_objective(self):
+        (self.project/'SKILL.md').write_text('---\nname: policy-control\ndescription: Authored checkpoint fixture.\n---\nInspect supplied facts.\n')
+        checks=[{'id':'audit-result','kind':'report','dependencies':[]},
+                {'id':'unit','kind':'mechanical','dependencies':['run.py']}]
+        policy=self.policy(checks=checks, checkpoints=[
+            {'id':'audit','checks':['audit-result'],'depends_on':[],'lessons':[]},
+            {'id':'repair','checks':['unit'],'depends_on':['audit'],'lessons':[]}])
+        with self.assertRaisesRegex(Invalid,'dependency'):
+            workflow.start(self.workspace/'too-early', self.request(policy,checkpoint='repair'))
+        run=self.workspace/'audit-run'
+        request=self.request(policy,operation='audit',checkpoint='audit');request.pop('allowed_paths')
+        workflow.start(run,request)
+        audit={'recommendation':'retain','rationale':'Authored checkpoint transport control; no model performance claim.',
+               'findings':[], 'dimensions':[{'dimension':d,'status':'compliant','evidence':'Controlled source for checkpoint preservation.',
+               'repair':'Retain.','preservation':'Keep original source in the report baseline.','regression':'This checkpoint transport control.'}
+               for d in ('authorship_execution','over_engineering','over_testing','over_validation','avoidable_complexity')]}
+        for data in (RESEARCH,audit):
+            packet=workflow.packet(run)
+            workflow.submit(run,{**{k:packet[k] for k in ('run_id','phase','packet_sha256')},'data':deepcopy(data)})
+        self.assertEqual([c['valid'] for c in completion.status(policy,self.project)['checks']],[True,False])
+        completion.checkpoint(policy,'audit',self.project,[])
+        before=completion.read(policy)
+        repair=self.workspace/'repair-run';state=workflow.start(repair,self.request(policy,checkpoint='repair'))
+        dependency=workflow.packet(repair)['accepted_dependencies']['audit']['audit-result']
+        self.assertEqual(dependency['sha256'],digest(Path(before['receipts']['audit-result']['evidence']).read_bytes()))
+        self.assertEqual(completion.read(policy)['created_unix'],before['created_unix'])
+        self.assertEqual(completion.read(policy)['usage']['runs'],2)
+        spec={'requirements':[]};plan={'cases':[{'id':'unit','kind':'command'}]}
+        completion.freeze_plan(state,spec,plan)
+        self.assertEqual(completion.read(policy)['checkpoint_plans']['repair'],{'spec':spec,'plan':plan})
+        with self.assertRaisesRegex(Invalid,'outside the frozen'):
+            completion.freeze_plan({**state,'request':{**state['request'],'checkpoint':'audit'}},spec,plan)
+        (self.project/'run.py').write_text('print("repaired")\n')
+        state.update(phase='review',evaluation={'package_hashes':inventory(self.project),'attempts':[{'id':'unit','status':'passed'}]})
+        completion.sync_native(repair,state)
+        self.assertEqual([c['valid'] for c in completion.status(policy,self.project)['checks']],[True,True])
+        self.assertFalse(completion.status(policy,self.project)['checks'][0]['fresh_current_artifact'])
+        self.assertEqual(completion.read(policy)['receipts']['audit-result'],before['receipts']['audit-result'])
+        (run/'baseline/run.py').write_text('tampered baseline\n')
+        self.assertFalse(completion.status(policy,self.project)['checks'][0]['valid'])

@@ -44,6 +44,23 @@ def selected_mechanics(plan):
     return selected
 
 
+def check_plan_metadata_change(previous, current):
+    """Permit annotations for already planned files, not acceptance changes."""
+    editable = {'components', 'authored_outputs'}
+    if {k: v for k, v in previous.items() if k not in editable} != {k: v for k, v in current.items() if k not in editable}:
+        raise Invalid('Frozen plan criteria, permissions and scope cannot change during metadata correction; only components and authored_outputs may be corrected.')
+    owned = [path for domain in previous.get('domains', []) for path in domain['owned_paths']]
+    for field in editable:
+        old_paths = {item['path'] for item in previous.get(field, [])}
+        new_paths = {item['path'] for item in current.get(field, [])}
+        if old_paths - new_paths:
+            raise Invalid('Metadata correction cannot remove already declared components or owners.')
+        for path in new_paths - old_paths:
+            relative(path)
+            if not any(path == name or name.endswith('/') and path.startswith(name) for name in owned):
+                raise Invalid('Metadata correction adds an unplanned output path: ' + path)
+
+
 
 
 def workflow_requirements(spec):
@@ -119,18 +136,23 @@ def check_workflow_coverage(spec, plan):
     return {name: {"required": checks, "covered": sorted(covered[name])} for name, checks in required.items()}
 
 
-def check_plan(spec, plan, require_workflows=False):
+def check_plan(spec, plan, require_workflows=False, required_root_outputs=None):
     if require_workflows:
         check_workflow_coverage(spec, plan)
     if 'authored_outputs' in plan:
         quality = plan.get('case_review', {})
         if quality.get('cases_sha256') != digest(plan['cases']) or quality.get('accepted') is not True:
-            raise Invalid('Cases need accepted source-grounded feasibility, input, oracle, runtime and correction review bound to their actual bytes.')
+            raise Invalid('Cases need accepted source-grounded feasibility, input, oracle, runtime and correction review bound to their actual bytes. '
+                          + json.dumps({'expected_cases_sha256': digest(plan['cases'])}, sort_keys=True)
+                          + ' Review the actual cases before correcting the binding; a matching hash does not establish semantic acceptance.')
         outputs = plan['authored_outputs']
         names = [item['path'] for item in outputs]
-        required_outputs = {'SKILL.md', 'README.md', 'AGENTS.md', 'CLAUDE.md'} | {r['path'] for r in plan['resources']}
+        roots = {'SKILL.md', 'README.md', 'AGENTS.md', 'CLAUDE.md'} if required_root_outputs is None else set(required_root_outputs)
+        required_outputs = roots | {r['path'] for r in plan['resources']}
         if len(names) != len(set(names)) or required_outputs - set(names):
-            raise Invalid('Declare one authored owner and execution consumers for each instruction/document output.')
+            raise Invalid('Declare one authored owner and execution consumers for each instruction/document output: '
+                          + json.dumps({'missing_outputs': sorted(required_outputs - set(names)),
+                                        'duplicate_outputs': sorted({name for name in names if names.count(name) > 1})}, sort_keys=True))
         for output in outputs:
             relative(output['path'])
             if not output['owner'].strip() or not output['consumers']:
@@ -287,9 +309,9 @@ def render(root, request, spec, plan, response, source=None):
             parent = parent.parent
     if 'components' in plan:
         justified = {c['path'] for c in plan['components']}
-        for name in response['files']:
-            if Path(name).suffix in {'.py', '.sh', '.js', '.mjs', '.ts'} and name not in justified:
-                raise Invalid('Produced executable needs a capability justification: ' + name)
+        unjustified = sorted(name for name in response['files'] if Path(name).suffix in {'.py', '.sh', '.js', '.mjs', '.ts'} and name not in justified)
+        if unjustified:
+            raise Invalid('Produced executable needs a capability justification: ' + json.dumps(unjustified))
     for name, content in response['files'].items():
         path = inside(root, name)
         if creating and name in MANAGED:
