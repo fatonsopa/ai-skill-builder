@@ -36,7 +36,7 @@ MECHANIC_DEPENDENCIES = {
 
 def selected_mechanics(plan):
     if 'package_profile' not in plan:
-        return {p for p in MANAGED if p.startswith('scripts/')}
+        return {p for p in MANAGED if p.startswith('scripts/') and p != 'scripts/record_retention.py'}
     selected = {c['path'] for c in plan['components'] if c['path'] in MANAGED and c['path'].startswith('scripts/')}
     for path in selected:
         if MECHANIC_DEPENDENCIES.get(path, set()) - selected:
