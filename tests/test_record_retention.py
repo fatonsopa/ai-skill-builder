@@ -138,3 +138,21 @@ class RetentionTests(unittest.TestCase):
             records.finish(parent,outcome='failed',resolved=True)
         self.sweep(106);self.assertTrue(child.exists())
         self.sweep(108);self.assertFalse(child.exists());self.assertTrue(parent.exists())
+
+    def test_project_owned_installer_is_not_replaced_by_a_builder_mechanic(self):
+        from copy import deepcopy
+        from fixtures import PLAN, PRODUCE, SPEC
+        from runtime.artifacts import check_plan, render
+        source=self.root/'project';(source/'scripts').mkdir(parents=True)
+        (source/'SKILL.md').write_text('---\nname: normalize-customers\ndescription: Project installer fixture.\n---\nPreserve the project installer.\n')
+        before='print("original project installer")\n';after='print("updated project installer")\n'
+        (source/'scripts/install_skill.py').write_text(before)
+        plan=deepcopy(PLAN);plan['domains'][0]['owned_paths'].append('scripts/install_skill.py')
+        plan.update(package_profile='maintained',components=[{'path':'scripts/install_skill.py','origin':'project','requirements':['R-1'],'reason':'Maintain an existing project-owned installer.'}])
+        check_plan(deepcopy(SPEC),plan)
+        produced=deepcopy(PRODUCE);produced['files']={'scripts/install_skill.py':after}
+        candidate=self.root/'candidate'
+        render(candidate,{'operation':'modify','skill_name':'normalize-customers','allowed_paths':['scripts/install_skill.py']},deepcopy(SPEC),plan,produced,source)
+        self.assertEqual((candidate/'scripts/install_skill.py').read_text(),after)
+        self.assertEqual((source/'scripts/install_skill.py').read_text(),before)
+        self.assertFalse((candidate/'scripts/repository_files.py').exists())

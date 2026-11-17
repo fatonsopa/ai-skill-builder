@@ -290,3 +290,9 @@ EXECUTION_LOGGING = obj({'mode': {'enum': ['host_public', 'structured_file']}, '
 PRODUCE = obj({**PRODUCE['properties'], 'execution_logging': EXECUTION_LOGGING},
               required=[*PRODUCE['required'], 'execution_logging'])
 PHASES = {**PHASES, 'plan': PLAN, 'produce': PRODUCE}
+
+# A project-owned maintenance script may share a supported mechanic's path.
+_COMPONENT = PLAN['properties']['components']['items']
+_COMPONENT = obj({**_COMPONENT['properties'], 'origin': {'enum': ['builder', 'project']}}, required=_COMPONENT['required'])
+PLAN = obj({**PLAN['properties'], 'components': array(_COMPONENT)}, required=PLAN['required'])
+PHASES = {**PHASES, 'plan': PLAN}
