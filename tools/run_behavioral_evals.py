@@ -21,6 +21,7 @@ from repository_files import inventory, copy_repository, skill_name, PRIVATE_DIR
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import behavior_hosts
 from runtime import completion
+import record_retention
 
 
 def save(path, value):
@@ -197,7 +198,10 @@ def run(config_path, output, executable=None):
             raise ValueError('Dependency and output directories must be separate.')
         dependency_roots[row['name']] = {'source': str(path), 'files': inventory(path)}
     before = inventory(subject)
-    output.mkdir(parents=True)
+    record_retention.begin(output, 'skill-builder-evals', protected=[subject, *[row['source'] for row in dependency_roots.values()]])
+    record_retention.cleanup(output.parent, 'skill-builder-evals')
+    if config.get('capture_content', False):
+        record_retention.begin(output / 'diagnostics', 'skill-builder-evals', kind='diagnostic')
     save(output / 'config.json', config)
     attempts, calls, execution_block = [], 0, None
     started = time.monotonic()
@@ -297,11 +301,16 @@ def run(config_path, output, executable=None):
             save(output / 'allowance.json', {'max_invocations': config['max_invocations'], 'used': calls, 'max_seconds': config['max_seconds']})
             call_started = time.monotonic()
             live_events = []
+            event_path = output / 'diagnostics' / (folder.name + '-public-events.json') if config.get('capture_content', False) else folder / 'public-events.json'
+            if config.get('capture_content', False):
+                (folder / 'public-events.json').symlink_to(os.path.relpath(event_path, folder))
             def capture_line(line):
                 events = behavior_hosts.capture(line)['events'] if host == 'claude-code' else public_events(line)
                 if events:
                     live_events.extend({**(event if config.get('capture_content', False) else behavior_hosts.event_metadata(event)), 'captured_at_unix': time.time()} for event in events)
-                    write_json(folder / 'public-events.json', live_events)
+                    write_json(event_path, live_events)
+                    if config.get('capture_content', False):
+                        write_json(folder / 'public-events-metadata.json', [{**behavior_hosts.event_metadata(event), 'captured_at_unix': event.get('captured_at_unix')} for event in live_events])
             try:
                 environment = dict(os.environ)
                 if 'technical-writer' in dependencies:
@@ -312,7 +321,7 @@ def run(config_path, output, executable=None):
                 events = live_events or [event if config.get('capture_content', False) else behavior_hosts.event_metadata(event) for event in parsed_events]
                 if captured and captured['final'] is not None:
                     final.write_text(captured['final'])
-                save(folder / 'public-events.json', events)
+                save(event_path, events)
                 (folder / 'stderr.txt').write_text(result.stderr)
                 workspace_links = {}
                 captured_files = workspace_files(work, skill_link, installed, workspace_links)
@@ -347,7 +356,7 @@ def run(config_path, output, executable=None):
                 if captured_timeout and captured_timeout['provider_error']:
                     execution_block = captured_timeout['provider_error']
                     row.update(provider_error=execution_block)
-                save(folder / 'public-events.json', partial)
+                save(event_path, partial)
                 row.update(status='failed', reason='Performing task exceeded the per-call/total allowance.', elapsed_seconds=time.monotonic() - call_started)
             except (ValueError, RuntimeError) as error:
                 row.update(status='failed', reason='Task artifact capture failed: ' + str(error), elapsed_seconds=time.monotonic() - call_started, execution_host=host)
@@ -361,6 +370,12 @@ def run(config_path, output, executable=None):
         raise ValueError('Dependency changed during behavior testing.')
     report = {'schema_version': 1, 'dependency_sources': dependency_roots, 'controller_hashes': controller, 'execution_block': execution_block, 'execution_host': host, 'requested_model': config['model'], 'reasoning_effort': effort, 'package_hashes': before, 'config_sha256': json_hash(config), 'attempts': attempts, 'model_invocations': calls, 'elapsed_seconds': time.monotonic() - started, 'sandbox_mode': sandbox, 'preflight': preflight_result, 'limits': ['Actual local ' + host + ' skill invocation; does not establish untested host support.', 'Configured execution mode: ' + sandbox + '. Claude host-tools uses an allowlist, not an OS sandbox. Case folders alone do not provide isolation; permissions never widen on failure.', 'Workspace captures retain safe task-local links and controlled skill aliases, and exclude local environments/caches; links outside those boundaries fail. Expected answers/rubrics are excluded from task-only installs; snapshots differ from the development repository only in evaluation/development resources.', 'Requested model is recorded; resolved identity is not independently verified.', 'Semantic outputs and actual public traces require review; no automatic pass from CLI exit zero.']}
     save(output / 'report.json', report)
+    failed = any(row['status'] in {'failed', 'infrastructure_failure'} for row in attempts)
+    if config.get('capture_content', False):
+        record_retention.finish(output / 'diagnostics', outcome='failed' if failed else 'success')
+    if not any(row['status'] == 'pending_review' for row in attempts):
+        record_retention.finish(output, outcome='failed' if failed else 'success')
+    record_retention.cleanup(output.parent, 'skill-builder-evals')
     return report
 
 

@@ -34,6 +34,16 @@ Keep a structured execution record for each task using the host’s public tool 
 
 Capture metadata by default. Include prompt, argument or result content only when authorized and needed; exclude credentials, secrets and private model reasoning. Restrict access to task records and follow the project’s retention rules without deleting evidence still required for recovery or review. Use failures to identify a cause and add a focused regression for a demonstrated defect. Resume from the earliest affected checkpoint and retain valid earlier results, original history and consumed budgets.
 
+For local file records, use `scripts/record_retention.py` through the existing executor. Register only newly created record folders outside the installed skill, source and deliverables. Keep these classes separate:
+
+- Routine logs: 30 days after completion.
+- Investigation logs: until resolution, then 90 days.
+- Optional diagnostic content: 7 days after closure or investigation resolution, in a separately registered child folder.
+
+Active work, unresolved investigations and acceptance evidence protect the whole required bundle, including diagnostic children. The first cleanup previews; later lifecycle checks remove only unchanged, expired, unprotected managed bundles and retain a small deletion receipt. Historical folders remain unmanaged. Release an evidence pin only after its acceptance is retired.
+
+Native host history uses the host’s own retention controls. Do not claim Builder can delete app chat history.
+
 ## Repository maintenance
 
 Use the objective-wide completion policy in [maintenance](references/maintenance.md#freeze-the-delivery-contract). New Builder runs require its persistent policy path; new run directories cannot reset its limits.

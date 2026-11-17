@@ -83,6 +83,10 @@ class BehaviorHarnessTests(unittest.TestCase):
             live = json.loads((Path(cwd).parent / 'public-events.json').read_text())
             self.assertEqual(len(live), 1)
             self.assertNotIn('PRIVATE', json.dumps(live))
+            self.assertTrue((Path(cwd).parent / 'public-events.json').is_symlink())
+            metadata=json.loads((Path(cwd).parent / 'public-events-metadata.json').read_text())
+            self.assertNotIn('Visible before exit.',json.dumps(metadata))
+            self.assertEqual((Path(cwd).parent / 'public-events.json').resolve().parent,Path(cwd).parent.parent/'diagnostics')
             return subprocess.CompletedProcess(argv, 0, json.dumps({'type': 'item.completed', 'item': {'type': 'agent_message', 'text': 'Audit findings.'}}), '')
         with patch.object(harness.shutil, 'which', return_value='/fixture-codex'), patch.object(harness, 'run_process', side_effect=perform) as call:
             result = self.run_harness()

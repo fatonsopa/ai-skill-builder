@@ -8,6 +8,8 @@ import time
 import uuid
 import math
 
+import record_retention
+
 from . import contracts, technical_writer, completion
 from .execution import check_execution, instruction_bundles, review_execution
 from .artifacts import MANAGED, check_package, check_plan, check_plan_metadata_change, render, workflow_requirements
@@ -45,6 +47,13 @@ def start(root, request, *, protocol_version=contracts.PROTOCOL_VERSION, replay_
     if source and not before:
         raise Invalid("Source is missing or empty.")
     completion_binding = completion.enroll(request['completion_policy'], root, request) if request.get('completion_policy') and not replay_only else None
+    managed_records = not replay_only and (not root.exists() or not any(root.iterdir()))
+    if managed_records:
+        protected = [source] if source else []
+        if completion_binding:
+            protected.append(completion.read(completion_binding['path'])['contract']['project'])
+        record_retention.begin(root, 'skill-builder', protected=protected)
+        record_retention.cleanup(root.parent, 'skill-builder')
     root.mkdir(parents=True, exist_ok=True)
     if source:
         copy_package(source, root / "baseline")
@@ -149,7 +158,9 @@ def packet(root):
         from .artifacts import execution_logging_rules
         rules = execution_logging_rules()
         value['execution_logging'] = {'instructions': rules, 'rules_sha256': digest(rules.encode()),
-                                      'source': 'assets/AGENTS.md#execution-records', 'capture_content': False}
+                                      'source': 'assets/AGENTS.md#execution-records', 'capture_content': False,
+                                      'retention_policy': record_retention.DEFAULT_POLICY,
+                                      'retention_mechanic': 'scripts/record_retention.py'}
     if phase == "plan" and state.get("protocol_version", 1) >= 2:
         value["required_workflow_tests"] = workflow_requirements(state["data"]["specify"])
     guides = []
@@ -300,6 +311,8 @@ def submit(root, response):
     event(root, "response_accepted", {"phase": phase, "sha256": response_hash})
     if phase in ('review', 'audit', 'plan', 'specify'):
         completion.sync_native(root, state, data if phase == 'review' else None)
+    if state['phase'] == 'complete' and operation in {'audit', 'plan', 'specify'} and (root / record_retention.MARKER).exists() and not state.get('replay_only'):
+        record_retention.finish(root, pin='accepted_read_only_result')
     return state
 
 
@@ -590,6 +603,9 @@ def apply(root, destination=None):
     state.update(status="applied", delivered=str(target))
     save(root / "state.json", state)
     event(root, "applied", {"target": str(target), "files": state["best"]["files"]})
+    if (root / record_retention.MARKER).exists():
+        record_retention.finish(root, pin='accepted_skill_version')
+        record_retention.cleanup(root.parent, 'skill-builder')
     return state
 
 

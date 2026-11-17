@@ -1,4 +1,6 @@
 """Package rendering and checks; supplied documents never execute themselves."""
+import record_retention
+
 import json
 from pathlib import Path
 import re
@@ -15,7 +17,7 @@ from .common import Invalid, digest, inside, inventory, relative, save, copy_pac
 from .hosts import POLICY
 from .readme import render as render_readme, check as check_readme
 
-MANAGED = {"scripts/case_inputs.py", "scripts/provider_results.py", "scripts/host_coverage.py", "config/host_validation.json", "scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
+MANAGED = {"scripts/record_retention.py", "scripts/case_inputs.py", "scripts/provider_results.py", "scripts/host_coverage.py", "config/host_validation.json", "scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
 EVALUATOR = Path(__file__).resolve().parents[1] / "evaluate.py"
 
 
@@ -337,7 +339,7 @@ def render(root, request, spec, plan, response, source=None):
             instructions += "\n## Project guidance\n\n" + project_notes.strip() + "\n"
         (root / "AGENTS.md").write_text(instructions)
         (root / "CLAUDE.md").write_text("@AGENTS.md\n")
-        for name in ("case_inputs.py", "continuation.py", "repository_files.py", "repository_layout.py", "run_tests.py", "host_coverage.py", "provider_results.py"):
+        for name in ("record_retention.py", "case_inputs.py", "continuation.py", "repository_files.py", "repository_layout.py", "run_tests.py", "host_coverage.py", "provider_results.py"):
             if "scripts/" + name in mechanics:
                 (root / "scripts").mkdir(exist_ok=True)
                 shutil.copyfile(EVALUATOR.parent / name, root / "scripts" / name)
@@ -378,7 +380,13 @@ def render(root, request, spec, plan, response, source=None):
                     raise Invalid('Include the exact authored execution-record rules from the current packet in repository_instructions; stale or missing defaults cannot be assembled.')
                 if 'AGENTS.md' not in response['instructions']:
                     raise Invalid('Route runtime instructions to AGENTS.md so default execution records reach the skill user.')
-                data['execution_logging'] = {**logging, 'capture_content': logging.get('capture_content', False)}
+                managed_retention = logging['mode'] == 'structured_file'
+                if managed_retention and 'scripts/record_retention.py' not in selected_mechanics(plan):
+                    raise Invalid('Structured-file execution records need the justified scripts/record_retention.py mechanic and start/finish integration in their existing executor.')
+                data['execution_logging'] = {**logging, 'capture_content': logging.get('capture_content', False),
+                    'retention': {'policy': record_retention.DEFAULT_POLICY,
+                                  'mode': 'managed_files' if managed_retention else 'host_managed',
+                                  'controller': 'scripts/record_retention.py' if managed_retention else 'host retention controls'}}
             (root / 'AGENTS.md').write_text(response['repository_instructions'])
             (root / 'SKILL.md').write_text(f"---\n{metadata}\n---\n\n" + response['instructions'])
         else:

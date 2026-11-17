@@ -1,4 +1,6 @@
 """Objective-wide completion controls; trusted local workflow state, not a sandbox."""
+import record_retention
+
 import fnmatch
 import json
 from pathlib import Path
@@ -453,6 +455,14 @@ def record(path, identifier, package, evidence, *, origin='executed', native_pas
             if item['classification'] == 'blocker' and item['checks'] and all(c in policy['receipts'] for c in item['checks']):
                 item['resolved'] = True
         save(path, policy)
+        reference = str(path) + ':' + identifier
+        record_retention.pin_reference(evidence, reference)
+        for retained_path in proof.get('retained_host_inputs', {}).get('files', {}):
+            managed = record_retention.pin_reference(retained_path, reference)
+            for bundle in managed:
+                meta = record_retention._state(bundle)
+                if meta['owner'] == 'skill-builder-evals' and meta['kind'] != 'diagnostic':
+                    record_retention.finish(bundle, pin=reference)
         current = status(path, package)
         if all(c['valid'] for c in current['checks']) and not any(g.get('resumed_unix') is None for g in policy.get('user_gates', [])) and not any(f['classification'] == 'blocker' and not f['resolved'] for f in policy['findings']):
             policy['phase'] = 'delivery_pending'

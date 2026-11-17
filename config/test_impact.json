@@ -394,6 +394,18 @@
         "-p",
         "test_completion.py"
       ]
+    },
+    "record-retention": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_record_retention.py"
+      ]
     }
   },
   "rules": [
@@ -829,6 +841,17 @@
         "behavior-evaluation"
       ],
       "reason": "Binary fixtures use the normal performing-packet and native staging routes."
+    },
+    {
+      "paths": [
+        "scripts/record_retention.py",
+        "tests/test_record_retention.py"
+      ],
+      "tests": [
+        "record-retention",
+        "completion-policy",
+        "workflow"
+      ]
     }
   ],
   "final_checks": {

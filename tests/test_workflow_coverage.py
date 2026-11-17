@@ -111,7 +111,7 @@ class WorkflowCoverageTests(unittest.TestCase):
             from runtime.completion import create
             policy = create(folder, {'objective_id': 'authored-cli-control', 'goal': 'Verify existing CLI behavior with the current contract.',
                 'project': str(folder / 'phase-project'), 'scope': ['**'],
-                'checks': [{'id': 'report', 'kind': 'report', 'dependencies': []}],
+                'checks': [{'id': 'unit', 'kind': 'mechanical', 'dependencies': ['SKILL.md']}],
                 'budget': {'runs': 1, 'revisions': 0, 'model_calls': 0, 'seconds': 600},
                 'delivery': {'kind': 'report', 'authority': 'Authored unit control only.'}})['policy']
             request.write_text(json.dumps({'completion_policy': policy, 'operation': 'create', 'skill_name': 'phase-control', 'brief': 'Check process order.', 'copyright_holder': 'Fixture'}))
