@@ -532,7 +532,9 @@
         "LICENSE",
         ".gitignore",
         ".gitattributes",
-        "scripts/requirements*.txt"
+        "scripts/requirements*.txt",
+        "openspec/*",
+        "plan/*"
       ],
       "tests": [],
       "reason": "Documentation or metadata: review changed instructions and links; no unrelated behavioral suite."

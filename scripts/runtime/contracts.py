@@ -213,9 +213,9 @@ PHASES = {**PHASES, "plan": PLAN, "review": REVIEW}
 
 def response_schema(phase, protocol_version=None):
     protocol_version = PROTOCOL_VERSION if protocol_version is None else protocol_version
-    if protocol_version not in (1, 2, 3, 4, 5, PROTOCOL_VERSION):
+    if protocol_version not in (1, 2, 3, 4, 5, 6, PROTOCOL_VERSION):
         raise ValueError("Unsupported authoring protocol version.")
-    phases = {1: LEGACY_PHASES, 2: V2_PHASES, 3: V4_PHASES, 4: V4_PHASES, 5: V5_PHASES, 6: PHASES}[protocol_version]
+    phases = {1: LEGACY_PHASES, 2: V2_PHASES, 3: V4_PHASES, 4: V4_PHASES, 5: V5_PHASES, 6: V6_PHASES, 7: PHASES}[protocol_version]
     return obj({
         "run_id": TEXT, "phase": {"const": phase},
         "packet_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
@@ -295,4 +295,23 @@ PHASES = {**PHASES, 'plan': PLAN, 'produce': PRODUCE}
 _COMPONENT = PLAN['properties']['components']['items']
 _COMPONENT = obj({**_COMPONENT['properties'], 'origin': {'enum': ['builder', 'project']}}, required=_COMPONENT['required'])
 PLAN = obj({**PLAN['properties'], 'components': array(_COMPONENT)}, required=PLAN['required'])
+PHASES = {**PHASES, 'plan': PLAN}
+
+
+# Independently owned work binds to its governing specification; ordinary steps stay inline.
+V6_PHASES = dict(PHASES)
+PROTOCOL_VERSION = 7
+ASSIGNMENT = obj({
+    'id': TEXT, 'outcome': TEXT, 'owner_role': TEXT,
+    'permitted_effects': array(TEXT, 1), 'governing_revision': TEXT,
+    'criterion': TEXT, 'safeguard': obj({'rationale': TEXT}),
+    'prerequisites': STRINGS, 'failure_behavior': TEXT, 'proof': array(TEXT, 1),
+}, required=['id', 'outcome', 'owner_role', 'permitted_effects', 'governing_revision', 'prerequisites', 'failure_behavior', 'proof'])
+ASSIGNMENT_REVIEW = obj({
+    'reviewer': obj({'kind': TEXT, 'identity': TEXT, 'method': TEXT}),
+    'assignments_sha256': TEXT,
+    'decisions': array(obj({'id': TEXT, 'accepted': BOOL, 'source': TEXT, 'rationale': TEXT}), 1),
+})
+PLAN = obj({**PLAN['properties'], 'assignments': array(ASSIGNMENT, 1), 'assignment_review': ASSIGNMENT_REVIEW},
+           required=[*PLAN['required'], 'assignments', 'assignment_review'])
 PHASES = {**PHASES, 'plan': PLAN}

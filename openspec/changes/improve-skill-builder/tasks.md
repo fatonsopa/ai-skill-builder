@@ -11,7 +11,7 @@ Start only when the listed inputs, authority and dependencies are settled. Durin
 
 **Demonstrate the story.** Follow an admitted assignment into production and locate a requirement with no owning work. [Story criteria](./specs/skill-assignments/spec.md#b1--commission-work-that-serves-an-approved-requirement)
 
-- [ ] 1.1 [T17](#t17--admit-a-source-bound-work-assignment) (T001). Admit the sourced work and justified safeguard into the next packet. Reject an unknown criterion and a valid ID attached to unrelated publishing. May start in parallel. Start here after binding the baseline.
+- [x] 1.1 [T17](#t17--admit-a-source-bound-work-assignment) (T001). Admit the sourced work and justified safeguard into the next packet. Reject an unknown criterion and a valid ID attached to unrelated publishing. May start in parallel. Start here after binding the baseline.
 
 ### T17 · Admit a source-bound work assignment
 
@@ -45,6 +45,14 @@ Parent [B1](./specs/skill-assignments/spec.md#b1--commission-work-that-serves-an
 Use this handoff’s B4/T48 Issue as the supported contribution in [B-PACKET](../../../plan/test.md#cases). Inspect the real admitted and consumed assignment. Keep the existing justified-safeguard, rejection and compatibility checks.
 
 First signal: reuse the audit mutation at its documented consistency-function boundary. Close on the packet and semantic verdict at the supported interface. One fixture covers the variations. No customer data or publishing command is needed.
+
+#### Verdicts
+
+Candidate: the commit that adds plan protocol 7 on `implementation/improve-skill-builder`. Reviewer: implementing agent, comparing the observed packet and diagnostics with this Issue and [B1.a](./specs/skill-assignments/spec.md#b1-a).
+
+- **T17.a Met.** The real admission route accepted a criterion-bound entry and a safeguard with its rationale. The produce packet's `assignments.entries` equals the submitted rows, with the same `governing_revision`, permitted effects and proof. Regression: `AssignmentAdmissionTests.test_t17a_admitted_contribution_and_safeguard_reach_the_next_work_packet`.
+- **T17.b Met.** An unknown ID stops admission and names the entry, row and ID. A real ID attached to the publishing instruction stops on the reviewer's rejection and repeats its cited source. The run stays at `plan`, and the packet states that admission grants no publication. Regression: `AssignmentAdmissionTests.test_t17b_unknown_criterion_and_unrelated_publication_stop_before_production`.
+- **B-PACKET Met.** The admitted and consumed T48 entry identifies T48, B4.a, its T17 prerequisite and the administrator's retry boundary. The investigation was not executed. The private run log holds the submitted and consumed rows and both diagnostics.
 
 <a id="b3--assess-an-ordinary-request-without-revealing-the-graders-clues"></a>
 

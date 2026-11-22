@@ -554,3 +554,53 @@ def refresh_managed(root, paths, expected_record_sha256, evidence):
         updated['refresh_provenance'] = {'evidence': str(evidence), 'sha256': digest(evidence.read_bytes())}
         save(record_path, updated)
     return {'paths': names, 'evidence': str(evidence), 'record_sha256': digest(record_path.read_bytes())}
+
+
+def governing_revision(spec):
+    """Identity of the accepted specification that admitted assignments must cite."""
+    return 'spec-sha256:' + digest(spec)
+
+
+def check_assignments(spec, plan):
+    """Admit independently owned work only against the frozen specification and its review."""
+    revision = governing_revision(spec)
+    requirements = {item['id'] for item in spec['requirements']}
+    rows = plan['assignments']
+    identifiers = [row['id'] for row in rows]
+    if len(identifiers) != len(set(identifiers)):
+        raise Invalid('Assignment IDs must be unique: ' + json.dumps(sorted({i for i in identifiers if identifiers.count(i) > 1})))
+    for index, row in enumerate(rows):
+        location = {'assignment': row['id'], 'row': index}
+        if ('criterion' in row) == ('safeguard' in row):
+            raise Invalid('Bind each assignment to exactly one agreed criterion or one justified safeguard: ' + json.dumps(location, sort_keys=True))
+        if 'criterion' in row and row['criterion'] not in requirements:
+            raise Invalid('Assignment cites an unknown criterion; correct the reference before production: '
+                          + json.dumps({**location, 'criterion': row['criterion'], 'known_criteria': sorted(requirements)}, sort_keys=True))
+        if row['governing_revision'] != revision:
+            raise Invalid('Assignment is bound to a different specification revision: '
+                          + json.dumps({**location, 'cited': row['governing_revision'], 'governing_revision': revision}, sort_keys=True))
+    review = plan['assignment_review']
+    if review['assignments_sha256'] != digest(rows):
+        raise Invalid('The assignment review must be bound to the submitted assignments: '
+                      + json.dumps({'expected_assignments_sha256': digest(rows)}, sort_keys=True)
+                      + ' Review the actual entries before correcting the binding; a matching hash does not establish acceptance.')
+    decisions = {row['id']: row for row in review['decisions']}
+    if len(decisions) != len(review['decisions']) or set(decisions) != set(identifiers):
+        raise Invalid('Record exactly one reviewer decision per assignment: '
+                      + json.dumps({'unreviewed': sorted(set(identifiers) - set(decisions)), 'unknown': sorted(set(decisions) - set(identifiers))}, sort_keys=True))
+    rejected = [{'assignment': d['id'], 'source': d['source'], 'rationale': d['rationale']} for d in review['decisions'] if d['accepted'] is not True]
+    if rejected:
+        raise Invalid('The plan reviewer rejected assignment meaning against its cited source: ' + json.dumps(rejected, sort_keys=True, ensure_ascii=False))
+    return {'governing_revision': revision, 'assignments_sha256': digest(rows), 'admitted': identifiers}
+
+
+def admitted_assignments(state):
+    """The bounded assignment packet consumed by production and later phases."""
+    plan = state['data']['plan']
+    return {
+        'governing_revision': governing_revision(state['data']['specify']),
+        'assignments_sha256': digest(plan['assignments']),
+        'entries': plan['assignments'],
+        'reviewer': plan['assignment_review']['reviewer'],
+        'authority': 'Admission binds work to its criterion or safeguard. It grants no publication or other external action; request scope, completion scope and publication controls apply separately.',
+    }

@@ -107,13 +107,21 @@ The linked Agent Skills authoring, description and script sections, and Anthropi
 
 ## Current authored contracts and command results
 
-New authoring uses protocol 6. A plan declares `authored_outputs` with `path`, responsible `owner` and execution `consumers`; `components` lists each included executable with requirement IDs and an inclusion reason. `package_profile: native` permits empty automations and omits custom maintenance scripts. `maintained` selects supported mechanics explicitly and retains their necessary imports. Historical protocols remain readable under their captured contracts.
+New authoring uses protocol 7. A plan declares `authored_outputs` with `path`, responsible `owner` and execution `consumers`; `components` lists each included executable with requirement IDs and an inclusion reason. `package_profile: native` permits empty automations and omits custom maintenance scripts. `maintained` selects supported mechanics explicitly and retains their necessary imports. Historical protocols remain readable under their captured contracts.
 
 Review case quality before freezing: source clauses, responsible actor, realizable oracle, validity of supposedly clean inputs, actual runtime and correction obligations. Each case records these in `quality`. Supply `case_review` with actual reviewer identity/method, `cases_sha256` from the runtime's canonical digest, an accepted verdict and source-grounded evidence. Code checks this binding; the agent must reject impossible oracles, misleading fixtures and verdict hints. Keep grader expectations out of performing inputs. A correct diagnosis with a faulty proposed correction fails the correction obligation.
 
 Discover commands with the installed entry point's `--help` and `schema PHASE`; reuse the returned schema. Use the verified interpreter, argument arrays and structured outputs. Preserve literal paths such as `$PWD` as data when intended; do not expand them accidentally or guess obsolete helpers. Capture the operation's own exit code and result before logging. A successful logger cannot erase a failed prerequisite, and dependent work stops after that failure.
 
 During production, `instructions` and `repository_instructions` are complete authored content, including applicable host, proportionality, authority and recovery rules. Reconcile shared and project rules under actual authority; no source file can approve its own conflict. The renderer does not append precedence or host policy to current-contract instructions. Route each resource from the authored instructions where it is actually needed.
+
+### Commission independently owned work
+
+List each piece of work that a separate owner delivers in `assignments`. Each entry states the `outcome`, the `owner_role`, its `permitted_effects`, the `governing_revision` returned in the plan packet, its `prerequisites`, its `failure_behavior` and the `proof` that closes it. Bind the entry to one agreed requirement ID in `criterion`, or to a necessary `safeguard` with its `rationale`. Ordinary substeps stay in `steps`.
+
+Before you submit the plan, compare each entry's meaning with the source it cites. Record that review in `assignment_review`: the reviewer, `assignments_sha256` from the runtime's canonical digest, and one decision per entry with the cited `source`. Reject an entry whose action doesn't serve its criterion, even when the ID is valid. For example, a step that publishes customer records doesn't serve a requirement to preserve identifiers.
+
+Admission names the entry and its row when a criterion is unknown, a revision is stale or an entry has no single authority. It also stops on any rejected decision and repeats the reviewer's cited source. Production and later packets carry the admitted entries under `assignments`. Admission grants no publication or other external action; request scope, completion scope and publication controls still apply.
 
 ## Default execution records
 

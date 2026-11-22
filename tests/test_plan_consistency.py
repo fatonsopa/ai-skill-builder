@@ -72,3 +72,105 @@ class ScopedOwnershipTests(unittest.TestCase):
         with self.assertRaisesRegex(Invalid,'README.md'):check_plan(SPEC,plan)
         plan['authored_outputs']=[]
         with self.assertRaisesRegex(Invalid,'SKILL.md'):check_plan(SPEC,plan,required_root_outputs={'SKILL.md'})
+
+
+def current_plan(spec, assignments, decisions=None, reviewer_source='Specification requirement text'):
+    """A protocol-7 normalization plan; authored control, not model performance."""
+    from runtime.common import digest
+    plan = deepcopy(PLAN)
+    for case in plan['cases']:
+        case['quality'] = {'source_clauses': case['requirements'], 'actor': 'executor', 'feasibility': 'Authored fixture.', 'input_validity': 'Controlled JSON.', 'runtime': 'Python standard library.', 'correction_obligations': []}
+    plan['cases'][0]['workflow'] = {'id': 'normalize', 'scenario': 'success', 'covers': []}
+    plan['cases'][3]['workflow'] = {'id': 'normalize', 'scenario': 'invalid_input', 'covers': []}
+    plan['cases'].append({'id': 'native-use', 'kind': 'behavior', 'critical': True, 'semantic': True, 'requirements': ['R-1'], 'request': {'instruction': 'Normalize the supplied record.'}, 'resources': ['SKILL.md'], 'expect': {'exit_code': 0}, 'workflow': {'id': 'normalize', 'scenario': 'behavior', 'covers': []}, 'quality': deepcopy(plan['cases'][0]['quality'])})
+    plan.update(package_profile='maintained', components=[], authored_outputs=[{'path': p, 'owner': 'author', 'consumers': ['primary']} for p in ['SKILL.md', 'README.md', 'AGENTS.md', 'CLAUDE.md']],
+                execution={'mode': 'single', 'rationale': 'One task owner.', 'file_workflow': False, 'file_reason': 'JSON arrives on stdin.', 'bindings': [], 'document_context': {'applicable': False, 'reason': 'Synthetic fixture.', 'sources': []}})
+    plan['case_review'] = {'reviewer': {'kind': 'authored_control', 'identity': 'test', 'method': 'Fixture.'}, 'cases_sha256': digest(plan['cases']), 'accepted': True, 'evidence': 'Feasible fixture.'}
+    plan['assignments'] = assignments
+    plan['assignment_review'] = {'reviewer': {'kind': 'authored_control', 'identity': 'plan reviewer', 'method': 'Compare each entry with its cited requirement.'},
+                                 'assignments_sha256': digest(assignments),
+                                 'decisions': decisions or [{'id': a['id'], 'accepted': True, 'source': reviewer_source, 'rationale': 'The entry serves its cited criterion or safeguard.'} for a in assignments]}
+    return plan
+
+
+class AssignmentAdmissionTests(unittest.TestCase):
+    """T17: bounded assignments reach production only through admission."""
+
+    def setUp(self):
+        from fixtures import writer_fixture
+        from runtime import completion
+        writer_fixture(self)
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        project = self.root / 'target'
+        self.policy = completion.create(self.root, {'objective_id': 'assignment-control', 'goal': 'Admit bounded work.', 'project': str(project), 'scope': ['**'],
+            'checks': [{'id': 'mechanical', 'kind': 'mechanical', 'test_ids': ['leading-zero', 'new-identifier', 'unicode', 'malformed', 'numeric'], 'dependencies': ['scripts/normalize.py']}, {'id': 'native-use', 'kind': 'behavior', 'dependencies': ['SKILL.md']}],
+            'budget': {'runs': 3, 'revisions': 2, 'model_calls': 2, 'seconds': 600}, 'delivery': {'kind': 'local', 'authority': 'Authored test scope; no publication.'}})['policy']
+        self.spec = {**deepcopy(SPEC), 'workflows': [{'id': 'normalize', 'purpose': 'Atomic transformation', 'trigger': 'Supplied JSON', 'steps': ['normalize'], 'boundaries': [], 'branches': [], 'recovery': []}]}
+
+    def start(self, name):
+        from fixtures import RESEARCH
+        from runtime import workflow
+        run = self.root / name
+        workflow.start(run, {'operation': 'create', 'skill_name': 'normalize-customers', 'brief': 'Normalize customer JSON.', 'copyright_holder': 'Fixture', 'completion_policy': self.policy}, protocol_version=7)
+        for data in (RESEARCH, self.spec):
+            self.submit(run, data)
+        return run
+
+    def submit(self, run, data):
+        from runtime import workflow
+        packet = workflow.packet(run)
+        workflow.submit(run, {**{k: packet[k] for k in ('run_id', 'phase', 'packet_sha256')}, 'data': deepcopy(data)})
+        return packet
+
+    def entries(self, revision):
+        base = {'governing_revision': revision, 'prerequisites': [], 'failure_behavior': 'Reject the record and report the field; never coerce an identifier.'}
+        return [
+            {**base, 'id': 'W1', 'outcome': 'Preserve string identifiers exactly.', 'owner_role': 'normalizer author', 'criterion': 'R-1',
+             'permitted_effects': ['Edit scripts/normalize.py'], 'proof': ['Cases leading-zero and unicode pass.']},
+            {**base, 'id': 'S1', 'outcome': 'Keep supplied records out of logs.', 'owner_role': 'normalizer author', 'prerequisites': ['W1'],
+             'safeguard': {'rationale': 'Customer records are personal data; diagnostics must not copy them.'},
+             'permitted_effects': ['Edit scripts/normalize.py'], 'proof': ['Error output names the field without the record.']},
+        ]
+
+    def test_t17a_admitted_contribution_and_safeguard_reach_the_next_work_packet(self):
+        from runtime import workflow
+        from runtime.artifacts import governing_revision
+        run = self.start('admit')
+        revision = workflow.packet(run)['governing_revision']
+        self.assertEqual(revision, governing_revision(self.spec))
+        submitted = self.entries(revision)
+        self.submit(run, current_plan(self.spec, submitted))
+        consumed = workflow.packet(run)
+        self.assertEqual(consumed['phase'], 'produce')
+        self.assertEqual(consumed['assignments']['entries'], submitted)
+        self.assertEqual(consumed['assignments']['governing_revision'], revision)
+        self.assertIn('grants no publication', consumed['assignments']['authority'])
+
+    def test_t17b_unknown_criterion_and_unrelated_publication_stop_before_production(self):
+        from runtime import workflow
+        run = self.start('reject')
+        revision = workflow.packet(run)['governing_revision']
+        unknown = self.entries(revision)
+        unknown[0]['criterion'] = 'R-9'
+        with self.assertRaisesRegex(Invalid, r'unknown criterion.*"criterion": "R-9".*"row": 0'):
+            self.submit(run, current_plan(self.spec, unknown))
+        publish = self.entries(revision)
+        publish.append({**publish[0], 'id': 'W2', 'outcome': 'Publish the customer list externally.', 'permitted_effects': ['Upload the customer list to a public site']})
+        decisions = [{'id': 'W1', 'accepted': True, 'source': 'R-1', 'rationale': 'Serves R-1.'},
+                     {'id': 'S1', 'accepted': True, 'source': 'Plan safeguard rationale', 'rationale': 'Necessary safeguard.'},
+                     {'id': 'W2', 'accepted': False, 'source': 'R-1: Preserve the string identifier exactly.', 'rationale': 'Publishing records does not serve identifier preservation and no requirement authorizes it.'}]
+        with self.assertRaisesRegex(Invalid, r'rejected assignment meaning.*W2.*R-1: Preserve'):
+            self.submit(run, current_plan(self.spec, publish, decisions))
+        self.assertEqual(workflow.read_state(run)['phase'], 'plan')
+
+    def test_entry_without_exactly_one_authority_or_with_a_stale_revision_is_located(self):
+        from runtime.artifacts import check_assignments, governing_revision
+        rows = self.entries(governing_revision(self.spec))
+        both = deepcopy(rows); both[1]['criterion'] = 'R-2'
+        with self.assertRaisesRegex(Invalid, r'exactly one agreed criterion.*S1'):
+            check_assignments(self.spec, current_plan(self.spec, both))
+        stale = deepcopy(rows); stale[0]['governing_revision'] = 'spec-sha256:old'
+        with self.assertRaisesRegex(Invalid, r'different specification revision.*W1'):
+            check_assignments(self.spec, current_plan(self.spec, stale))

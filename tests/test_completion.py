@@ -395,7 +395,7 @@ class FrozenMetadataRecoveryTests(unittest.TestCase):
         target=self.workspace/'target'
         policy=self.policy(project=str(target),scope=['**'],checks=[{'id':'mechanical','kind':'mechanical','test_ids':[c['id'] for c in plan['cases'] if c['kind']!='behavior'],'dependencies':['scripts/normalize.py']},{'id':'native-use','kind':'behavior','dependencies':['SKILL.md']}])
         run=self.workspace/'run'
-        state=workflow.start(run,{'operation':'create','skill_name':'normalize-customers','brief':'Verify bounded metadata correction.','copyright_holder':'Fixture','completion_policy':str(policy)})
+        state=workflow.start(run,{'operation':'create','skill_name':'normalize-customers','brief':'Verify bounded metadata correction.','copyright_holder':'Fixture','completion_policy':str(policy)},protocol_version=6)
         def submit(data):
             packet=workflow.packet(run)
             response={**{k:packet[k] for k in ['run_id','phase','packet_sha256']},'data':deepcopy(data)}

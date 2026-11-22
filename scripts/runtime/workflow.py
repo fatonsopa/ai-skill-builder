@@ -23,7 +23,7 @@ from continuation import MAX_EXTENSIONS, check_totals, extension as routine_exte
 
 
 def start(root, request, *, protocol_version=contracts.PROTOCOL_VERSION, replay_only=False):
-    if protocol_version not in (1, 2, 3, 4, 5, contracts.PROTOCOL_VERSION):
+    if protocol_version not in (1, 2, 3, 4, 5, 6, contracts.PROTOCOL_VERSION):
         raise Invalid("Unsupported authoring protocol version.")
     validate(request, contracts.REQUEST if protocol_version >= 4 else contracts.LEGACY_REQUEST)
     if protocol_version >= 4 and not request.get('completion_policy'):
@@ -163,6 +163,12 @@ def packet(root):
                                       'retention_mechanic': 'scripts/record_retention.py'}
     if phase == "plan" and state.get("protocol_version", 1) >= 2:
         value["required_workflow_tests"] = workflow_requirements(state["data"]["specify"])
+    if state.get('protocol_version', 1) >= 7:
+        from .artifacts import admitted_assignments, governing_revision
+        if phase == 'plan':
+            value['governing_revision'] = governing_revision(state['data']['specify'])
+        elif 'plan' in state['data']:
+            value['assignments'] = admitted_assignments(state)
     guides = []
     guides += {
         "research": ["authoring.md"], "specify": ["authoring.md"],
@@ -254,6 +260,9 @@ def submit(root, response):
             check_plan_metadata_change(state['data']['plan'], data)
         required_roots = {'SKILL.md', 'README.md', 'AGENTS.md', 'CLAUDE.md'} & set(state['request']['allowed_paths']) if operation in {'modify', 'refactor'} else None
         check_plan(state["data"]["specify"], data, require_workflows=state.get("protocol_version", 1) >= 2, required_root_outputs=required_roots)
+        if state.get('protocol_version', 1) >= 7:
+            from .artifacts import check_assignments
+            check_assignments(state['data']['specify'], data)
         if state.get("protocol_version", 1) >= 3:
             check_execution(state["data"]["specify"], data, legacy_paths=state["source_snapshot"] if operation in {"modify", "refactor"} and not state["request"].get("repair_structure") else ())
         target = state["request"].get("target_success_percent")
