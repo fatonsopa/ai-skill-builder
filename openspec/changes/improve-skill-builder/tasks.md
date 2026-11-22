@@ -451,7 +451,7 @@ Current `scripts/install_skill.py`, `scripts/requirements-lock.txt`, root `READM
 
 Candidate: release `0.1.0-rc.1` built from `abaf4c3` with `tools/release/build.py`. Payload `skill-builder-0.1.0-rc.1.tar.gz` has SHA-256 `41c86031…f8db5c` and `install.sh` has `b30ce29f…db1937`. The assets were served from a local folder through `SKILL_BUILDER_RELEASE_BASE`, because publishing a GitHub release needs release-owner authority. No tag was pushed. Reviewer: implementing agent.
 
-- **T51.1 Met.** In an isolated home with no checkout, the documented download-then-run route installed the candidate. `skill-builder --version` reported `0.1.0-rc.1`, revision `abaf4c3…`, and the launcher at `~/.local/bin/skill-builder`, which is also its PATH location. `skill-builder host init --tools codex` installed one entry at `~/.agents/skills/skill-builder`. Codex (`gpt-6.2-sol`, medium effort) was invoked with `$skill-builder` and the audited Technical Writer as the writing dependency. It read the installed `SKILL.md` from that path and returned assignment TRIM-1, governed by R-2 with its proof. The project folder and the sibling `~/.claude/skills/other-skill` kept identical hashes before setup, after setup and after the invocation.
+- **T51.1 Met.** In a new home created for the test outside the source checkout, the documented download-then-run route installed the candidate. `skill-builder --version` reported `0.1.0-rc.1`, revision `abaf4c3…`, and the launcher at `~/.local/bin/skill-builder`, which is also its PATH location. `skill-builder host init --tools codex` installed one entry at `~/.agents/skills/skill-builder`. Codex (`gpt-6.2-sol`, medium effort) was invoked with `$skill-builder` and the audited Technical Writer as the writing dependency. It read the installed `SKILL.md` from that path and returned assignment TRIM-1, governed by R-2 with its proof. The project folder and the sibling `~/.claude/skills/other-skill` kept identical hashes before setup, after setup and after the invocation.
 - **T51.2 Met.** A payload with one extra byte failed with exit 4 and named the asset and both checksums. The installation kept revision `abaf4c3…`, and no file in the home changed. With no Python 3.11 or later on PATH, the installer named the prerequisite and its recovery and wrote nothing. Platform claims in `README.md` are limited to macOS, the only platform with install evidence. Regressions: `tests/test_release.py`.
 
 - [x] 8.2 [T52](#t52-issue) (T011). Install with npm and refresh the same skill. After T51 and its accepted payload.
@@ -495,3 +495,25 @@ Candidate: `0.1.0-rc.1` built from `55fdd94`, with npm tarball `fatonsopa-skill-
 ## Finish the delivery
 
 Use A5 for the integrated planning handoff on the named hosts and A6 for dependency compatibility. Use A7 for the install, upgrade and removal evidence. Supply the accepted Builder commit to the writer implementer. A completed list alone cannot establish either result. [Coverage and shared Definition of Done](./design.md#requirement-coverage)
+
+### Delivery acceptance
+
+Candidate: `implementation/improve-skill-builder` after T52. Each verdict cites the task evidence that proves it at its story boundary. Reviewer: implementing agent.
+
+| Story or check | Verdict | Evidence |
+| --- | --- | --- |
+| B1.a / A1 | Met | T17: the T48 assignment and a safeguard admitted and consumed unchanged; unknown criterion located; unrelated publication rejected with the reviewer's source. B-PACKET read back T48, B4.a, its T17 prerequisite and the administrator's retry boundary. |
+| B1.b / A1 | Met | T18: orphaned R-3 named with its cases, recovered in the same run; a protocol-6 plan keeps its meaning. |
+| B2.a / A2 | Met | T24: both read orders pass, and premature, omitted, hidden and unevidenced variants fail for their own condition. |
+| B2.b / A2 | Met | T25: the emitted relation matches the declaration, the generated evaluator accepts the reversed reads, and cycles and unknown prerequisites stop admission. |
+| B3.a / A3 | Met | T36: the native view keeps the request and `quarterly-notes.md` without the case label, answer or inventory; a stale binding is ineligible. |
+| B3.b / A3 | Met | T37: recorded Codex and Claude Code launches carry no grader clue; the report consumer resolves new and historical identities and rejects a stale binding. |
+| B4.a / A4 | Met | T48: a fresh reader recovered the observations, WEB-09, allowed work and return; the cause stays open. |
+| B4.b / A4 | Met | T49: the Codex return separates observation, inference and the administrator's retry decision; the rubric rejects the three wrong returns and accepts valid rewording. |
+| A5 · Codex | Met | `agent-related-reports` on `2b967f2` with `gpt-6.2-sol`, medium effort; the resolved model is not exposed. The return keeps WEB-09, both reports, T16's 500/500/1 states, an open cause and reconciliation before an explicit administrator retry. |
+| A5 · Claude Code | Met | The same case, candidate and rubric with `claude-opus-5-5` (resolved), medium effort. The return keeps the 500/500/1 states, re-check before any retry, a cause that is "plausible but not confirmed" and the owner's decisions. Skill Builder stopped at the specification because of open ambiguities and recorded them for the owner. Its claims about other writer examples match reads in its public trace. |
+| A6 · B5.a | Met | T50: the staged `specdev` produced a document-bound receipt through `validate-documents`; legacy explicit selection, wrong-identity refusal and the snapshot guard were observed. |
+| A7a · B6.1 | Met | T51: the release candidate installed from local assets in an isolated home, reached Codex through `$skill-builder` and rejected a corrupt payload without change. |
+| A7b · B6.2 | Met | T52: the npm candidate installed in an empty prefix, reached Claude Code, refused an update over a local edit, and removed only owned files. |
+
+The A5 runs used `2b967f2`. Later commits changed the package link check, the release tooling and `README.md`, but not `SKILL.md`, `references/agents_and_skills.md`, `references/authoring.md` or the case. Those are the inputs the planning run used, so its evidence still applies. A5 establishes planning and handoff behavior only. Readiness beyond it would need the full host matrix and a real skill-creation pilot, which this delivery doesn't claim. Public GitHub and npm availability remain unproven until a release owner publishes the assets.
