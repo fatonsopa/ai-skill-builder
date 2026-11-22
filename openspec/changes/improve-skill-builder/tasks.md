@@ -416,7 +416,7 @@ Candidate: the T50 commit on `implementation/improve-skill-builder`, staged as a
 
 A developer can install the release on a second computer, reach the skill from a selected host, and maintain it without disturbing an existing project. [Story acceptance](specs/skill-assignments/spec.md#install-the-release-and-connect-a-host)
 
-- [ ] 8.1 [T51](#t51-issue) (T010). Install the GitHub release and connect the chosen host. After T50 and its staged writer or supported legacy installation.
+- [x] 8.1 [T51](#t51-issue) (T010). Install the GitHub release and connect the chosen host. After T50 and its staged writer or supported legacy installation.
 
 <a id="t51-issue"></a>
 
@@ -446,6 +446,13 @@ Release maintainer · [B6](specs/skill-assignments/spec.md#install-the-release-a
 #### Relevant files
 
 Current `scripts/install_skill.py`, `scripts/requirements-lock.txt`, root `README.md` and the candidate’s release entry. Record the candidate, each verdict and its evidence in this Issue. [Shared Definition of Done](design.md#requirement-coverage)
+
+#### T51 verdicts
+
+Candidate: release `0.1.0-rc.1` built from `abaf4c3` with `tools/release/build.py`. Payload `skill-builder-0.1.0-rc.1.tar.gz` has SHA-256 `41c86031…f8db5c` and `install.sh` has `b30ce29f…db1937`. The assets were served from a local folder through `SKILL_BUILDER_RELEASE_BASE`, because publishing a GitHub release needs release-owner authority. No tag was pushed. Reviewer: implementing agent.
+
+- **T51.1 Met.** In an isolated home with no checkout, the documented download-then-run route installed the candidate. `skill-builder --version` reported `0.1.0-rc.1`, revision `abaf4c3…`, and the launcher at `~/.local/bin/skill-builder`, which is also its PATH location. `skill-builder host init --tools codex` installed one entry at `~/.agents/skills/skill-builder`. Codex (`gpt-6.2-sol`, medium effort) was invoked with `$skill-builder` and the audited Technical Writer as the writing dependency. It read the installed `SKILL.md` from that path and returned assignment TRIM-1, governed by R-2 with its proof. The project folder and the sibling `~/.claude/skills/other-skill` kept identical hashes before setup, after setup and after the invocation.
+- **T51.2 Met.** A payload with one extra byte failed with exit 4 and named the asset and both checksums. The installation kept revision `abaf4c3…`, and no file in the home changed. With no Python 3.11 or later on PATH, the installer named the prerequisite and its recovery and wrote nothing. Platform claims in `README.md` are limited to macOS, the only platform with install evidence. Regressions: `tests/test_release.py`.
 
 - [ ] 8.2 [T52](#t52-issue) (T011). Install with npm and refresh the same skill. After T51 and its accepted payload.
 
