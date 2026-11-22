@@ -454,7 +454,7 @@ Candidate: release `0.1.0-rc.1` built from `abaf4c3` with `tools/release/build.p
 - **T51.1 Met.** In an isolated home with no checkout, the documented download-then-run route installed the candidate. `skill-builder --version` reported `0.1.0-rc.1`, revision `abaf4c3…`, and the launcher at `~/.local/bin/skill-builder`, which is also its PATH location. `skill-builder host init --tools codex` installed one entry at `~/.agents/skills/skill-builder`. Codex (`gpt-6.2-sol`, medium effort) was invoked with `$skill-builder` and the audited Technical Writer as the writing dependency. It read the installed `SKILL.md` from that path and returned assignment TRIM-1, governed by R-2 with its proof. The project folder and the sibling `~/.claude/skills/other-skill` kept identical hashes before setup, after setup and after the invocation.
 - **T51.2 Met.** A payload with one extra byte failed with exit 4 and named the asset and both checksums. The installation kept revision `abaf4c3…`, and no file in the home changed. With no Python 3.11 or later on PATH, the installer named the prerequisite and its recovery and wrote nothing. Platform claims in `README.md` are limited to macOS, the only platform with install evidence. Regressions: `tests/test_release.py`.
 
-- [ ] 8.2 [T52](#t52-issue) (T011). Install with npm and refresh the same skill. After T51 and its accepted payload.
+- [x] 8.2 [T52](#t52-issue) (T011). Install with npm and refresh the same skill. After T51 and its accepted payload.
 
 <a id="t52-issue"></a>
 
@@ -484,6 +484,13 @@ Release maintainer · [B6](specs/skill-assignments/spec.md#install-the-release-a
 #### Relevant files
 
 Current `scripts/install_skill.py`, `scripts/requirements-lock.txt`, root `README.md` and the candidate’s release entry. Record the candidate, each verdict and its evidence in this Issue. [Shared Definition of Done](design.md#requirement-coverage)
+
+#### T52 verdicts
+
+Candidate: `0.1.0-rc.1` built from `55fdd94`, with npm tarball `fatonsopa-skill-builder-0.1.0-rc.1.tgz` (SHA-256 `f199db67…c2b48b`). A staged `0.1.0-rc.2` was built from the same revision with the build's `--version` label. Nothing was published to npm. Reviewer: implementing agent. The follow-up commit only makes `host remove` delete its empty manifest; `HostSetupTests` covers that change, and the earlier channel evidence is reused for the unchanged paths.
+
+- **T52.1 Met.** `npm install -g --prefix EMPTY_PREFIX` of the tarball, with an isolated home, gave `skill-builder --version` from `EMPTY_PREFIX/bin` with version `0.1.0-rc.1` and revision `55fdd94…`. `skill-builder host init --tools claude` installed `~/.claude/skills/skill-builder`; repeating it reported `unchanged`, and the manifest held one entry. Claude Code (`claude-opus-5-5`) answered `/skill-builder` from that installed copy and returned a bounded assignment governed by R-2 with acceptance criteria. Claude Code's sign-in is tied to the real home, so it ran with `--setting-sources project,local` from a disposable project that links `.claude/skills/skill-builder` to the installed copy; user-level discovery under the isolated home was not observed. The product evidence is otherwise the same as T51's, because the payload and interface match.
+- **T52.2 Met.** After `npm install` of the staged `0.1.0-rc.2`, `host update` refused while `references/authoring.md` carried a local edit: exit 3, the file named, the edit kept and the host left on `0.1.0-rc.1`. With the edit moved aside, the update reached `0.1.0-rc.2` and kept the user's `my-notes.md`. `host remove` deleted only unedited owned files and kept `my-notes.md`. `npm uninstall -g` removed the command and package. A foreign skill entry, another skill and the project file survived. Ownership: npm owns its package folder, including the payload's `.venv`. The GitHub installer owns `~/.local/bin/skill-builder` and `~/.local/share/skill-builder/releases`. Both share the host copies and the manifest written by `skill-builder host`.
 
 ## Finish the delivery
 

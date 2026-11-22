@@ -166,6 +166,10 @@ def remove(hosts):
         del manifest['hosts'][host]
         write_manifest(manifest)
         results.append({'host': host, 'status': 'removed', 'destination': str(target), 'kept': sorted(set(edited) | set(foreign))})
+    if not manifest['hosts'] and manifest_path().is_file():
+        manifest_path().unlink()
+        if not any(state_root().iterdir()):
+            state_root().rmdir()
     return results
 
 

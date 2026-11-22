@@ -70,6 +70,8 @@ class HostSetupTests(unittest.TestCase):
         self.assertEqual(sorted(p.name for p in codex.iterdir()), ['SKILL.md', 'notes.md'])
         self.assertTrue((self.home / '.claude/skills/skill-builder/SKILL.md').is_file())
         self.assertEqual(list(release_cli.read_manifest()['hosts']), ['claude'])
+        release_cli.remove(None)
+        self.assertFalse((self.root / 'state').exists())
 
 
 class InstallerTests(unittest.TestCase):
