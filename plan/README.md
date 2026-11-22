@@ -1,0 +1,37 @@
+# Implement Skill Builder
+
+Open this file in the checkout you will work on. It contains the starting prompt and the execution rules for Claude or Codex. The [specification](./specification.md) owns behavior and acceptance. The [implementation plan](./implementation-plan.md) owns the work, its boundaries, dependencies and checks. The [audit](./audit.md) explains the findings and their evidence.
+
+The owner approved the complete scope in specification revision 2 and implementation plan revision 3. The four epics contain eight tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to implement Technical Writer. Start with B1/T17. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
+
+## Starting prompt
+
+> Use Skill Builder to implement the approved Skill Builder changes in this repository. Read `plan/README.md`, the linked specification, the implementation plan and the repository instructions. Follow the execution rules below. Work on a local implementation branch from this handoff. Start or resume at the first eligible task. For each task, deliver its scoped result and prove its acceptance criteria on the actual candidate. Commit the usable increment and continue. Keep a private structured JSON execution log. Before another test or review, record the criterion, why existing evidence is insufficient and which result would change your next action. Use the log to correct your work and resume after interruption. Put only decisions awaiting the owner in the plan’s pending section. Complete the integrated acceptance checks before reporting delivery.
+
+## Execution rules
+
+1. **Bind the work.** Identify the handoff commit, governing specification, applicable repository instructions, candidate and skill dependencies. On resumption, read the existing task’s last accepted commit, evidence, open criteria and next eligible task. Protect existing work on all branches.
+2. **Select one deliverable.** Resolve the task, parent outcome, supported criterion, affected interface, prerequisites, allowed change and required proof. Work from the reviewed record. Stop only affected work if a required decision or dependency is missing. Continue eligible independent tasks.
+3. **Implement within scope.** Inspect the real entry point and keep the increment independently usable. Choose internal details within the agreed contract. Keep the original acceptance criteria and source authority. A new deliverable, new external action, changed permission or weaker criterion requires the owner’s explicit decision.
+4. **Use evidence to limit verification.** Reuse applicable results. Run the smallest check that can disprove the candidate against the task’s criterion. A rare extra verification is appropriate when a concrete failure, changed input or missing evidence makes the approved result uncertain. Record the criterion, what the check established and the action it changes. Apply a supported better technique directly when it remains inside the task’s behavior, authority and quality obligations. General best-practice advice alone cannot enlarge scope.
+5. **Defer other discoveries.** Append a brief entry to [Pending owner decisions](./implementation-plan.md#pending-owner-decisions). Record evidence, impact, proposed change and any blocked task. Leave the change pending and move to eligible work. A material blocker can keep a criterion open without erasing prior results.
+6. **Close and resume.** In the existing task, record each criterion as Met, Failed or Not demonstrated, with the exact candidate and evidence. Retain failures through correction. Commit each accepted increment on the local implementation branch, record the next task and continue. Reuse task evidence for story acceptance where it actually proves the integrated result. Report host-specific results separately. Remote integration, releases and deployment require separate authority.
+
+## JSON execution log
+
+Use the run’s existing JSON records first. Skill Builder’s behavioral harness already writes `public-events.json` during execution. Keep it in its native format. For task decisions or manual actions it does not capture, append one JSON object per line to `execution.jsonl` in the private run directory outside the repository. Link existing event IDs or evidence paths instead of copying full traces. On resumption, locate the same run and read the last confirmed checkpoint. Record observed actions and decisions when they happen.
+
+| When | What to record |
+| --- | --- |
+| Choose work | UTC timestamp, run ID, task ID, criterion ID, candidate or source revision, intended action, and the clause that puts it in scope. |
+| Before an extra test, review or retry | The unresolved criterion, changed input or observed failure, existing evidence inspected, the smallest useful check, and how pass or failure would change the next action. If neither outcome changes the decision, skip the check and record the reuse decision once. |
+| Receive a result | Actual observation, outcome or error, evidence reference and candidate. Preserve failed attempts. For a correction, reference the original failure and resume from the last confirmed boundary. Record an unobserved result as unknown. |
+| Defer or close | Scope decision, owner question if needed, criterion verdict, commit or candidate, evidence reused and next eligible task. Record a lesson only when evidence supports it, and change the current work only within its approved scope. |
+
+A decision entry might look like the following. The values are illustrative.
+
+```json
+{"time":"2026-11-22T10:00:00Z","run_id":"example-run","task_id":"example-task","criterion_id":"example-criterion","candidate":"example-commit","event":"verification_decision","action":"reuse","reason":"The accepted result covers this criterion on the same candidate and the relevant input is unchanged.","evidence_ref":"task-evidence/observed-result.json","next":"Close this criterion"}
+```
+
+At task closure, read the task’s entries once. Check that every implemented change serves an approved criterion or necessary safeguard, and that each extra verification had a reason that could change the decision. Use any discrepancy to correct the current task or defer a new proposal. A JSON entry points to the evidence that proves the result. Keep the log metadata small. Exclude secrets, private reasoning and raw personal or customer content. The Markdown pending section holds owner decisions. Run events and the private JSON log stay outside the published handoff. [Skill Builder’s execution records](https://github.com/fatonsopa/ai-skill-builder/blob/222b356fd5ac7a2df9fd9621e3744db883ecede0/references/maintenance.md#diagnose-and-recover-stalled-work) · [OpenTelemetry log fields](https://opentelemetry.io/docs/specs/otel/logs/data-model/)
