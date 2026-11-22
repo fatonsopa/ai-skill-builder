@@ -2,7 +2,7 @@
 
 Use this handoff to implement Skill Builder on a local branch. It contains the starting prompt for Claude or Codex and the approved work for this repository.
 
-The approved behavior and scope carry forward into specification revision 4 and implementation plan revision 5. The five epics contain nine tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to implement Technical Writer. Start with B1/T17. B3/T36 can start alongside it on the separate evaluator. B5/T50 can use a staged writer as soon as the baseline is bound. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
+The approved behavior and scope carry forward into specification revision 5 and implementation plan revision 6. The five epics contain nine tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to implement Technical Writer. Start with B1/T17. B3/T36 can start alongside it on the separate evaluator. B5/T50 can use a staged writer as soon as the baseline is bound. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
 
 ## Start
 
@@ -28,9 +28,9 @@ For a read-only rehearsal, compare the reader’s choices with the [test specifi
 
 ## Find your way around
 
-1. Read the [audit](./audit.md) for the source of a finding and the [specification](./specification.md) for the agreed behavior.
-2. Open the [implementation plan](./implementation-plan.md) for the approach, story outcomes and detailed Issues.
-3. Use [tasks.md](./tasks.md) to select the next eligible Issue. Its criteria and proof live in the linked plan section. A separate `task.md` is optional.
+1. Read the [audit](./audit.md) for the source of a finding and the [specification](./specification.md) for the agreed behavior, stories and acceptance scenarios.
+2. Open the [implementation plan](./implementation-plan.md) for the approach, material dependencies, rollout and recovery.
+3. Use [tasks.md](./tasks.md) to select the next eligible Issue. Its scope, acceptance criteria and proof live at that row. Follow its parent link to the story criterion in the specification. A separate `task.md` is optional.
 4. Use [test.md](./test.md) for the read-only rehearsal and the later implementation case.
 
 ## Limits and help

@@ -1,6 +1,6 @@
 # Skill Builder handoff test specification
 
-Test basis: [Behavioral specification](./specification.md) and the [approved Issues](./implementation-plan.md#work-sequence) in this handoff revision.
+Test basis: [Behavioral specification](./specification.md) and the [approved task records](./tasks.md) in this handoff revision.
 
 Test item: The [execution guide](./README.md), [task list](./tasks.md) and linked Issue records at the same Git revision. Record the candidate used for each observation.
 
@@ -15,7 +15,7 @@ The first two cases test whether a reader can select a task, find its criteria a
 | B-START · B1.a/B3.a | On the bound baseline with no accepted Issues, ask what can start together and where the first result will appear. | Select T17 and T36 on separate interfaces. Open T17.a for its expected admitted and consumed assignment. Hold T48 until the accepted T17 assignment shape is available. |
 | B-RESUME · B1.b/B4.a | Provide a hypothetical accepted T17 commit with evidence for T17.a and T17.b. Ask what becomes eligible and who can authorize publication. | T18 and T48 can consume the accepted assignment. The implementer can recover their distinct criteria from their Issues. The handoff grants local implementation authority only. |
 | B-HANDOFF · A5/A6 | On the eventual Builder candidate, use the already scheduled host assignment and staged dependency check. Ask what the writer implementer can consume. | Collect the existing A5 and A6 evidence, including T50’s canonical, legacy and wrong-identity outcomes. Hand the accepted Builder commit to Writer. Missing host proof remains visible. |
-| B-PACKET · T17.a/T48.a | As T17 ships, give the supported plan-admission route the actual B4/T48 assignment from this revision. Identify its governing B4.a criterion, allowed investigation, prerequisites and proof. Read the next production packet without carrying out the assignment. | The admitted and consumed records both identify T48, B4.a, the T17 prerequisite and the owner-controlled retry boundary. Follow the packet back to the Issue and its required evidence. Reuse this readback as the valid-assignment part of T17.a when it proves that part. The separate safeguard and rejection checks still apply. |
+| B-PACKET · T17.a/T48.a | As T17 ships, give the supported plan-admission route the actual B4/T48 assignment from this revision. Follow the Issue’s link to B4.a in the specification. Identify the allowed investigation, prerequisites and proof in the Issue. Read the next production packet without carrying out the assignment. | The admitted and consumed records both identify T48, B4.a, the T17 prerequisite and the owner-controlled retry boundary. Follow the packet back to the Issue and its required evidence. Reuse this readback as the valid-assignment part of T17.a when it proves that part. The separate safeguard and rejection checks still apply. |
 
 ## Procedure and cleanup
 
