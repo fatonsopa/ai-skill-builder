@@ -34,7 +34,7 @@ recommendation: Add one before-and-after assignment in the existing orchestratio
 
 finding: The resolver searches standard folders under `technical-writer` and rejects any frontmatter name other than `technical-writer`, including when the user supplies an explicit path. Renaming the writer alone would break checked document delivery. [Dependency resolver](https://github.com/fatonsopa/ai-skill-builder/blob/ae394124929e99ea8650fb95578f081ce0930734/scripts/runtime/technical_writer.py#L18-L32)
 
-recommendation: Accept both `spec-writer` and the legacy `technical-writer` as supported dependency identities. Preserve explicit path precedence, existing request and environment keys, validation of required files and source snapshot integrity. T50 ships before Spec Writer W46.
+recommendation: Accept both `specdev` and the legacy `technical-writer` as supported dependency identities. Preserve explicit path precedence, existing request and environment keys, validation of required files and source snapshot integrity. T50 ships before SpecDev W46.
 
 ## Safeguards to preserve
 

@@ -338,9 +338,11 @@ The commit ships a usable return example and its assessment together. Use the [s
 
 **Demonstrate the story.** Validate a document with the renamed dependency, resolve its legacy identity and reject an unrelated explicit selection. [Story criteria](./specification.md#b5--keep-checked-authoring-available-across-the-writer-rename)
 
-- [ ] T009 [US5] Resolve Spec Writer and its legacy identity. `scripts/runtime/technical_writer.py`. [T50 · T50.1, T50.2](#t50--resolve-spec-writer-and-its-legacy-identity) Use a staged writer after binding the Builder baseline. The live rename follows acceptance of this Issue and of Builder.
+- [ ] T009 [US5] Resolve SpecDev and its legacy identity. `scripts/runtime/technical_writer.py`. [T50 · T50.1, T50.2](#t50--resolve-specdev-and-its-legacy-identity) Use a staged writer after binding the Builder baseline. The live rename follows acceptance of this Issue and of Builder.
 
-### T50 · Resolve Spec Writer and its legacy identity
+<a id="t50--resolve-spec-writer-and-its-legacy-identity"></a>
+
+### T50 · Resolve SpecDev and its legacy identity
 
 <details>
 <summary>Scope, acceptance criteria and evidence</summary>
@@ -355,7 +357,7 @@ A Builder installation can author and validate a document with either supported 
 
 #### Scope
 
-Accept both `spec-writer` and the legacy `technical-writer` as supported dependency identities. Preserve explicit path precedence, existing request and environment keys, validation of required files and source snapshot integrity.
+Accept both `specdev` and the legacy `technical-writer` as supported dependency identities. Preserve explicit path precedence, existing request and environment keys, validation of required files and source snapshot integrity.
 
 #### Specification
 

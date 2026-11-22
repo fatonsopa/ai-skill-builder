@@ -2,7 +2,7 @@
 
 Use this handoff to implement Skill Builder on a local branch. It contains the starting prompt for Claude or Codex and the approved work for this repository.
 
-The approved behavior and scope carry forward into specification revision 5 and implementation plan revision 6. The five epics contain nine tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to implement Technical Writer. Start with B1/T17. B3/T36 can start alongside it on the separate evaluator. B5/T50 can use a staged writer as soon as the baseline is bound. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
+The approved behavior and scope carry forward into specification revision 6 and implementation plan revision 7. The five epics contain nine tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to ship SpecDev from the Technical Writer repository. Start with B1/T17. B3/T36 can start alongside it on the separate evaluator. B5/T50 can use a staged writer as soon as the baseline is bound. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
 
 ## Start
 

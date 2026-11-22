@@ -1,6 +1,6 @@
 # Skill Builder implementation plan
 
-Status: Scope approved for implementation on the handoff computer. Revision 6. Each audit finding is one epic in the Technical Writer User Story (US) format. Each child task uses its Issue template. The specification owns the five epic stories. The task list contains their nine Issues. [Story template](https://github.com/fatonsopa/ai-technical-writer/blob/4a8e7c92e20404f05e68708c1a3ea26c6961b178/references/user_story.md) · [Task template](https://github.com/fatonsopa/ai-technical-writer/blob/4a8e7c92e20404f05e68708c1a3ea26c6961b178/references/issue.md)
+Status: Scope approved for implementation on the handoff computer. Revision 7. Each audit finding is one epic in the Technical Writer User Story (US) format. Each child task uses its Issue template. The specification owns the five epic stories. The task list contains their nine Issues. [Story template](https://github.com/fatonsopa/ai-technical-writer/blob/4a8e7c92e20404f05e68708c1a3ea26c6961b178/references/user_story.md) · [Task template](https://github.com/fatonsopa/ai-technical-writer/blob/4a8e7c92e20404f05e68708c1a3ea26c6961b178/references/issue.md)
 
 ## Goal and specification
 
@@ -30,7 +30,7 @@ Start with B1 and use its accepted assignment format for B4. B2 can proceed once
 | <a id="b2--accept-valid-work-in-either-order"></a>[B2](./specification.md#b2--accept-valid-work-in-either-order) | <a id="t24--grade-independent-reads-in-an-explicitly-supplied-evaluation-case"></a>[T24](./tasks.md#t24--grade-independent-reads-in-an-explicitly-supplied-evaluation-case), <a id="t25--generate-checks-only-for-declared-workflow-dependencies"></a>[T25](./tasks.md#t25--generate-checks-only-for-declared-workflow-dependencies) |
 | <a id="b3--assess-an-ordinary-request-without-revealing-the-graders-clues"></a>[B3](./specification.md#b3--assess-an-ordinary-request-without-revealing-the-graders-clues) | <a id="t36--export-a-neutral-native-task-with-a-traceable-result"></a>[T36](./tasks.md#t36--export-a-neutral-native-task-with-a-traceable-result), <a id="t37--stage-a-neutral-host-workspace-and-recover-its-real-case-identity"></a>[T37](./tasks.md#t37--stage-a-neutral-host-workspace-and-recover-its-real-case-identity) |
 | <a id="b4--keep-related-observations-and-decision-authority-through-a-handoff"></a>[B4](./specification.md#b4--keep-related-observations-and-decision-authority-through-a-handoff) | <a id="t48--commission-related-reports-as-a-bounded-investigation"></a>[T48](./tasks.md#t48--commission-related-reports-as-a-bounded-investigation), <a id="t49--return-supported-conclusions-and-the-owners-retry-decision"></a>[T49](./tasks.md#t49--return-supported-conclusions-and-the-owners-retry-decision) |
-| <a id="b5--keep-checked-authoring-available-across-the-writer-rename"></a>[B5](./specification.md#b5--keep-checked-authoring-available-across-the-writer-rename) | <a id="t50--resolve-spec-writer-and-its-legacy-identity"></a>[T50](./tasks.md#t50--resolve-spec-writer-and-its-legacy-identity) |
+| <a id="b5--keep-checked-authoring-available-across-the-writer-rename"></a>[B5](./specification.md#b5--keep-checked-authoring-available-across-the-writer-rename) | <a id="t50--resolve-spec-writer-and-its-legacy-identity"></a><a id="t50--resolve-specdev-and-its-legacy-identity"></a>[T50](./tasks.md#t50--resolve-specdev-and-its-legacy-identity) |
 
 ### Integrated acceptance on Codex and Claude Code
 
@@ -65,7 +65,7 @@ Keep historical schema and report readers addressable by version. Freeze the cur
 
 ## Risks and open decisions
 
-The approved behavior and scope carry forward into specification revision 5 and implementation plan revision 6. Implement Skill Builder first, with a distinct staged candidate and a local implementation branch. Internal file names and implementation choices are delegated within the approved scope. A missing host observation remains Not demonstrated.
+The approved behavior and scope carry forward into specification revision 6 and implementation plan revision 7. Implement Skill Builder first, with a distinct staged candidate and a local implementation branch. Internal file names and implementation choices are delegated within the approved scope. A missing host observation remains Not demonstrated.
 
 At closure record each task criterion, story criterion and A1–A6 as Met, Failed or Not demonstrated with its candidate and evidence in the existing work item. Preserve earlier failures. Close each finding’s epic on its story-level evidence and the delivery on A5 and A6. A parent rollup of closed tasks cannot establish either verdict. Deliver the locally applied Builder revision to the owner. Any subsequent Technical Writer implementation starts with its separately approved specification and implementation plan. [Technical Writer implementation plan](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/implementation-plan.md)
 

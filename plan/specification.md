@@ -1,6 +1,6 @@
 # Skill Builder assignment and verification specification
 
-Status: Approved behavioral scope, revision 5. Applies to Codex and Claude Code. [Audit](./audit.md) · [Implementation plan](./implementation-plan.md)
+Status: Approved behavioral scope, revision 6. Applies to Codex and Claude Code. [Audit](./audit.md) · [Implementation plan](./implementation-plan.md)
 
 Source: The owner’s approved scope and the [comparative audit](./audit.md).
 
@@ -82,7 +82,7 @@ As a skill maintainer, I want Builder to resolve the new and legacy writing pack
 
 #### Scope and sources
 
-Delivery approach: [implementation plan](./implementation-plan.md). Owner role: Builder dependency maintainer. [T50](./tasks.md#t50--resolve-spec-writer-and-its-legacy-identity) supports [B5.a](#b5-a), R5/A6. [Dependency resolver](https://github.com/fatonsopa/ai-skill-builder/blob/ae394124929e99ea8650fb95578f081ce0930734/scripts/runtime/technical_writer.py#L18-L32)
+Delivery approach: [implementation plan](./implementation-plan.md). Owner role: Builder dependency maintainer. [T50](./tasks.md#t50--resolve-specdev-and-its-legacy-identity) supports [B5.a](#b5-a), R5/A6. [Dependency resolver](https://github.com/fatonsopa/ai-skill-builder/blob/ae394124929e99ea8650fb95578f081ce0930734/scripts/runtime/technical_writer.py#L18-L32)
 
 ## Requirements and business rules
 
@@ -92,7 +92,7 @@ Delivery approach: [implementation plan](./implementation-plan.md). Owner role: 
 | R2 | The workflow author declares material prerequisites where more than one sequence is valid. The coverage generator and process grader use the same definition. Every required step, explicit boundary, branch, recovery path and consequential visibility/evidence obligation remains assessable. Existing strict sequences retain their meaning. |
 | R3 | The controller supplies a realistic task through either supported performer-input route. It keeps descriptive case identity, grading material and its binding outside what it submits to the performer. The reviewer must still reconcile the original case, source bytes, candidate, host and captured result. A task may legitimately name a user file, skill or tool. |
 | R4 | The lead routes related reports with the shared criterion, source revision and authority intact. The receiver reports checked source, observed outcome, inferred cause, missing evidence and next permissible action where material. The lead preserves unresolved disagreement and communicates the decision needed in plain language. One eligible agent can own the complete task. |
-| R5 | Accept both `spec-writer` and the legacy `technical-writer` as supported dependency identities. Preserve explicit path precedence, existing request and environment keys, validation of required files and source snapshot integrity. |
+| R5 | Accept both `specdev` and the legacy `technical-writer` as supported dependency identities. Preserve explicit path precedence, existing request and environment keys, validation of required files and source snapshot integrity. |
 
 ## Quality and interface constraints
 
@@ -113,7 +113,7 @@ One case can prove several criteria if the actual outputs expose each distinctio
 
 ## Open decisions
 
-**D2.** The owner chose Spec Writer (`spec-writer`). Builder B5/T50 must accept both identities before the live rename in the writer handoff.
+**D2.** The owner chose SpecDev (`specdev`). Builder B5/T50 must accept both identities before the live rename in the writer handoff.
 
 **D1.** The owner approved specification revision 2 and implementation plan revision 3. Implement Skill Builder first, with a distinct staged candidate and a local implementation branch. Cross-host claims require evidence from both named hosts. Missing observations stay open.
 
