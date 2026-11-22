@@ -2,7 +2,7 @@
 
 Use this handoff to implement Skill Builder on a local branch. It contains the starting prompt for Claude or Codex and the approved work for this repository.
 
-This native change carries forward the approved Builder scope. The five epics contain nine tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to ship SpecDev from the Technical Writer repository. Start with B1/T17. B3/T36 can start alongside it on the separate evaluator. B5/T50 can use a staged writer as soon as the baseline is bound. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
+This native change carries forward the approved Builder scope. The six epics contain eleven tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to ship SpecDev from the Technical Writer repository. Start with B1/T17. B3/T36 can start alongside it on the separate evaluator. B5/T50 can use a staged writer as soon as the baseline is bound. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
 
 ## Start
 
@@ -25,6 +25,8 @@ openspec instructions apply --change improve-skill-builder --json
 ```
 
 The second command reads task and artifact context. Implementation still requires the starting prompt's authority and settled task prerequisites. A ready artifact means the file exists; the criterion and evidence determine delivery. For the exact locked CLI, use the SpecDev handoff checkout alongside this one. Run `npm ci --prefix /path/to/technical-writer/tools/openspec`, then invoke `/path/to/technical-writer/tools/openspec/node_modules/.bin/openspec` from this Builder checkout. Supply the actual checkout path. This is a maintainer tool for this handoff; it adds no runtime dependency to Builder.
+
+The release install and host setup are in [T51 and T52](../openspec/changes/improve-skill-builder/tasks.md#t51-issue). Exercise packaged candidates in isolated locations. Keep the public release commands marked as planned until the corresponding release asset or registry package is verified.
 
 ## Execution rules
 

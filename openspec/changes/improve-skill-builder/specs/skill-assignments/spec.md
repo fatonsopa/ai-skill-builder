@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Skill Builder lets a maintainer commission a bounded skill change, give its implementer the authority and evidence needed to act, and assess the result against the original requirement. This change carries forward approved behavioral revision 6. The five requirements below own the product behavior. The original findings, delivery approach, nine bounded tasks and handoff cases have separate owners. [Audit](../../../../../plan/audit.md) · [Design](../../design.md) · [Tasks](../../tasks.md) · [Handoff cases](../../../../../plan/test.md)
+Skill Builder lets a maintainer commission a bounded skill change, give its implementer the authority and evidence needed to act, and assess the result against the original requirement. This change carries forward approved behavioral revision 6. The six requirements below own the product behavior. The original findings, delivery approach, eleven bounded tasks and handoff cases have separate owners. [Audit](../../../../../plan/audit.md) · [Design](../../design.md) · [Tasks](../../tasks.md) · [Handoff cases](../../../../../plan/test.md)
 
 ## ADDED Requirements
 
@@ -117,3 +117,19 @@ D2 records the owner’s choice of SpecDev (`specdev`). Before the live writer r
 - **WHEN** T50 exercises the real Builder dependency resolver and document-validation entry with complete canonical and legacy staged packages, an explicitly selected unrelated identity and a dependency changed after the run was bound
 - **THEN** the `specdev` package resolves and yields a document-bound validation result. The legacy `technical-writer` package still resolves. Explicit selection of a wrong identity fails without fallback, and the changed dependency cannot silently replace the bound snapshot.
 - **EVIDENCE** Inspect the selected paths, the document-bound result, wrong-identity rejection and snapshot guard on the identified candidate. Hand off the accepted Builder commit with the qualifying A5 and A6 evidence. Product acceptance remains pending those observations. [Historical dependency resolver](https://github.com/fatonsopa/ai-skill-builder/blob/ae394124929e99ea8650fb95578f081ce0930734/scripts/runtime/technical_writer.py#L18-L32)
+
+### Requirement: B6 / R6 · Install Skill Builder from a release
+
+<a id="install-the-release-and-connect-a-host"></a>
+
+Skill Builder SHALL install from a versioned GitHub release or npm package without a source checkout. The installed CLI SHALL report its own version and connect the chosen hosts to the same skill. Published instructions SHALL identify prerequisites, verification, update and removal for each channel.
+
+#### Scenario: Install and use the selected host (A7a, B6.1)
+
+- **WHEN** a developer on a supported platform follows the release instructions in a clean user environment, verifies the version, selects Codex or Claude Code and invokes the installed skill
+- **THEN** the release and executable are identifiable, the selected host reaches the skill and the user can complete a bounded request. Setup leaves unrelated tools and projects alone. A mismatched release checksum or unsupported prerequisite identifies the blocker before replacing a working installation.
+
+#### Scenario: Upgrade or remove only what the installer owns (A7b, B6.2)
+
+- **WHEN** a user updates through the original channel, repeats host setup or removes an installation beside the other skill, with a locally edited entry and a project document
+- **THEN** a clean update exposes the intended version without duplicate entries. A conflict identifies the affected path and preserves the edit and prior working version. Removal preserves the other skill, project documents and foreign files. The `README.md` distinguishes a tested release candidate from a publicly available release.

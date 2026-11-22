@@ -11,6 +11,35 @@ Create and improve reusable AI skills with executable workflows, focused referen
 
 ## Installation
 
+### Planned release installation
+
+The commands below are release targets. Use the source instructions below until this repository announces the release. Both skills will follow the same installation steps on macOS, Linux and WSL. Skill Builder needs Python 3.11+ and the checked writing dependency described above. The npm channel also needs npm. The release will accept SpecDev and the supported Technical Writer installation.
+
+1. Install the CLI once. The primary route downloads the installer from this repository’s GitHub release. It selects a compatible release asset and verifies it against that release’s `SHA256SUMS` before replacing the installed version. The alternative npm command will become available after publication under the verified package name.
+
+   ```sh
+   install_dir=$(mktemp -d)
+   curl -fsSL https://github.com/fatonsopa/ai-skill-builder/releases/latest/download/install.sh -o "$install_dir/install.sh" && sh "$install_dir/install.sh"
+   ```
+
+   Or, for the planned npm package:
+
+   ```sh
+   npm install -g @fatonsopa/skill-builder@latest
+   ```
+
+2. Run `skill-builder --version`. Check the version and executable path before continuing if a second copy is already on your PATH. Then make the skill available in the hosts you use:
+
+   ```sh
+   skill-builder host init --tools codex,claude
+   ```
+
+   You can select just one host. Setup reports its destination, any missing prerequisite and the exact invocation to use in a fresh session. Setup connects Skill Builder to the selected hosts. Start a new session and invoke `$skill-builder` in Codex or `/skill-builder` in Claude Code. Setup leaves the current project alone.
+
+3. To upgrade, use the original install channel again, then run `skill-builder host update` to refresh the entries you selected. For removal, first run `skill-builder host remove`. Then use `npm uninstall -g @fatonsopa/skill-builder` for npm, or the owned launcher and release paths printed by the GitHub installer. Keep user edits, other skills and project documents.
+
+To have an agent help, ask it to follow this section for your chosen hosts, check for an existing installation first, and report the version, destination and working invocation. [Release acceptance](openspec/changes/improve-skill-builder/specs/skill-assignments/spec.md#install-the-release-and-connect-a-host) · [OpenSpec’s installation method](https://github.com/Fission-AI/OpenSpec/blob/v2.1.1/docs/installation.md)
+
 ### Get the skill
 
 Clone the repository, then enter the skill folder:

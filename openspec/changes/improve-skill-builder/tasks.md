@@ -348,6 +348,72 @@ scripts/runtime/technical_writer.py, references/technical_writer.md and the affe
 
 One commit ships compatible discovery, checks and guidance. Record the candidate, evidence and criterion verdicts. W46 supplies final renamed-release readback. No repeated host matrix for a shared resolver.
 
+## 8. B6 · Install the release and connect a host
+
+A developer can install the release on a second computer, reach the skill from a selected host, and maintain it without disturbing an existing project. [Story acceptance](specs/skill-assignments/spec.md#install-the-release-and-connect-a-host)
+
+- [ ] 8.1 [T51](#t51-issue) (T010). Install the GitHub release and connect the chosen host. After T50 and its staged writer or supported legacy installation.
+
+<a id="t51-issue"></a>
+
+### T51 · Install the GitHub release and connect the chosen host
+
+#### Description
+
+A user can acquire Skill Builder without cloning, check its version, select a host and use the skill. Reuse the existing source installer for the packaged resources. Ship the candidate installer, checksum manifest, launcher, host setup and matching GitHub installation section together.
+
+#### Expected outcome
+
+A developer can follow the [Skill Builder installation instructions](../../../README.md#planned-release-installation) against the packaged candidate from outside its source tree.
+
+#### Scope
+
+Use the supported runtime and existing host destinations. Limit writes to the chosen install and host paths. Preserve local edits and unrelated software. Public distribution requires release-owner authority.
+
+#### Specification
+
+Release maintainer · [B6](specs/skill-assignments/spec.md#install-the-release-and-connect-a-host) · R6/A7a. Requires T50 and its staged writer or supported legacy installation.
+
+#### Acceptance criteria
+
+- **T51.1** From an isolated user directory without a checkout, install the tagged candidate through the documented release installer. Verify `skill-builder --version` and its PATH location. Use `skill-builder host init --tools codex` and request one bounded assignment with the accepted writing dependency and recover its governing requirement from the installed result. Keep the tag, digest, actual host invocation, result and selected path. Inspect that the sibling host and an untouched project were not modified. <a id="t51-1"></a>
+- **T51.2** Give the same installer an asset that disagrees with its release checksum. It must identify the mismatch and leave the prior usable version and unrelated files intact. If a prerequisite is absent, report the required prerequisite and recovery. Limit platform claims to release assets with compatible install evidence. <a id="t51-2"></a>
+
+#### Relevant files
+
+Current `scripts/install_skill.py`, `scripts/requirements-lock.txt`, root `README.md` and the candidate’s release entry. Record the candidate, each verdict and its evidence in this Issue. [Shared Definition of Done](design.md#requirement-coverage)
+
+- [ ] 8.2 [T52](#t52-issue) (T011). Install with npm and refresh the same skill. After T51 and its accepted payload.
+
+<a id="t52-issue"></a>
+
+### T52 · Install with npm and refresh the same skill
+
+#### Description
+
+An npm user can reach the same Skill Builder version, update it through npm and remove owned files safely. Use the same host setup and payload as the GitHub installer. Ship the package manifest, CLI entry and npm/update/removal steps in the `README.md` together.
+
+#### Expected outcome
+
+A developer can follow the [Skill Builder installation instructions](../../../README.md#planned-release-installation) against the packaged candidate from outside its source tree.
+
+#### Scope
+
+Use the supported runtime and existing host destinations. Limit writes to the chosen install and host paths. Preserve local edits and unrelated software. Public distribution requires release-owner authority.
+
+#### Specification
+
+Release maintainer · [B6](specs/skill-assignments/spec.md#install-the-release-and-connect-a-host) · R6/A7b. Requires T51 and its accepted payload.
+
+#### Acceptance criteria
+
+- **T52.1** Install the candidate `npm pack` tarball in an empty npm prefix. Run `skill-builder --version` from that prefix and `skill-builder host init --tools claude`. Verify the release revision and actual Claude Code invocation. Repeat setup and observe one owned entry. Reuse the first channel’s product evidence when the payload and interface match. <a id="t52-1"></a>
+- **T52.2** With a prior staged version, upgrade through the same channel and run `skill-builder host update`. Observe the new version at the selected host. Exercise a local edit at a managed destination and retain its content on conflict. Run the documented host removal and channel-specific uninstall in the disposable environment. Check that the other skill, project file and foreign entry survive. Record what each channel owns; reuse equivalent update and removal evidence. <a id="t52-2"></a>
+
+#### Relevant files
+
+Current `scripts/install_skill.py`, `scripts/requirements-lock.txt`, root `README.md` and the candidate’s release entry. Record the candidate, each verdict and its evidence in this Issue. [Shared Definition of Done](design.md#requirement-coverage)
+
 ## Finish the delivery
 
-Use A5 for the integrated planning handoff on the named hosts and A6 for dependency compatibility. Supply the accepted Builder commit to the writer implementer. A completed list alone cannot establish either result. [Coverage and shared Definition of Done](./design.md#requirement-coverage)
+Use A5 for the integrated planning handoff on the named hosts and A6 for dependency compatibility. Use A7 for the install, upgrade and removal evidence. Supply the accepted Builder commit to the writer implementer. A completed list alone cannot establish either result. [Coverage and shared Definition of Done](./design.md#requirement-coverage)

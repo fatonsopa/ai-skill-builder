@@ -9,6 +9,7 @@ A maintainer needs to commission one bounded skill change and know whether the a
 - Tie each admitted assignment and necessary safeguard to the approved requirement and verify that the implementer receives that same bounded assignment.
 - Grade only real dependencies. Keep the assessor's clues out of the performer's prompt; preserve candidate, host and observed evidence.
 - Accept the staged `specdev` and legacy `technical-writer` authoring dependencies under the current selection and verification rules.
+- Distribute Skill Builder as a verified GitHub release and an npm package, with one documented path for connecting Codex and Claude Code.
 
 ## Capabilities
 
