@@ -356,7 +356,7 @@ The commit ships a usable return example and its assessment together. Use the [s
 
 **Demonstrate the story.** Validate a document with the renamed dependency, resolve its legacy identity and reject an unrelated explicit selection. [Story criteria](./specs/skill-assignments/spec.md#b5--keep-checked-authoring-available-across-the-writer-rename)
 
-- [ ] 7.1 [T50](#t50--resolve-specdev-and-its-legacy-identity) (T009). Resolve the staged canonical writer and validate an actual document. Preserve explicit legacy-path precedence and reject an unrelated identity without fallback. Use a staged writer after binding the Builder baseline. The live rename follows acceptance of this Issue and of Builder.
+- [x] 7.1 [T50](#t50--resolve-specdev-and-its-legacy-identity) (T009). Resolve the staged canonical writer and validate an actual document. Preserve explicit legacy-path precedence and reject an unrelated identity without fallback. Use a staged writer after binding the Builder baseline. The live rename follows acceptance of this Issue and of Builder.
 
 <a id="t50--resolve-spec-writer-and-its-legacy-identity"></a>
 
@@ -390,6 +390,13 @@ scripts/runtime/technical_writer.py, references/technical_writer.md and the affe
 #### Additional context
 
 One commit ships compatible discovery, checks and guidance. Record the candidate, evidence and criterion verdicts. W46 supplies final renamed-release readback. No repeated host matrix for a shared resolver.
+
+#### Verdicts
+
+Candidate: the T50 commit on `implementation/improve-skill-builder`, staged as a working copy beside a staged writer. The staged writer is Technical Writer `4a8e7c92e20404f05e68708c1a3ea26c6961b178` with its frontmatter name changed to `specdev`. The legacy candidate is the unmodified checkout of that revision. Reviewer: implementing agent, comparing the resolver, receipt and refusals with this Issue and [B5.a](./specs/skill-assignments/spec.md#b5-a).
+
+- **T50.1 Met.** With the staged `specdev` beside the staged Builder and the legacy writer still installed under `~/.agents/skills/technical-writer`, default selection bound `specdev`. An explicit path to the legacy checkout, through the `technical_writer` request key or `SKILL_BUILDER_TECHNICAL_WRITER`, selected `technical-writer`. A completed `specify` run bound to `specdev` validated `explanation.md` through the writer's own prepare, check, review and finalize steps and Builder's `validate-documents`. The receipt and accepted copy both carry SHA-256 `9b0a0da5…65b8d4`, and the planning document gate passed. Regression: `WriterIdentityTests.test_t50_default_prefers_canonical_and_explicit_legacy_path_wins`.
+- **T50.2 Met.** `start` with an explicit writer named `notes-writer` failed and named the identity and path; no fallback was attempted. An explicit `specdev` without `scripts/validate_document.py` failed as incomplete. Changing the bound writer after capture made the document gate fail with the existing snapshot error, and restoring it passed again. Regression: `WriterIdentityTests.test_t50_explicit_unrelated_identity_or_missing_validator_is_rejected_without_fallback`; snapshot: the existing `test_dependency_change_or_disappearance_blocks_delivery`.
 
 ## 8. B6 · Install the release and connect a host
 

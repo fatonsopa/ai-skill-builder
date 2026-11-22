@@ -244,3 +244,48 @@ class PlanningDocumentTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class WriterIdentityTests(unittest.TestCase):
+    """T50: resolve SpecDev and its legacy identity without silent fallback."""
+
+    def setUp(self):
+        import os
+        from unittest.mock import patch
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        environment = {k: v for k, v in os.environ.items() if k != 'SKILL_BUILDER_TECHNICAL_WRITER'}
+        for patcher in (patch.dict(os.environ, environment, clear=True), patch.object(Path, 'home', return_value=self.root / 'home'),
+                        patch.object(writer, 'ROOT', self.root / 'workspace/skill-builder')):
+            patcher.start(); self.addCleanup(patcher.stop)
+
+    def writer(self, folder, name, validator=True):
+        (folder / 'scripts').mkdir(parents=True)
+        (folder / 'references').mkdir()
+        (folder / 'SKILL.md').write_text('---\nname: ' + name + '\ndescription: Staged writer.\n---\nStaged copy.\n')
+        (folder / 'references/writing_style.md').write_text('Style.\n')
+        if validator:
+            (folder / 'scripts/validate_document.py').write_text('print("{}")\n')
+        return folder
+
+    def test_t50_default_prefers_canonical_and_explicit_legacy_path_wins(self):
+        canonical = self.writer(self.root / 'home/.agents/skills/specdev', 'specdev')
+        self.writer(self.root / 'home/.claude/skills/technical-writer', 'technical-writer')
+        selected = writer.capture({})
+        self.assertEqual((selected['name'], selected['path']), ('specdev', str(canonical.resolve())))
+        legacy = self.writer(self.root / 'explicit/technical-writer', 'technical-writer')
+        for request in ({'technical_writer': str(legacy)}, {'technical_writer': str(legacy / 'SKILL.md')}):
+            self.assertEqual(writer.capture(request)['path'], str(legacy.resolve()))
+        import os
+        os.environ['SKILL_BUILDER_TECHNICAL_WRITER'] = str(legacy)
+        self.assertEqual(writer.capture({})['name'], 'technical-writer')
+
+    def test_t50_explicit_unrelated_identity_or_missing_validator_is_rejected_without_fallback(self):
+        self.writer(self.root / 'home/.agents/skills/specdev', 'specdev')
+        unrelated = self.writer(self.root / 'explicit/notes-writer', 'notes-writer')
+        with self.assertRaisesRegex(Invalid, "found 'notes-writer'"):
+            writer.capture({'technical_writer': str(unrelated)})
+        incomplete = self.writer(self.root / 'explicit/specdev', 'specdev', validator=False)
+        with self.assertRaisesRegex(Invalid, 'Incomplete specdev dependency.*validate_document.py'):
+            writer.capture({'technical_writer': str(incomplete)})

@@ -14,22 +14,27 @@ DOCUMENT_SUFFIXES = {'.md', '.markdown', '.mdown', '.rst', '.adoc', '.asciidoc',
 CODE_SUFFIXES = {'.py', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.sh', '.json', '.yaml', '.yml', '.csv', '.tsv', '.toml', '.lock'}
 
 
+# The canonical identity first, then the legacy name kept through the writer rename.
+IDENTITIES = ('specdev', 'technical-writer')
+
+
 def capture(request):
     explicit = request.get('technical_writer') or os.environ.get('SKILL_BUILDER_TECHNICAL_WRITER')
-    choices = [Path(explicit)] if explicit else [ROOT.parent / 'technical-writer', Path.home() / '.agents/skills/technical-writer', Path.home() / '.codex/skills/technical-writer', Path.home() / '.claude/skills/technical-writer']
+    choices = [Path(explicit)] if explicit else [folder / name for name in IDENTITIES for folder in (ROOT.parent, Path.home() / '.agents/skills', Path.home() / '.codex/skills', Path.home() / '.claude/skills')]
     for choice in choices:
         root = choice.parent if choice.name == 'SKILL.md' else choice
         if (root / 'SKILL.md').is_file():
             root = root.resolve()
             parts = (root / 'SKILL.md').read_text().split('---\n', 2)
             metadata = yaml.safe_load(parts[1]) if len(parts) == 3 else None
-            if not isinstance(metadata, dict) or metadata.get('name') != 'technical-writer':
-                raise Invalid('The document dependency must be the technical-writer skill.')
-            for name in ('scripts/validate_document.py', 'references/writing_style.md'):
-                if not (root / name).is_file():
-                    raise Invalid('Incomplete Technical Writer dependency: ' + name)
-            return {'path': str(root), 'files': inventory(root)}
-    return {'path': str(choices[0]), 'files': None, 'error': 'Install Technical Writer or set request.technical_writer / SKILL_BUILDER_TECHNICAL_WRITER. Document delivery is blocked.'}
+            name = metadata.get('name') if isinstance(metadata, dict) else None
+            if name not in IDENTITIES:
+                raise Invalid('The document dependency must be the specdev skill or its legacy technical-writer identity; found ' + repr(name) + ' at ' + str(root) + '.')
+            for required in ('scripts/validate_document.py', 'references/writing_style.md'):
+                if not (root / required).is_file():
+                    raise Invalid('Incomplete ' + name + ' dependency at ' + str(root) + ': ' + required)
+            return {'path': str(root), 'name': name, 'files': inventory(root)}
+    return {'path': str(choices[0]), 'files': None, 'error': 'Install SpecDev (specdev) or the legacy technical-writer skill, or set request.technical_writer / SKILL_BUILDER_TECHNICAL_WRITER. Document delivery is blocked.'}
 
 
 def dependency(state):

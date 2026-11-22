@@ -4,7 +4,7 @@ Skill Builder requires the `technical-writer` skill for every document it create
 
 ## Before you begin
 
-Set `technical_writer` in the request to the skill folder or its `SKILL.md`, or set `SKILL_BUILDER_TECHNICAL_WRITER`. Otherwise the runner looks for an adjacent `technical-writer` folder, then the standard local skill locations under `~/.agents`, `~/.codex` and `~/.claude`. An explicit path takes precedence. The runner captures the dependency’s files; a changed dependency requires a new run. An unavailable dependency blocks document delivery.
+The writer is being renamed to SpecDev. The runner accepts a skill whose frontmatter name is the canonical `specdev` or the legacy `technical-writer`. Set `technical_writer` in the request to the skill folder or its `SKILL.md`, or set `SKILL_BUILDER_TECHNICAL_WRITER`; both keys keep their names across the rename. Otherwise the runner looks for an adjacent `specdev` folder, then `specdev` in the standard local skill locations under `~/.agents`, `~/.codex` and `~/.claude`, and only then for the same `technical-writer` locations. An explicit path takes precedence and is the only candidate: a skill with another name or without `scripts/validate_document.py` and `references/writing_style.md` is rejected, and the runner doesn't fall back to a discovered one. The runner records the selected identity and captures the dependency’s files; a changed dependency requires a new run. An unavailable dependency blocks document delivery.
 
 Read the dependency guidance returned in each phase packet, then use its applicable references while authoring. The runner does not carry a second writing guide.
 
