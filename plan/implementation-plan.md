@@ -1,10 +1,10 @@
 # Skill Builder implementation plan
 
-Status: Scope approved for implementation on the handoff computer. Revision 4. Each audit finding is one epic in the Technical Writer User Story (US) format. Each child task uses its Issue template. The five epics and nine tasks live in this plan. [Story template](https://github.com/fatonsopa/ai-technical-writer/blob/4a8e7c92e20404f05e68708c1a3ea26c6961b178/references/user_story.md) · [Task template](https://github.com/fatonsopa/ai-technical-writer/blob/4a8e7c92e20404f05e68708c1a3ea26c6961b178/references/issue.md)
+Status: Scope approved for implementation on the handoff computer. Revision 5. Each audit finding is one epic in the Technical Writer User Story (US) format. Each child task uses its Issue template. The five epics and nine tasks live in this plan. [Story template](https://github.com/fatonsopa/ai-technical-writer/blob/4a8e7c92e20404f05e68708c1a3ea26c6961b178/references/user_story.md) · [Task template](https://github.com/fatonsopa/ai-technical-writer/blob/4a8e7c92e20404f05e68708c1a3ea26c6961b178/references/issue.md)
 
 ## Goal and specification
 
-Deliver a local Skill Builder revision that commissions bounded work and verifies it against the owner’s requirements. The [behavioral specification, revision 3](./specification.md) owns R1–R5 and A1–A6. The [audit](./audit.md) owns B1–B5 and their supporting evidence. Start from Skill Builder commit `222b356fd5ac7a2df9fd9621e3744db883ecede0` or reconcile material changes since that baseline. The approved scope, candidate, Technical Writer dependency and allowed paths must be captured before implementation. Technical Writer’s own implementation is a separate delivery.
+Deliver a local Skill Builder revision that commissions bounded work and verifies it against the owner’s requirements. The [behavioral specification, revision 4](./specification.md) owns R1–R5 and A1–A6. The [audit](./audit.md) owns B1–B5 and their supporting evidence. Start from Skill Builder commit `222b356fd5ac7a2df9fd9621e3744db883ecede0` or reconcile material changes since that baseline. The approved scope, candidate, Technical Writer dependency and allowed paths must be captured before implementation. Technical Writer’s own implementation is a separate delivery.
 
 ## Current context and approach
 
@@ -17,6 +17,8 @@ Deliver a local Skill Builder revision that commissions bounded work and verifie
 The owner approved the work order, scope and local integration authority. Start with the execution prompt in the repository’s [execution guide](./README.md). Use this plan for dependencies, task boundaries, required evidence and closure. Keep the private JSON execution log described in the starting prompt. Reuse native run records and document the reason for each extra verification before it runs.
 
 ## Work sequence
+
+Open the [task list](./tasks.md) to select work. Follow its row to the existing Issue below and use that Issue’s scope, criterion IDs and proof. The [handoff test specification](./test.md) exercises this same route on the actual packet. Use the B1–B5 outcomes below as the stories. Their Issues are already scoped, so an extra story layer would duplicate the plan.
 
 B5 can use a staged candidate after the initial Builder baseline is bound. The new identity becomes live on the other computer only after T50 is accepted. The real renamed release is a consumer check in writer W46.
 
@@ -63,6 +65,8 @@ Parent B1 · B1.a · R1/A1. Owner role: plan-contract maintainer. Input: the cap
 [scripts/runtime/contracts.py](https://github.com/fatonsopa/ai-skill-builder/blob/222b356fd5ac7a2df9fd9621e3744db883ecede0/scripts/runtime/contracts.py) · [scripts/runtime/artifacts.py](https://github.com/fatonsopa/ai-skill-builder/blob/222b356fd5ac7a2df9fd9621e3744db883ecede0/scripts/runtime/artifacts.py) · [scripts/runtime/workflow.py](https://github.com/fatonsopa/ai-skill-builder/blob/222b356fd5ac7a2df9fd9621e3744db883ecede0/scripts/runtime/workflow.py) · [references/authoring.md](https://github.com/fatonsopa/ai-skill-builder/blob/222b356fd5ac7a2df9fd9621e3744db883ecede0/references/authoring.md) · [tests/test_plan_consistency.py](https://github.com/fatonsopa/ai-skill-builder/blob/222b356fd5ac7a2df9fd9621e3744db883ecede0/tests/test_plan_consistency.py)
 
 ##### Additional context
+
+Use this plan’s B4/T48 Issue as the supported contribution in [B-PACKET](./test.md#cases). Inspect the real admitted and consumed assignment. Keep the existing justified-safeguard, rejection and compatibility checks.
 
 First signal: reuse the audit mutation at its documented consistency-function boundary. Close on the packet and semantic verdict at the supported interface. One fixture covers the variations. No customer data or publishing command is needed.
 
@@ -386,7 +390,7 @@ Use the same skill, request, sources and rubric for Codex and Claude Code. Keep 
 | Delivery · A5 | Integration owner, with evidence from B1–B4 | One comparable planning assignment per supported host on the identified candidate, with a separate verdict and artifact per host. |
 | R5 / A6 | B5 → T50 | Real document validation with the new identity, legacy selection and rejection of an unrelated explicit dependency. |
 
-Revision 1 grouped B1/B4 under S1 and B2/B3 under S2. This revision carries the former T17.1, T24.1, T36.1 and T48.1 obligations at their respective epic boundaries. The additional child IDs divide ownership and proof. The four-task count in the specification’s closing navigation paragraph describes revision 1 of the plan. Its normative requirements and A1–A5 still govern.
+Revision 1 grouped B1/B4 under S1 and B2/B3 under S2. This revision carries the former T17.1, T24.1, T36.1 and T48.1 obligations at their respective epic boundaries. The additional child IDs divide ownership and proof. The current specification covers R1–R5 and A1–A6.
 
 **Shared Definition of Done.** After approval use Skill Builder’s existing modify, document-validation, review and local-apply workflow. Freeze the task, permitted paths, case inputs and acceptance before production. At iteration use `scripts/run_tests.py --execute` with the affected set selected by the repository. Correct an unmapped change at its impact rule. Where verification is semantic, record the actual source passage, observed artifact, wrong result the criterion rejects, and reviewer. Preserve required independent review when the actual workflow calls for it. A written self-review cannot stand in for that review.
 
@@ -398,7 +402,7 @@ Keep historical schema and report readers addressable by version. Freeze the cur
 
 ## Risks and open decisions
 
-The owner approved specification revision 3 and implementation plan revision 4. Implement Skill Builder first, with a distinct staged candidate and a local implementation branch. Internal file names and implementation choices are delegated within the approved scope. A missing host observation remains Not demonstrated.
+The approved behavior and scope carry forward into specification revision 4 and implementation plan revision 5. Implement Skill Builder first, with a distinct staged candidate and a local implementation branch. Internal file names and implementation choices are delegated within the approved scope. A missing host observation remains Not demonstrated.
 
 At closure record each task criterion, story criterion and A1–A6 as Met, Failed or Not demonstrated with its candidate and evidence in the existing work item. Preserve earlier failures. Close each finding’s epic on its story-level evidence and the delivery on A5 and A6. A parent rollup of closed tasks cannot establish either verdict. Deliver the locally applied Builder revision to the owner. Any subsequent Technical Writer implementation starts with its separately approved specification and implementation plan. [Technical Writer implementation plan](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/implementation-plan.md)
 

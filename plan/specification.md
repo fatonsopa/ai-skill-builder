@@ -1,6 +1,8 @@
 # Skill Builder assignment and verification specification
 
-Status: Approved behavioral scope, revision 3. Applies to Codex and Claude Code. [Audit](./audit.md) · [Implementation plan](./implementation-plan.md)
+Status: Approved behavioral scope, revision 4. Applies to Codex and Claude Code. [Audit](./audit.md) · [Implementation plan](./implementation-plan.md)
+
+Source: The owner’s approved scope and the [comparative audit](./audit.md).
 
 ## Purpose and scope
 
@@ -52,5 +54,7 @@ One case can prove several criteria if the actual outputs expose each distinctio
 **D1.** The owner approved specification revision 2 and implementation plan revision 3. Implement Skill Builder first, with a distinct staged candidate and a local implementation branch. Cross-host claims require evidence from both named hosts. Missing observations stay open.
 
 ## Related design and work
+
+Use this specification as the behavior source for the Skill Builder change itself. The [implementation plan](./implementation-plan.md) contains the governing stories and Issues. The [task list](./tasks.md) orders them, and the [handoff test specification](./test.md) checks whether a reader can use them. Each Issue owns its acceptance criteria and the evidence needed to close it. As T17 becomes usable, submit this plan’s actual T48 assignment and inspect the consumed result as described in B-PACKET.
 
 The Implementation Plan (IP) assigns R1–R5 to five epics and nine bounded tasks and names the checks that can change each acceptance decision. Technical Writer retains ownership of document guidance. Its proposed improvement and the Skill Builder change are separate deliveries. [Task and verification plan](./implementation-plan.md) · [Technical Writer behavioral baseline](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/specification.md) · [Technical Writer implementation plan](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/implementation-plan.md)

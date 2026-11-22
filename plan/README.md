@@ -1,12 +1,17 @@
-# Implement Skill Builder
+# Skill Builder implementation handoff
 
-Open this file in the checkout you will work on. It contains the starting prompt and the execution rules for Claude or Codex. The [specification](./specification.md) owns behavior and acceptance. The [implementation plan](./implementation-plan.md) owns the work, its boundaries, dependencies and checks. The [audit](./audit.md) explains the findings and their evidence.
+Use this handoff to implement Skill Builder on a local branch. It contains the starting prompt for Claude or Codex and the approved work for this repository.
 
-The owner approved the complete scope in specification revision 3 and implementation plan revision 4. The five epics contain nine tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to implement Technical Writer. Start with B1/T17. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
+The approved behavior and scope carry forward into specification revision 4 and implementation plan revision 5. The five epics contain nine tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to implement Technical Writer. Start with B1/T17. B3/T36 can start alongside it on the separate evaluator. B5/T50 can use a staged writer as soon as the baseline is bound. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
 
-## Starting prompt
+## Start
 
-> Use Skill Builder to implement the approved Skill Builder changes in this repository. Deliver B5/T50 for the canonical `spec-writer` and legacy `technical-writer` identities. Start with the actual audited predecessor as the writing dependency. Accept T50 before handing the Builder to the Spec Writer implementer for the live rename. Read `plan/README.md`, the linked specification, the implementation plan and the repository instructions. Follow the execution rules below. Work on a local implementation branch from this handoff. Start or resume at the first eligible task. For each task, deliver its scoped result and prove its acceptance criteria on the actual candidate. Commit the usable increment and continue. Keep a private structured JSON execution log. Before another test or review, record the criterion, why existing evidence is insufficient and which result would change your next action. Use the log to correct your work and resume after interruption. Put only decisions awaiting the owner in the plan’s pending section. Complete the integrated acceptance checks before reporting delivery.
+Open this handoff in the checkout you will use. Give the implementing agent the path to this file. It can read the starting prompt here. For a read-only rehearsal, give it only the checkout and the assessor’s question.
+
+### Starting prompt
+
+> Use Skill Builder to implement its approved changes on a local branch. Use the audited Technical Writer as the writing dependency. Stage and accept both writer identities under T50 before handing the accepted Builder commit to the writer implementer. Read the repository instructions, then follow this guide: read `plan/specification.md` and `plan/implementation-plan.md`, open `plan/tasks.md` and follow the next eligible row to its Issue. Implement only its scope. Verify its criteria on the candidate, record the evidence in the Issue and the private JSON log, commit the increment, and update its checkbox. Resume from the evidence on the next eligible row. Use `plan/test.md` for the handoff checks. Finish the approved integrated checks and report the local result.
+
 
 ## Execution rules
 
@@ -16,6 +21,21 @@ The owner approved the complete scope in specification revision 3 and implementa
 4. **Use evidence to limit verification.** Reuse applicable results. Run the smallest check that can disprove the candidate against the task’s criterion. A rare extra verification is appropriate when a concrete failure, changed input or missing evidence makes the approved result uncertain. Record the criterion, what the check established and the action it changes. Apply a supported better technique directly when it remains inside the task’s behavior, authority and quality obligations. General best-practice advice alone cannot enlarge scope.
 5. **Defer other discoveries.** Append a brief entry to [Pending owner decisions](./implementation-plan.md#pending-owner-decisions). Record evidence, impact, proposed change and any blocked task. Leave the change pending and move to eligible work. A material blocker can keep a criterion open without erasing prior results.
 6. **Close and resume.** In the existing task, record each criterion as Met, Failed or Not demonstrated, with the exact candidate and evidence. Retain failures through correction. Commit each accepted increment on the local implementation branch, record the next task and continue. Reuse task evidence for story acceptance where it actually proves the integrated result. Report host-specific results separately. Remote integration, releases and deployment require separate authority.
+
+## Check the result
+
+For a read-only rehearsal, compare the reader’s choices with the [test specification](./test.md). During implementation, record each criterion’s verdict and evidence in the linked Issue. Close the delivery when its integrated checks and shared Definition of Done pass on the identified candidate.
+
+## Find your way around
+
+1. Read the [audit](./audit.md) for the source of a finding and the [specification](./specification.md) for the agreed behavior.
+2. Open the [implementation plan](./implementation-plan.md) for the approach, story outcomes and detailed Issues.
+3. Use [tasks.md](./tasks.md) to select the next eligible Issue. Its criteria and proof live in the linked plan section. A separate `task.md` is optional.
+4. Use [test.md](./test.md) for the read-only rehearsal and the later implementation case.
+
+## Limits and help
+
+A rehearsal authorizes reading only. During a build, record an out-of-scope discovery under [Pending owner decisions](./implementation-plan.md#pending-owner-decisions) and continue eligible work. If an Issue conflicts with the governing specification or its proof is stale, hold the affected row and use the plan’s [recovery instructions](./implementation-plan.md#rollout-and-recovery).
 
 ## JSON execution log
 
