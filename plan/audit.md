@@ -2,7 +2,7 @@
 
 **Recommendation: modify the existing skill.** Fix the two ways its evaluation can mislead a reviewer and bind independently assigned work to its governing criterion. Keep the existing role, scope, evidence and host controls. A new orchestration framework would leave the demonstrated problems in place.
 
-The baseline is Skill Builder commit `222b356fd5ac7a2df9fd9621e3744db883ecede0`. The audit used that same version of its read-only audit workflow. The implementation target is the local package under the approved scope. [Behavioral specification](./specification.md) · [Implementation tasks](./implementation-plan.md)
+The baseline is Skill Builder commit `222b356fd5ac7a2df9fd9621e3744db883ecede0`. The audit used that same version of its read-only audit workflow. The implementation target is the local package under the approved scope. [Behavioral specification](../openspec/changes/improve-skill-builder/specs/skill-assignments/spec.md) · [Implementation tasks](../openspec/changes/improve-skill-builder/design.md)
 
 ## Findings
 

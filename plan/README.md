@@ -2,7 +2,7 @@
 
 Use this handoff to implement Skill Builder on a local branch. It contains the starting prompt for Claude or Codex and the approved work for this repository.
 
-The approved behavior and scope carry forward into specification revision 6 and implementation plan revision 7. The five epics contain nine tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to ship SpecDev from the Technical Writer repository. Start with B1/T17. B3/T36 can start alongside it on the separate evaluator. B5/T50 can use a staged writer as soon as the baseline is bound. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
+This native change carries forward the approved Builder scope. The five epics contain nine tasks. The handoff branch contains the audited Skill Builder source at `222b356fd5ac7a2df9fd9621e3744db883ecede0` and the planning packet. Implementation begins on the other computer. Implement and accept Skill Builder before using that candidate to ship SpecDev from the Technical Writer repository. Start with B1/T17. B3/T36 can start alongside it on the separate evaluator. B5/T50 can use a staged writer as soon as the baseline is bound. Use Technical Writer at its audited revision as the writing dependency. [Technical Writer handoff](https://github.com/fatonsopa/ai-technical-writer/blob/docs/autonomous-implementation/plan/README.md)
 
 ## Start
 
@@ -10,8 +10,21 @@ Open this handoff in the checkout you will use. Give the implementing agent the 
 
 ### Starting prompt
 
-> Use Skill Builder to implement its approved changes on a local branch. Use the audited Technical Writer as the writing dependency. Stage and accept both writer identities under T50 before handing the accepted Builder commit to the writer implementer. Read the repository instructions, then follow this guide: read `plan/specification.md` and `plan/implementation-plan.md`, open `plan/tasks.md` and follow the next eligible row to its Issue. Implement only its scope. Verify its criteria on the candidate, record the evidence in the Issue and the private JSON log, commit the increment, and update its checkbox. Resume from the evidence on the next eligible row. Use `plan/test.md` for the handoff checks. Finish the approved integrated checks and report the local result.
+> Use Skill Builder to implement its approved changes on a local branch. Use the audited Technical Writer as the writing dependency. Stage and accept both writer identities under T50 before handing the accepted Builder commit to the writer implementer. Read the repository instructions, then follow this guide: open the native specification and design linked below, then follow the next eligible row in the native task list to its Issue. Implement only its scope. Verify its criteria on the candidate, record the evidence in the Issue and the private JSON log, commit the increment, and update its checkbox. Resume from the evidence on the next eligible row. Use `plan/test.md` for the handoff checks. Finish the approved integrated checks and report the local result.
 
+
+## Open the active change
+
+The [proposal](../openspec/changes/improve-skill-builder/proposal.md), [specification](../openspec/changes/improve-skill-builder/specs/skill-assignments/spec.md), [implementation plan](../openspec/changes/improve-skill-builder/design.md) and [task list](../openspec/changes/improve-skill-builder/tasks.md) are the live implementation files. The links in `plan/` are for readers with an earlier bookmark. Mark completed work once, in the native task list.
+
+From this repository's root, use OpenSpec 2.1.1 to inspect the handoff:
+
+```sh
+openspec status --change improve-skill-builder --json
+openspec instructions apply --change improve-skill-builder --json
+```
+
+The second command reads task and artifact context. Implementation still requires the starting prompt's authority and settled task prerequisites. A ready artifact means the file exists; the criterion and evidence determine delivery. For the exact locked CLI, use the SpecDev handoff checkout alongside this one. Run `npm ci --prefix /path/to/technical-writer/tools/openspec`, then invoke `/path/to/technical-writer/tools/openspec/node_modules/.bin/openspec` from this Builder checkout. Supply the actual checkout path. This is a maintainer tool for this handoff; it adds no runtime dependency to Builder.
 
 ## Execution rules
 
@@ -19,23 +32,23 @@ Open this handoff in the checkout you will use. Give the implementing agent the 
 2. **Select one deliverable.** Resolve the task, parent outcome, supported criterion, affected interface, prerequisites, allowed change and required proof. Work from the reviewed record. Stop only affected work if a required decision or dependency is missing. Continue eligible independent tasks.
 3. **Implement within scope.** Inspect the real entry point and keep the increment independently usable. Choose internal details within the agreed contract. Keep the original acceptance criteria and source authority. A new deliverable, new external action, changed permission or weaker criterion requires the owner’s explicit decision.
 4. **Use evidence to limit verification.** Reuse applicable results. Run the smallest check that can disprove the candidate against the task’s criterion. A rare extra verification is appropriate when a concrete failure, changed input or missing evidence makes the approved result uncertain. Record the criterion, what the check established and the action it changes. Apply a supported better technique directly when it remains inside the task’s behavior, authority and quality obligations. General best-practice advice alone cannot enlarge scope.
-5. **Defer other discoveries.** Append a brief entry to [Pending owner decisions](./implementation-plan.md#pending-owner-decisions). Record evidence, impact, proposed change and any blocked task. Leave the change pending and move to eligible work. A material blocker can keep a criterion open without erasing prior results.
+5. **Defer other discoveries.** Append a brief entry to [Pending owner decisions](../openspec/changes/improve-skill-builder/design.md#pending-owner-decisions). Record evidence, impact, proposed change and any blocked task. Leave the change pending and move to eligible work. A material blocker can keep a criterion open without erasing prior results.
 6. **Close and resume.** In the existing task, record each criterion as Met, Failed or Not demonstrated, with the exact candidate and evidence. Retain failures through correction. Commit each accepted increment on the local implementation branch, record the next task and continue. Reuse task evidence for story acceptance where it actually proves the integrated result. Report host-specific results separately. Remote integration, releases and deployment require separate authority.
 
 ## Check the result
 
-For a read-only rehearsal, compare the reader’s choices with the [test specification](./test.md). During implementation, record each criterion’s verdict and evidence in the linked Issue. Close the delivery when its integrated checks and shared Definition of Done pass on the identified candidate.
+For a read-only rehearsal, compare the reader’s choices with the [test specification](test.md). During implementation, record each criterion’s verdict and evidence in the linked Issue. Close the delivery when its integrated checks and shared Definition of Done pass on the identified candidate.
 
 ## Find your way around
 
-1. Read the [audit](./audit.md) for the source of a finding and the [specification](./specification.md) for the agreed behavior, stories and acceptance scenarios.
-2. Open the [implementation plan](./implementation-plan.md) for the approach, material dependencies, rollout and recovery.
-3. Use [tasks.md](./tasks.md) to select the next eligible Issue. Its scope, acceptance criteria and proof live at that row. Follow its parent link to the story criterion in the specification. A separate `task.md` is optional.
-4. Use [test.md](./test.md) for the read-only rehearsal and the later implementation case.
+1. Read the [audit](audit.md) for the source of a finding and the [specification](../openspec/changes/improve-skill-builder/specs/skill-assignments/spec.md) for the agreed behavior, stories and acceptance scenarios.
+2. Open the [implementation plan](../openspec/changes/improve-skill-builder/design.md) for the approach, material dependencies, rollout and recovery.
+3. Use [tasks.md](../openspec/changes/improve-skill-builder/tasks.md) to select the next eligible Issue. Its scope, acceptance criteria and proof live at that row. Follow its parent link to the story criterion in the specification. A separate `task.md` is optional.
+4. Use [test.md](test.md) for the read-only rehearsal and the later implementation case.
 
 ## Limits and help
 
-A rehearsal authorizes reading only. During a build, record an out-of-scope discovery under [Pending owner decisions](./implementation-plan.md#pending-owner-decisions) and continue eligible work. If an Issue conflicts with the governing specification or its proof is stale, hold the affected row and use the plan’s [recovery instructions](./implementation-plan.md#rollout-and-recovery).
+A rehearsal authorizes reading only. During a build, record an out-of-scope discovery under [Pending owner decisions](../openspec/changes/improve-skill-builder/design.md#pending-owner-decisions) and continue eligible work. If an Issue conflicts with the governing specification or its proof is stale, hold the affected row and use the plan’s [recovery instructions](../openspec/changes/improve-skill-builder/design.md#rollout-and-recovery).
 
 ## JSON execution log
 

@@ -26,6 +26,8 @@
     "contracts": "Task output schemas and constraints.",
     "config": "Machine-readable configuration and generated bookkeeping.",
     "docs": "Public user/developer documentation.",
+    "openspec": "Native change proposals, design, task status and capability specifications for this repository.",
+    "plan": "Handoff entry, audit evidence and links to the active native change.",
     "tools": "Repository development tools."
   },
   "local_only": [

@@ -1,12 +1,14 @@
 # Skill Builder handoff test specification
 
-Test basis: [Behavioral specification](./specification.md) and the [approved task records](./tasks.md) in this handoff revision.
+Test basis: [Behavioral specification](../openspec/changes/improve-skill-builder/specs/skill-assignments/spec.md) and the [approved task records](../openspec/changes/improve-skill-builder/tasks.md) in this handoff revision.
 
-Test item: The [execution guide](./README.md), [task list](./tasks.md) and linked Issue records at the same Git revision. Record the candidate used for each observation.
+Test item: The [execution guide](README.md), [task list](../openspec/changes/improve-skill-builder/tasks.md) and linked Issue records at the same Git revision. Record the candidate used for each observation.
 
 ## Coverage and setup
 
 The first two cases test whether a reader can select a task, find its criteria and stop at a real dependency. Use a read-only checkout. Supply hypothetical completion states in the question. Leave the actual task boxes and Issue verdicts untouched. The last two cases require an implementation candidate. Use the real T48 assignment for admission as T17 ships. At release, reuse the host and dependency checks already required by A5 and A6.
+
+For this handoff, inspect the native change status and the task context returned by `openspec instructions apply --change improve-skill-builder --json`. Compare the row identities, evidence and checked states with the native task list. This read-only check is separate from exercising the future skill.
 
 ## Cases
 
