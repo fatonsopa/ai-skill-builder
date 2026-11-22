@@ -127,11 +127,67 @@ def grade_process(trace, expected):
             errors.append("Required user-visible handoff is missing: " + phase)
         if phase in expected["evidence"] and (not isinstance(event.get("evidence"), str) or not event["evidence"].strip()):
             errors.append("Missing stage evidence: " + phase)
-    if observed != expected["order"]:
+    if "requires" in expected:
+        errors.extend(dependency_failures(observed, expected["order"], expected["requires"]))
+    elif observed != expected["order"]:
         errors.append("Process phases were omitted, reordered, repeated or undeclared; expected " + repr(expected["order"]) + ", observed " + repr(observed))
     return {"passed": not errors, "failures": errors, "observed_order": observed,
             "provenance": provenance, "trace": trace,
             "limits": "Checks recorded event order and declared evidence/visibility. Review actual artifacts and host observations for truth and completeness; authored controls and replay are not fresh model behavior."}
+
+
+def relation_failures(steps, requires):
+    """Reject a dependency relation that names unknown steps or contains a cycle."""
+    if not isinstance(steps, list) or len(steps) != len(set(steps)) or not isinstance(requires, dict):
+        return ["Malformed dependency relation: required steps must be unique and requires must map steps to prerequisites."]
+    errors = []
+    for step, prerequisites in requires.items():
+        if step not in steps:
+            errors.append("Dependency relation names an unknown step: " + repr(step))
+        if not isinstance(prerequisites, list) or not all(isinstance(p, str) for p in prerequisites):
+            errors.append("Malformed prerequisites for step " + repr(step))
+            continue
+        for prerequisite in prerequisites:
+            if prerequisite not in steps:
+                errors.append("Unknown prerequisite " + repr(prerequisite) + " for step " + repr(step))
+    if errors:
+        return errors
+    state = {}
+    def visit(step, trail):
+        if state.get(step) == "done":
+            return None
+        if step in trail:
+            return trail[trail.index(step):] + [step]
+        for prerequisite in requires.get(step, []):
+            cycle = visit(prerequisite, trail + [step])
+            if cycle:
+                return cycle
+        state[step] = "done"
+        return None
+    for step in steps:
+        cycle = visit(step, [])
+        if cycle:
+            return ["Dependency relation contains a cycle: " + " -> ".join(cycle)]
+    return []
+
+
+def dependency_failures(observed, steps, requires):
+    """Grade a dependency-aware trace: any order that honors the declared prerequisites passes."""
+    errors = relation_failures(steps, requires)
+    if errors:
+        return errors
+    for step in steps:
+        if step not in observed:
+            errors.append("Required step omitted: " + step)
+    extra = [phase for phase in observed if phase not in steps]
+    repeated = sorted({phase for phase in observed if observed.count(phase) > 1})
+    if extra or repeated:
+        errors.append("Process phases were repeated or undeclared: " + repr(extra + repeated))
+    for position, step in enumerate(observed):
+        for prerequisite in requires.get(step, []):
+            if prerequisite not in observed[:position]:
+                errors.append("Premature " + step + ": prerequisite " + prerequisite + " was not completed before it.")
+    return errors
 
 
 def process_metrics(attempts, suite):

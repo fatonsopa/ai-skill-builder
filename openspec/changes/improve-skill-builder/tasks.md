@@ -152,7 +152,7 @@ Candidate: the T18 commit on `implementation/improve-skill-builder`. Reviewer: i
 
 **Demonstrate the story.** Accept both valid read orders and locate a premature decision or missing prerequisite. [Story criteria](./specs/skill-assignments/spec.md#b2--accept-valid-work-in-either-order)
 
-- [ ] 4.1 [T24](#t24--grade-independent-reads-in-an-explicitly-supplied-evaluation-case) (T004). Grade both valid read orders successfully. Reject a premature decision, missing read or malformed relation for its actual violated condition. Start once the dependency representation and its version boundary with B1 are settled. Coordinate evaluator edits with T36.
+- [x] 4.1 [T24](#t24--grade-independent-reads-in-an-explicitly-supplied-evaluation-case) (T004). Grade both valid read orders successfully. Reject a premature decision, missing read or malformed relation for its actual violated condition. Start once the dependency representation and its version boundary with B1 are settled. Coordinate evaluator edits with T36.
 
 ### T24 · Grade independent reads in an explicitly supplied evaluation case
 
@@ -184,6 +184,13 @@ Parent [B2](./specs/skill-assignments/spec.md#b2--accept-valid-work-in-either-or
 #### Additional context
 
 One parameterised three-step fixture is sufficient. Use existing visibility/omission controls where their path and inputs remain applicable. The commit ships a directly usable evaluator feature, including its failure handling. No generated package or model run is needed to accept this task.
+
+#### Verdicts
+
+Candidate: the T24 commit on `implementation/improve-skill-builder`. Reviewer: implementing agent, comparing the per-trace verdicts from `evaluate.py --suite --case` with this Issue and [B2.a](./specs/skill-assignments/spec.md#b2-a). The dependency representation is the opt-in `expect.process.requires` map. It stays outside the protocol-7 plan schema settled in T17 until T25 emits it.
+
+- **T24.a Met.** With `requires: {decide: [read_brief, read_example]}`, both read orders passed. A decision before `read_example` failed as premature, an omitted read failed as omitted, a hidden decision failed its visibility check and a blank read reference failed its evidence check. Each failure names only its own missing condition, apart from the omitted read, which also leaves the decision premature. Regression: `DependencyAwareProcessTests.test_t24a_both_read_orders_pass_and_each_violation_fails_for_its_condition`.
+- **T24.b Met.** An unknown prerequisite and a cycle each fail an otherwise valid trace. The legacy strict case without `requires` still fails the audit's reversed-read trace, which keeps the original failure. Regression: `DependencyAwareProcessTests.test_t24b_malformed_relation_cannot_pass_and_legacy_strict_order_still_fails`.
 
 - [ ] 4.2 [T25](#t25--generate-checks-only-for-declared-workflow-dependencies) (T005). Generate a case requiring both reads before the decision in either order. Reject an unknown prerequisite or cycle and preserve legacy strict ordering. After T24, with T17’s schema-version boundary settled.
 
