@@ -16,11 +16,44 @@ Open this handoff in the checkout you will use. Give the implementing agent the 
 
 When asked to implement both plans, carry out the following assignment in the current workspace. Either Claude Code or Codex can run it. Read each repository’s `AGENTS.md` and use its own specification, task criteria and execution rules throughout.
 
-1. **Prepare the two repositories.** Reuse local checkouts of [Skill Builder](https://github.com/fatonsopa/ai-skill-builder) and [SpecDev](https://github.com/fatonsopa/ai-technical-writer), or clone whichever is missing. Fetch the `docs/autonomous-implementation` handoff branch as needed. Start Builder at the revision of this guide named in the launch prompt. Start SpecDev at [its approved handoff revision](https://github.com/fatonsopa/ai-technical-writer/tree/c5e866daadf61cdf564c6f5c5f5d9781f6d16afa). Record both commit IDs and paths. Use separate local implementation branches or worktrees. Preserve existing branches and working changes. On resumption, reopen the recorded candidates and their private JSON logs.
+1. **Download and install both skills.** Follow [Set up a new computer](#set-up-a-new-computer) before invoking either skill. Record the checkout paths and handoff commits. When resuming, use the recorded local branches, installed copies and private JSON logs.
 2. **Implement Skill Builder first.** Use the Skill Builder skill from its checkout and follow the [Builder starting prompt](#starting-prompt). Give Builder a separate checkout of [the audited Technical Writer](https://github.com/fatonsopa/ai-technical-writer/tree/4a8e7c92e20404f05e68708c1a3ea26c6961b178) through its existing `technical_writer` request field. Read the governing specification before changing code. Select eligible work from [Builder’s task list](../openspec/changes/improve-skill-builder/tasks.md), starting with T17 on a fresh run. Implement, verify and commit each scoped increment. T50 exercises both writer identities on staged copies while SpecDev stays at its handoff revision.
 3. **Accept Builder and continue automatically.** Apply [Builder’s coverage and Definition of Done](../openspec/changes/improve-skill-builder/design.md#requirement-coverage), including the [integrated checks on Claude Code and Codex](../openspec/changes/improve-skill-builder/design.md#integrated-acceptance-on-codex-and-claude-code). Record the accepted local Builder commit, its checkout path, the T50 result and the supporting evidence in the existing run records. Start SpecDev immediately when Builder meets its full acceptance criteria. If a required check is blocked, continue eligible Builder work and report the missing proof before starting SpecDev.
 4. **Implement SpecDev using the accepted Builder.** In the SpecDev checkout, read and execute the [SpecDev starting prompt](https://github.com/fatonsopa/ai-technical-writer/blob/c5e866daadf61cdf564c6f5c5f5d9781f6d16afa/plan/README.md#starting-prompt) as the next part of this assignment. Resolve Skill Builder from the accepted checkout and confirm its commit before the first change. Follow SpecDev’s native specification, design and task list, including its exclusions. T50 permits W46 to exercise the actual rename. Use SpecDev’s own integrated checks to verify the result on Claude Code and Codex.
 5. **Finish within the approved scope.** For both plans, reuse applicable evidence and run the smallest check that can settle an unmet criterion. Record observed results and resume points in the existing private JSON logs. Fix recoverable failures and continue without routine approval. Put out-of-scope requests in the owning plan’s pending decisions. If no eligible work remains and a required host, permission or owner decision is missing, report the exact blocker and resume point. Keep implementation commits local under the existing authority. At completion, give the user both commit IDs, the integrated result for each skill, evidence from each required host and any criteria still unproven. Report each host separately, using an observed run there or qualifying evidence for that host.
+
+### Set up a new computer
+
+Use the same workspace as the original Mac: `/Users/faton/Documents/ChatGPT`. Create it if needed. Use the machine’s existing GitHub access (SSH or authenticated HTTPS). On an empty machine the checkout commands are:
+
+```sh
+workspace=/Users/faton/Documents/ChatGPT
+mkdir -p "$workspace"
+git clone --branch docs/autonomous-implementation git@github.com:fatonsopa/ai-skill-builder.git "$workspace/skill-builder"
+git clone --branch docs/autonomous-implementation git@github.com:fatonsopa/ai-technical-writer.git "$workspace/technical-writer"
+```
+
+Skip a clone if the launch prompt already downloaded it. Verify its remote and revision. In each checkout, create a new local implementation branch at the specified commit: the Builder revision in the launch prompt and [the SpecDev handoff revision](https://github.com/fatonsopa/ai-technical-writer/tree/c5e866daadf61cdf564c6f5c5f5d9781f6d16afa). On a resumed run, stay on the recorded implementation branches. Preserve existing files and branches. If the exact directory is unavailable or belongs to another project, report that path before choosing a different one.
+
+Check for Git, Python 3.11 or later, and Node.js 22.20.0 or later with npm. If a prerequisite is missing, use the machine’s existing user-level package manager when available. Report any permission or sign-in the owner must supply. Use the repositories’ source installers for this handoff. Run the commands below from each checkout, first `technical-writer`, then `skill-builder`. Use a supported Python executable if the system’s `python3` is older.
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r scripts/requirements-lock.txt
+.venv/bin/python scripts/install_skill.py --host claude-code
+.venv/bin/python scripts/install_skill.py --host codex
+```
+
+Each installer prints its destination under `~/.claude/skills/` or `~/.agents/skills/`. In each installed folder, set up its `.venv` from its own `scripts/requirements-lock.txt` using the first two commands above. Run `.venv/bin/python scripts/smoke_check.py` there and check for `passed: true`. Reuse a matching installation and working environment on resume. Preserve a different installation and its edits. Use the source checkout directly for implementation while a host registration conflict is resolved.
+
+Install this handoff’s locked OpenSpec dependency once and check the local executable:
+
+```sh
+npm ci --prefix /Users/faton/Documents/ChatGPT/technical-writer/tools/openspec
+/Users/faton/Documents/ChatGPT/technical-writer/tools/openspec/node_modules/.bin/openspec --version
+```
+
+The expected OpenSpec version is `2.1.1`. Keep the implementation checkouts at the two workspace paths above. For Builder’s audited writing dependency, make a separate checkout of `4a8e7c92e20404f05e68708c1a3ea26c6961b178` in the private run directory and supply that path in the `technical_writer` request field. The current session can start work by reading `skill-builder/SKILL.md` from its checkout. Use fresh host sessions for the required activation checks. After Builder is accepted, use its accepted checkout for SpecDev as directed in step 4.
 
 ## Open the active change
 
