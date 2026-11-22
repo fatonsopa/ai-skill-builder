@@ -106,7 +106,7 @@ Candidate: the T36 commit on `implementation/improve-skill-builder`. Reviewer: i
 
 **Demonstrate the story.** Follow an admitted assignment into production and locate a requirement with no owning work. [Story criteria](./specs/skill-assignments/spec.md#b1--commission-work-that-serves-an-approved-requirement)
 
-- [ ] 3.1 [T18](#t18--expose-a-requirement-that-has-tests-but-no-owning-work) (T003). Remove the only owning assignment and identify the orphan despite its test. Restore coverage and read the historical plan with its original meaning. After T17 supplies the admitted assignment.
+- [x] 3.1 [T18](#t18--expose-a-requirement-that-has-tests-but-no-owning-work) (T003). Remove the only owning assignment and identify the orphan despite its test. Restore coverage and read the historical plan with its original meaning. After T17 supplies the admitted assignment.
 
 ### T18 · Expose a requirement that has tests but no owning work
 
@@ -138,6 +138,13 @@ Parent [B1](./specs/skill-assignments/spec.md#b1--commission-work-that-serves-an
 #### Additional context
 
 Commit the reverse-coverage result, its consumer and focused regression together. Stop after the orphan, recovery and compatibility evidence is recorded. Reuse the forward-mapping verdict from T17.
+
+#### Verdicts
+
+Candidate: the T18 commit on `implementation/improve-skill-builder`. Reviewer: implementing agent, comparing the coverage results with this Issue and [B1.b](./specs/skill-assignments/spec.md#b1-b). The forward mapping reuses the T17 verdict.
+
+- **T18.a Met.** Removing W3, the sole owner of R-3, left its `malformed` and `numeric` cases in place. Admission reported that R-3 has tests but no owning assignment and kept the run at `plan`. Restoring W3 in the same run admitted the plan, and the produce packet's `assignments.coverage` maps every requirement to an owner. Regression: `ReverseCoverageTests.test_t18a_orphaned_requirement_is_named_and_the_same_plan_recovers`.
+- **T18.b Met.** A plan captured under protocol 6 is read with its original version and contract: no assignments are required, its stored plan is unchanged, and its packets carry no assignment coverage. Regression: `ReverseCoverageTests.test_t18b_captured_protocol_6_plan_keeps_its_original_meaning`. The existing protocol-6 replay check in `test_completion.py` still rebuilds the recorded candidate.
 
 <a id="b2--accept-valid-work-in-either-order"></a>
 

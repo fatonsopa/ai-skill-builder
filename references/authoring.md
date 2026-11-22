@@ -121,7 +121,7 @@ List each piece of work that a separate owner delivers in `assignments`. Each en
 
 Before you submit the plan, compare each entry's meaning with the source it cites. Record that review in `assignment_review`: the reviewer, `assignments_sha256` from the runtime's canonical digest, and one decision per entry with the cited `source`. Reject an entry whose action doesn't serve its criterion, even when the ID is valid. For example, a step that publishes customer records doesn't serve a requirement to preserve identifiers.
 
-Admission names the entry and its row when a criterion is unknown, a revision is stale or an entry has no single authority. It also stops on any rejected decision and repeats the reviewer's cited source. Production and later packets carry the admitted entries under `assignments`. Admission grants no publication or other external action; request scope, completion scope and publication controls still apply.
+Every requirement needs at least one owning entry. When a requirement has tests but no owner, admission names it with its cases and keeps the run at the plan phase, so you can add the owner and resubmit. Admission also names the entry and its row when a criterion is unknown, a revision is stale or an entry has no single authority. It also stops on any rejected decision and repeats the reviewer's cited source. Production and later packets carry the admitted entries and the requirement-to-owner `coverage` under `assignments`. Plans captured under earlier protocols keep their original contract and have no assignment coverage. Admission grants no publication or other external action; request scope, completion scope and publication controls still apply.
 
 ## Default execution records
 

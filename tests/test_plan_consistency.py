@@ -129,6 +129,10 @@ class AssignmentAdmissionTests(unittest.TestCase):
         return [
             {**base, 'id': 'W1', 'outcome': 'Preserve string identifiers exactly.', 'owner_role': 'normalizer author', 'criterion': 'R-1',
              'permitted_effects': ['Edit scripts/normalize.py'], 'proof': ['Cases leading-zero and unicode pass.']},
+            {**base, 'id': 'W2', 'outcome': 'Trim names and keep missing names null.', 'owner_role': 'normalizer author', 'criterion': 'R-2',
+             'permitted_effects': ['Edit scripts/normalize.py'], 'proof': ['Cases leading-zero and new-identifier pass.']},
+            {**base, 'id': 'W3', 'outcome': 'Reject malformed JSON and numeric identifiers.', 'owner_role': 'normalizer author', 'criterion': 'R-3',
+             'permitted_effects': ['Edit scripts/normalize.py'], 'proof': ['Cases malformed and numeric exit with status 2.']},
             {**base, 'id': 'S1', 'outcome': 'Keep supplied records out of logs.', 'owner_role': 'normalizer author', 'prerequisites': ['W1'],
              'safeguard': {'rationale': 'Customer records are personal data; diagnostics must not copy them.'},
              'permitted_effects': ['Edit scripts/normalize.py'], 'proof': ['Error output names the field without the record.']},
@@ -157,20 +161,64 @@ class AssignmentAdmissionTests(unittest.TestCase):
         with self.assertRaisesRegex(Invalid, r'unknown criterion.*"criterion": "R-9".*"row": 0'):
             self.submit(run, current_plan(self.spec, unknown))
         publish = self.entries(revision)
-        publish.append({**publish[0], 'id': 'W2', 'outcome': 'Publish the customer list externally.', 'permitted_effects': ['Upload the customer list to a public site']})
+        publish.append({**publish[0], 'id': 'P1', 'outcome': 'Publish the customer list externally.', 'permitted_effects': ['Upload the customer list to a public site']})
         decisions = [{'id': 'W1', 'accepted': True, 'source': 'R-1', 'rationale': 'Serves R-1.'},
+                     {'id': 'W2', 'accepted': True, 'source': 'R-2', 'rationale': 'Serves R-2.'},
+                     {'id': 'W3', 'accepted': True, 'source': 'R-3', 'rationale': 'Serves R-3.'},
                      {'id': 'S1', 'accepted': True, 'source': 'Plan safeguard rationale', 'rationale': 'Necessary safeguard.'},
-                     {'id': 'W2', 'accepted': False, 'source': 'R-1: Preserve the string identifier exactly.', 'rationale': 'Publishing records does not serve identifier preservation and no requirement authorizes it.'}]
-        with self.assertRaisesRegex(Invalid, r'rejected assignment meaning.*W2.*R-1: Preserve'):
+                     {'id': 'P1', 'accepted': False, 'source': 'R-1: Preserve the string identifier exactly.', 'rationale': 'Publishing records does not serve identifier preservation and no requirement authorizes it.'}]
+        with self.assertRaisesRegex(Invalid, r'rejected assignment meaning.*P1.*R-1: Preserve'):
             self.submit(run, current_plan(self.spec, publish, decisions))
         self.assertEqual(workflow.read_state(run)['phase'], 'plan')
 
     def test_entry_without_exactly_one_authority_or_with_a_stale_revision_is_located(self):
         from runtime.artifacts import check_assignments, governing_revision
         rows = self.entries(governing_revision(self.spec))
-        both = deepcopy(rows); both[1]['criterion'] = 'R-2'
+        both = deepcopy(rows); both[-1]['criterion'] = 'R-2'
         with self.assertRaisesRegex(Invalid, r'exactly one agreed criterion.*S1'):
             check_assignments(self.spec, current_plan(self.spec, both))
         stale = deepcopy(rows); stale[0]['governing_revision'] = 'spec-sha256:old'
         with self.assertRaisesRegex(Invalid, r'different specification revision.*W1'):
             check_assignments(self.spec, current_plan(self.spec, stale))
+
+
+class ReverseCoverageTests(unittest.TestCase):
+    """T18: a requirement with tests but no owning work blocks complete coverage."""
+    setUp = AssignmentAdmissionTests.setUp
+    start = AssignmentAdmissionTests.start
+    submit = AssignmentAdmissionTests.submit
+    entries = AssignmentAdmissionTests.entries
+
+    def test_t18a_orphaned_requirement_is_named_and_the_same_plan_recovers(self):
+        from runtime import workflow
+        run = self.start('orphan')
+        revision = workflow.packet(run)['governing_revision']
+        complete = self.entries(revision)
+        orphaned = [row for row in complete if row.get('criterion') != 'R-3']
+        plan = current_plan(self.spec, orphaned)
+        self.assertIn('R-3', {r for case in plan['cases'] for r in case['requirements']})
+        with self.assertRaisesRegex(Invalid, r'no owning assignment.*"R-3": \{"cases": \["malformed", "numeric"\]\}'):
+            self.submit(run, plan)
+        self.assertEqual(workflow.read_state(run)['phase'], 'plan')
+        self.submit(run, current_plan(self.spec, complete))
+        coverage = workflow.packet(run)['assignments']['coverage']
+        self.assertEqual(coverage['R-3'], {'assignments': ['W3'], 'cases': ['malformed', 'numeric']})
+        self.assertTrue(all(row['assignments'] for row in coverage.values()))
+
+    def test_t18b_captured_protocol_6_plan_keeps_its_original_meaning(self):
+        from fixtures import RESEARCH
+        from runtime import contracts, workflow
+        run = self.root / 'historical'
+        workflow.start(run, {'operation': 'create', 'skill_name': 'normalize-customers', 'brief': 'Normalize customer JSON.', 'copyright_holder': 'Fixture', 'completion_policy': self.policy}, protocol_version=6)
+        plan = current_plan(self.spec, [])
+        for field in ('assignments', 'assignment_review'):
+            plan.pop(field)
+        for data in (RESEARCH, self.spec, plan):
+            self.submit(run, data)
+        state = workflow.read_state(run)
+        self.assertEqual(state['protocol_version'], 6)
+        self.assertEqual(state['data']['plan'], plan)
+        packet = workflow.packet(run)
+        self.assertNotIn('assignments', packet)
+        self.assertNotIn('assignments', packet['response_schema']['properties']['data']['properties'].get('plan', {}))
+        self.assertEqual(contracts.response_schema('plan', 6)['properties']['data'], contracts.V6_PHASES['plan'])

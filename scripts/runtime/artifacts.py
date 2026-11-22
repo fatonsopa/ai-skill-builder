@@ -579,6 +579,11 @@ def check_assignments(spec, plan):
         if row['governing_revision'] != revision:
             raise Invalid('Assignment is bound to a different specification revision: '
                           + json.dumps({**location, 'cited': row['governing_revision'], 'governing_revision': revision}, sort_keys=True))
+    coverage = assignment_coverage(spec, plan)
+    orphaned = {requirement: row for requirement, row in coverage.items() if not row['assignments']}
+    if orphaned:
+        raise Invalid('Coverage is incomplete: a requirement has tests but no owning assignment. Add an eligible owner to this plan: '
+                      + json.dumps({requirement: {'cases': row['cases']} for requirement, row in orphaned.items()}, sort_keys=True))
     review = plan['assignment_review']
     if review['assignments_sha256'] != digest(rows):
         raise Invalid('The assignment review must be bound to the submitted assignments: '
@@ -591,7 +596,14 @@ def check_assignments(spec, plan):
     rejected = [{'assignment': d['id'], 'source': d['source'], 'rationale': d['rationale']} for d in review['decisions'] if d['accepted'] is not True]
     if rejected:
         raise Invalid('The plan reviewer rejected assignment meaning against its cited source: ' + json.dumps(rejected, sort_keys=True, ensure_ascii=False))
-    return {'governing_revision': revision, 'assignments_sha256': digest(rows), 'admitted': identifiers}
+    return {'governing_revision': revision, 'assignments_sha256': digest(rows), 'admitted': identifiers, 'coverage': coverage}
+
+
+def assignment_coverage(spec, plan):
+    """Reverse mapping from each requirement to its owning assignments and its cases."""
+    return {item['id']: {'assignments': [row['id'] for row in plan['assignments'] if row.get('criterion') == item['id']],
+                         'cases': [case['id'] for case in plan['cases'] if item['id'] in case['requirements']]}
+            for item in spec['requirements']}
 
 
 def admitted_assignments(state):
@@ -601,6 +613,7 @@ def admitted_assignments(state):
         'governing_revision': governing_revision(state['data']['specify']),
         'assignments_sha256': digest(plan['assignments']),
         'entries': plan['assignments'],
+        'coverage': assignment_coverage(state['data']['specify'], plan),
         'reviewer': plan['assignment_review']['reviewer'],
         'authority': 'Admission binds work to its criterion or safeguard. It grants no publication or other external action; request scope, completion scope and publication controls apply separately.',
     }
