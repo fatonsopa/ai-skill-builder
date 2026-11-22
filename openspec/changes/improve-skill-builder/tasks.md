@@ -284,7 +284,7 @@ Candidate: the T37 commit on `implementation/improve-skill-builder`. Reviewer: i
 
 **Demonstrate the story.** Follow the two sourced observations from assignment to return while the retry decision stays with its owner. [Story criteria](./specs/skill-assignments/spec.md#b4--keep-related-observations-and-decision-authority-through-a-handoff)
 
-- [ ] 6.1 [T48](#t48--commission-related-reports-as-a-bounded-investigation) (T007). Commission the two observed reports under WEB-09 without declaring a common cause. Recover the bounded investigation and preserve the owner’s retry authority. After T17 supplies the accepted assignment shape.
+- [x] 6.1 [T48](#t48--commission-related-reports-as-a-bounded-investigation) (T007). Commission the two observed reports under WEB-09 without declaring a common cause. Recover the bounded investigation and preserve the owner’s retry authority. After T17 supplies the accepted assignment shape.
 
 ### T48 · Commission related reports as a bounded investigation
 
@@ -316,6 +316,13 @@ Parent [B4](./specs/skill-assignments/spec.md#b4--keep-related-observations-and-
 #### Additional context
 
 The commit ships a complete, reusable commissioning example. Review the actual writing through Technical Writer. Reuse that review for the authored example; the later A4/A5 observation establishes behavior through the installed skill.
+
+#### Verdicts
+
+Candidate: the T48 commit on `implementation/improve-skill-builder`. Reviewers: the implementing agent reviewed the passage against WEB-09, T16 and Writing Style (WS) and corrected one invented detail in the illustrative return. A separate fresh-context reader then answered the criterion questions from the passage and its two linked sources alone.
+
+- **T48.a Met.** The section "Commission related reports before dispatch" in `references/agents_and_skills.md` gives a weak assignment and a corrected `INV-1` assignment in the T17 fields. The reader recovered both observations, WEB-09 and its partial-completion and retry rules, the read-only investigation and its exclusions, and the return owed to the lead. The reader also found that the cause stays open and that a split needs independent outputs or a named integration owner. The reader found no contradiction with WEB-09 or T16. Its one note, that the passage compressed "make any retry an explicit administrator action", is now quoted literally.
+- **T48.b Met.** The single-owner variant keeps the same fields, criterion and limits without dispatch. The reader confirmed that the assignment names an outcome and proof rather than a worker, and that nobody acting under it may retry; the administrator holds that choice.
 
 - [ ] 6.2 [T49](#t49--return-supported-conclusions-and-the-owners-retry-decision) (T008). Report the supported observations and open cause. A claimed read, common cause or automatic retry without its evidence must fail the rubric. After T48 supplies the assignment.
 
