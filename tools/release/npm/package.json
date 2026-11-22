@@ -1,0 +1,20 @@
+{
+  "name": "@fatonsopa/skill-builder",
+  "version": "0.0.0",
+  "description": "Create, audit and maintain reusable AI skills with executable workflows and evaluation evidence.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fatonsopa/ai-skill-builder.git"
+  },
+  "bin": {
+    "skill-builder": "bin/skill-builder.js"
+  },
+  "files": [
+    "bin",
+    "payload"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

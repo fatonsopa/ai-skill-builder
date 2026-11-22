@@ -110,3 +110,25 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn('Python 3.11 or later is required', result.stderr)
         self.assertEqual(list(self.home.iterdir()), [])
+
+
+class NpmLauncherTests(unittest.TestCase):
+    def test_missing_python_is_reported_before_any_environment_is_created(self):
+        import shutil
+        node = shutil.which('node')
+        if not node:
+            self.skipTest('Node.js is not installed.')
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'package/bin').mkdir(parents=True)
+            (root / 'package/payload/scripts').mkdir(parents=True)
+            shutil.copy2(ROOT / 'tools/release/npm/bin/skill-builder.js', root / 'package/bin/skill-builder.js')
+            fake = root / 'fake-bin'
+            fake.mkdir()
+            for name in ('python3.14', 'python3.13', 'python3.12', 'python3.11', 'python3'):
+                (fake / name).write_text('#!/bin/sh\nexit 1\n')
+                (fake / name).chmod(stat.S_IRWXU)
+            result = subprocess.run([node, str(root / 'package/bin/skill-builder.js'), '--version'], env={'PATH': str(fake) + ':/usr/bin:/bin'}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('Python 3.11 or later is required', result.stderr)
+            self.assertFalse((root / 'package/payload/.venv').exists())
