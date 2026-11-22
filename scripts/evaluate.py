@@ -174,9 +174,29 @@ def behavior_packet(package, case, input_dir=None):
         staging.mkdir(parents=True)
         request['input_files'] = stage_sources(staging, request.pop('source'))
         request['source_path'] = str(staging)
-    return {"case_id": case["id"], "case_sha256": json_hash(case), "package_hashes": hash_tree(package),
+    return {"task_id": controller_binding(package, case)["task_id"],
             "request": request, "skill": (package / "SKILL.md").read_text(), "resources": resources,
-            "role": "performing_agent", "instructions": "Use the actual skill for this task in a fresh context. Capture public messages, tool calls and artifacts. Do not claim tools ran when unavailable. Return the requested result; this packet does not contain the grader's expected answer."}
+            "role": "performing_agent", "instructions": "Use the actual skill for this task in a fresh context. Capture public messages, tool calls and artifacts. Do not claim tools ran when unavailable. Return the requested result with this task_id; this packet does not contain the grader's expected answer."}
+
+
+def controller_binding(package, case):
+    """Controller-only record mapping a neutral task ID to its case and candidate bytes."""
+    package_hashes = hash_tree(Path(package).resolve())
+    case_sha256 = json_hash(case)
+    return {"task_id": "task-" + json_hash({"case_sha256": case_sha256, "package_hashes": package_hashes})[:16],
+            "case_id": case["id"], "case_sha256": case_sha256, "package_hashes": package_hashes}
+
+
+def bound_case_id(row, bindings):
+    """Resolve a neutral performer result to the case its controller record names."""
+    if "task_id" not in row:
+        return row.get("case_id")
+    matches = [item for item in bindings if isinstance(item, dict) and item.get("task_id") == row["task_id"]]
+    if len(matches) != 1:
+        raise ValueError("Behavior observation has no single controller binding for its task_id.")
+    if "case_id" in row and row["case_id"] != matches[0]["case_id"]:
+        raise ValueError("Behavior observation names a different case from its controller binding.")
+    return matches[0]["case_id"]
 
 
 def observation_for(package, case, observations):
@@ -188,14 +208,21 @@ def observation_for(package, case, observations):
     records = observations.get("observations", [])
     if not isinstance(records, list) or any(not isinstance(row, dict) for row in records):
         raise ValueError("Behavior observations must contain a list of captured records.")
-    matches = [row for row in records if row.get("case_id") == case["id"]]
+    bindings = observations.get("bindings", [])
+    if not isinstance(bindings, list):
+        raise ValueError("Controller bindings must be a list.")
+    matches = [row for row in records if bound_case_id(row, bindings) == case["id"]]
     if not matches:
         return None
     if len(matches) != 1:
         raise ValueError("Duplicate behavioral observations for one case.")
     row = matches[0]
     provenance = row.get("provenance", {})
-    if row.get("case_sha256") != json_hash(case):
+    if "task_id" in row:
+        binding = next(item for item in bindings if item.get("task_id") == row["task_id"])
+        if binding != controller_binding(package, case):
+            raise ValueError("Behavior observation has a stale case binding; it is not eligible for this case and candidate.")
+    elif row.get("case_sha256") != json_hash(case):
         raise ValueError("Behavior observation belongs to a different frozen input/case.")
     if not isinstance(provenance, dict) or provenance.get("kind") not in {"host_observation", "provider_cli"} or not isinstance(provenance.get("source"), str) or not provenance["source"].strip() or not isinstance(provenance.get("host"), str) or not provenance["host"].strip() or "model" not in provenance or (provenance["model"] is not None and (not isinstance(provenance["model"], str) or not provenance["model"].strip())):
         raise ValueError("Behavior tests require actual model observations with host/model/source provenance; controls and historical replay do not qualify.")
@@ -484,6 +511,7 @@ def main():
     parser.add_argument("--case", action="append", help="Run only these exact frozen case IDs.")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--behavior-packet", help="Export one performing-agent task without expected answers.")
+    parser.add_argument("--binding", type=Path, help="New controller-only file that maps the exported task_id to its case and candidate.")
     parser.add_argument("--input-dir", type=Path, help="New isolated file-staging directory for binary task inputs.")
     parser.add_argument("--observations", type=Path, help="Captured fresh AI behavior, bound to case and artifact hashes.")
     parser.add_argument("--allow-exec", action="store_true")
@@ -499,7 +527,12 @@ def main():
         matches = [case for case in suite if case["id"] == args.behavior_packet and case["kind"] == "behavior"]
         if len(matches) != 1:
             parser.error("Select one declared behavioral case.")
-        print(json.dumps(behavior_packet(args.package, matches[0], args.input_dir), indent=2))
+        if not args.binding or args.binding.exists() or args.binding.resolve().is_relative_to(args.package.resolve()):
+            parser.error("Save the controller binding with --binding NEW_FILE outside the package.")
+        packet = behavior_packet(args.package, matches[0], args.input_dir)
+        args.binding.parent.mkdir(parents=True, exist_ok=True)
+        write_json(args.binding, controller_binding(args.package, matches[0]))
+        print(json.dumps(packet, indent=2))
         return 0
     if args.case:
         known = {case["id"] for case in suite}

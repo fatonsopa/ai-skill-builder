@@ -60,7 +60,7 @@ Candidate: the commit that adds plan protocol 7 on `implementation/improve-skill
 
 **Demonstrate the story.** Recover the original case at the controller while the performer sees an ordinary request. [Story criteria](./specs/skill-assignments/spec.md#b3--assess-an-ordinary-request-without-revealing-the-graders-clues)
 
-- [ ] 2.1 [T36](#t36--export-a-neutral-native-task-with-a-traceable-result) (T002). Inspect the native performer view for the ordinary filename and absence of grader clues. Only a matching case/candidate observation is eligible. May start in parallel. Can start alongside T17 on the native evaluator. Coordinate edits with T24 if both would change the same evaluator.
+- [x] 2.1 [T36](#t36--export-a-neutral-native-task-with-a-traceable-result) (T002). Inspect the native performer view for the ordinary filename and absence of grader clues. Only a matching case/candidate observation is eligible. May start in parallel. Can start alongside T17 on the native evaluator. Coordinate edits with T24 if both would change the same evaluator.
 
 ### T36 · Export a neutral native task with a traceable result
 
@@ -92,6 +92,13 @@ Parent [B3](./specs/skill-assignments/spec.md#b3--assess-an-ordinary-request-wit
 #### Additional context
 
 Use one local export and the matching/mismatched observation pair. Stop at the controller decision. The commit can ship independently because native callers and their new result mapping are updated together.
+
+#### Verdicts
+
+Candidate: the T36 commit on `implementation/improve-skill-builder`. Reviewer: implementing agent, comparing the exported view and controller decisions with this Issue and [B3.a](./specs/skill-assignments/spec.md#b3-a).
+
+- **T36.a Met.** `evaluate.py --behavior-packet builder-no-mechanical-only-claim --binding NEW_FILE` returned a view with only `task_id`, `request`, `skill`, `resources`, `role` and `instructions`. The request and `quarterly-notes.md` are intact. The descriptive case ID, expected answer, `evals/cases.json` inventory and package hashes are absent; they appear only in the controller binding. Regression: `NeutralExportTests.test_t36a_performer_view_keeps_request_and_file_without_grader_material`.
+- **T36.b Met.** An observation whose `task_id` resolves through the current binding is eligible and is graded against the case. Its hidden expected text was still missing, so a match alone did not pass the task. A binding from an earlier case version is rejected as stale. Regression: `NeutralExportTests.test_t36b_only_the_matching_binding_is_eligible`. Legacy `case_id` and `case_sha256` records remain readable under the existing tests.
 
 <a id="b1--commission-work-that-serves-an-approved-requirement-continued"></a>
 
