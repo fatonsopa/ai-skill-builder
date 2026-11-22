@@ -143,3 +143,19 @@ class AgentSkillsSourceTests(unittest.TestCase):
         impact = json.loads((ROOT / 'config/test_impact.json').read_text())
         for path in ('references/evaluation.md', 'references/host_support.md'):
             self.assertTrue(any(path in r['paths'] and 'agent-guidance' in r['tests'] for r in impact['rules']), path)
+
+
+class RawFixtureLinkTests(unittest.TestCase):
+    def test_raw_fixture_links_are_inputs_while_package_document_links_are_checked(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name in ('README.md', 'AGENTS.md', 'LICENSE'):
+                (root / name).write_text('A nonempty packaging control.\n')
+            (root / 'CLAUDE.md').write_text('@AGENTS.md\n')
+            (root / 'SKILL.md').write_text('---\nname: control\ndescription: Control.\n---\nControl.\n')
+            (root / 'evals/fixtures').mkdir(parents=True)
+            (root / 'evals/fixtures/source.md').write_text('Original source links to [a sibling](sibling.md).\n')
+            self.assertEqual([f for f in check_package(root)['findings'] if 'link' in f], [])
+            (root / 'references').mkdir()
+            (root / 'references/guide.md').write_text('See [a missing page](missing.md).\n')
+            self.assertTrue(any('references/guide.md' in f for f in check_package(root)['findings']))

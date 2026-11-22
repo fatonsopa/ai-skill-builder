@@ -324,7 +324,7 @@ Candidate: the T48 commit on `implementation/improve-skill-builder`. Reviewers: 
 - **T48.a Met.** The section "Commission related reports before dispatch" in `references/agents_and_skills.md` gives a weak assignment and a corrected `INV-1` assignment in the T17 fields. The reader recovered both observations, WEB-09 and its partial-completion and retry rules, the read-only investigation and its exclusions, and the return owed to the lead. The reader also found that the cause stays open and that a split needs independent outputs or a named integration owner. The reader found no contradiction with WEB-09 or T16. Its one note, that the passage compressed "make any retry an explicit administrator action", is now quoted literally.
 - **T48.b Met.** The single-owner variant keeps the same fields, criterion and limits without dispatch. The reader confirmed that the assignment names an outcome and proof rather than a worker, and that nobody acting under it may retry; the administrator holds that choice.
 
-- [ ] 6.2 [T49](#t49--return-supported-conclusions-and-the-owners-retry-decision) (T008). Report the supported observations and open cause. A claimed read, common cause or automatic retry without its evidence must fail the rubric. After T48 supplies the assignment.
+- [x] 6.2 [T49](#t49--return-supported-conclusions-and-the-owners-retry-decision) (T008). Report the supported observations and open cause. A claimed read, common cause or automatic retry without its evidence must fail the rubric. After T48 supplies the assignment.
 
 ### T49 · Return supported conclusions and the owner’s retry decision
 
@@ -356,6 +356,13 @@ Parent [B4](./specs/skill-assignments/spec.md#b4--keep-related-observations-and-
 #### Additional context
 
 The commit ships a usable return example and its assessment together. Use the [shared A4/A5 assignment](./design.md#integrated-acceptance-on-codex-and-claude-code) on the first eligible host to close T49. On the same candidate, carry that result into A5 and collect only the remaining host evidence. If another task subsequently changes the assignment’s inputs or execution path, reassess that binding. Keep the wrong-return comparison local. Reuse the same host output if it covers both B4 criteria; do not launch a second investigation for a different heading.
+
+#### Verdicts
+
+Candidate: `2b967f2` on `implementation/improve-skill-builder`. The worked return and owner message ship in the T48 section; this commit adds the `agent-related-reports` case, its hash-bound bulk-edit fixtures and its rubric. Reviewers: the implementing agent reviewed the host output, and a separate fresh-context assessor applied the rubric to the wrong-return set without the expected verdicts.
+
+- **T49.a Met.** On Codex (`gpt-6.2-sol`, medium effort), the harness ran the shared A4/A5 request through the installed Skill Builder. The trace shows both supplied documents read. The returned message names one work item and its proof, keeps T16's 500 confirmed, 500 unresolved and 1 unattempted rows distinct, and says the reports "may be related" without a confirmed cause. It requires reconciliation against fresh saved state before an explicit administrator retry, and it leaves the owner's decision in plain language.
+- **T49.b Met.** With the same rubric, the assessor rejected a return that claimed to read logs and code nobody supplied, one that stated a confirmed common cause, and one that scheduled an automatic retry, quoting each claim. It accepted the Codex return and a differently worded return with the same facts and authority.
 
 <a id="b5--keep-checked-authoring-available-across-the-writer-rename"></a>
 

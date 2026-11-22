@@ -490,7 +490,8 @@ def check_package(root, full=True, literals=(), structure=False):
         if path.suffix == ".md":
             content = path.read_text()
             texts[filename] = content
-            for match in re.finditer(r"\]\((<[^>]+>|[^)\s]+)\)", content):
+            # Raw task inputs keep their original bytes, including links to their own source tree.
+            for match in [] if filename.startswith("evals/fixtures/") else re.finditer(r"\]\((<[^>]+>|[^)\s]+)\)", content):
                 link = match[1].strip("<>")
                 parsed = urlsplit(link)
                 if parsed.scheme or not parsed.path:
