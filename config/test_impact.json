@@ -406,6 +406,18 @@
         "-p",
         "test_record_retention.py"
       ]
+    },
+    "release": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_release.py"
+      ]
     }
   },
   "rules": [
@@ -862,6 +874,17 @@
       "tests": [
         "agent-guidance",
         "case-inputs"
+      ]
+    },
+    {
+      "paths": [
+        "config/release.json",
+        "scripts/release_cli.py",
+        "tools/release/*",
+        "tests/test_release.py"
+      ],
+      "tests": [
+        "release"
       ]
     }
   ],

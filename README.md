@@ -13,30 +13,30 @@ Create and improve reusable AI skills with executable workflows, focused referen
 
 ### Planned release installation
 
-The commands below are release targets. Use the source instructions below until this repository announces the release. Both skills will follow the same installation steps on macOS, Linux and WSL. Skill Builder needs Python 3.11+ and the checked writing dependency described above. The npm channel also needs npm. The release will accept SpecDev and the supported Technical Writer installation.
+Skill Builder `0.1.0-rc.1` is a tested release candidate, not a public release. Its GitHub assets aren't published yet, so the download command below works only after a release owner publishes them; until then, use the source instructions in the next sections. The candidate's install evidence covers macOS. Linux and WSL use the same steps but aren't verified yet.
 
-1. Install the CLI once. The primary route downloads the installer from this repository’s GitHub release. It selects a compatible release asset and verifies it against that release’s `SHA256SUMS` before replacing the installed version. The alternative npm command will become available after publication under the verified package name.
+You need Python 3.11 or later, `curl`, and `sha256sum` or `shasum`. Document authoring also needs the checked writing dependency described above: SpecDev (`specdev`) or the supported Technical Writer installation.
+
+1. Download the installer from the GitHub release, then run it:
 
    ```sh
    install_dir=$(mktemp -d)
    curl -fsSL https://github.com/fatonsopa/ai-skill-builder/releases/latest/download/install.sh -o "$install_dir/install.sh" && sh "$install_dir/install.sh"
    ```
 
-   Or, for the planned npm package:
+   The installer downloads the release's `SHA256SUMS` and the payload it lists, and checks the payload's checksum before changing anything. If the checksum doesn't match, it stops and keeps the current installation. It installs the release under `~/.local/share/skill-builder/releases/VERSION` with its own Python environment, points `~/.local/share/skill-builder/current` at it, and writes the `skill-builder` command to `~/.local/bin`. Set `SKILL_BUILDER_VERSION` to a tag such as `v0.1.0-rc.1` for a specific release, or `SKILL_BUILDER_PREFIX` to install somewhere other than `~/.local`. If a prerequisite is missing, the installer names it and stops.
 
-   ```sh
-   npm install -g @fatonsopa/skill-builder@latest
-   ```
+   An npm package, `@fatonsopa/skill-builder`, is planned and isn't available yet.
 
-2. Run `skill-builder --version`. Check the version and executable path before continuing if a second copy is already on your PATH. Then make the skill available in the hosts you use:
+2. Run `skill-builder --version`. It prints the version, the source revision and the command's path; if another copy is earlier on your PATH, fix that before continuing. Then connect the hosts you use:
 
    ```sh
    skill-builder host init --tools codex,claude
    ```
 
-   You can select just one host. Setup reports its destination, any missing prerequisite and the exact invocation to use in a fresh session. Setup connects Skill Builder to the selected hosts. Start a new session and invoke `$skill-builder` in Codex or `/skill-builder` in Claude Code. Setup leaves the current project alone.
+   You can select just one host. Setup copies the release into `~/.agents/skills/skill-builder` for Codex and `~/.claude/skills/skill-builder` for Claude Code, and links that copy to the release's Python environment. It reports each destination and the invocation to use: start a new session, then invoke `$skill-builder` in Codex or `/skill-builder` in Claude Code. If a destination already holds a Skill Builder that this command didn't install, such as a source installation, setup stops without changing it. Repeating setup leaves one entry per host. Setup doesn't touch your projects or other skills.
 
-3. To upgrade, use the original install channel again, then run `skill-builder host update` to refresh the entries you selected. For removal, first run `skill-builder host remove`. Then use `npm uninstall -g @fatonsopa/skill-builder` for npm, or the owned launcher and release paths printed by the GitHub installer. Keep user edits, other skills and project documents.
+3. To upgrade, run the installer again, then `skill-builder host update`. If you edited a file that setup installed, the update names the file and leaves that host on its current version; your own files beside the skill are kept. To remove Skill Builder, run `skill-builder host remove`, which deletes only unedited files that setup installed. Then delete the paths the installer printed: `~/.local/bin/skill-builder` and `~/.local/share/skill-builder`.
 
 To have an agent help, ask it to follow this section for your chosen hosts, check for an existing installation first, and report the version, destination and working invocation. [Release acceptance](openspec/changes/improve-skill-builder/specs/skill-assignments/spec.md#install-the-release-and-connect-a-host) · [OpenSpec’s installation method](https://github.com/Fission-AI/OpenSpec/blob/v2.1.1/docs/installation.md)
 
