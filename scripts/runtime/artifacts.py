@@ -76,8 +76,16 @@ def workflow_requirements(spec):
         if identifier in result or not steps or len(steps) != len(set(steps)):
             raise Invalid("Workflow IDs and step IDs must be unique and nonempty.")
         checks = {"success", "behavior"}
+        if "requires" in flow:
+            from evaluate import relation_failures
+            errors = relation_failures(steps, flow["requires"])
+            if errors:
+                raise Invalid("Workflow " + identifier + " has an invalid dependency relation: " + "; ".join(errors))
         if len(steps) == 1:
             checks.add("invalid_input")
+        elif "requires" in flow:
+            checks.update("omission:" + step for step in steps)
+            checks.update("order:" + before + "->" + step for step, prerequisites in flow["requires"].items() for before in prerequisites)
         else:
             checks.update("omission:" + step for step in steps)
             checks.update("order:" + a + "->" + b for a, b in zip(steps, steps[1:]))
@@ -124,7 +132,12 @@ def check_workflow_coverage(spec, plan):
         if process:
             if set(process["order"]) - set(flow["steps"]) or (set(process["visible"]) | set(process["evidence"])) - set(process["order"]):
                 raise Invalid("Trace assertions name unknown or absent workflow steps.")
-        if "success" in labels and len(flow["steps"]) > 1:
+        if "success" in labels and len(flow["steps"]) > 1 and "requires" in flow:
+            if not process or sorted(process["order"]) != sorted(flow["steps"]) or process.get("requires") != flow["requires"] or not case["semantic"]:
+                raise Invalid('A dependency-aware success case needs every declared step, exactly the declared prerequisites and semantic evidence review: '
+                              + json.dumps({'case_id': case['id'], 'workflow_id': identifier, 'required_steps': flow['steps'],
+                                            'requires': flow['requires'], 'actual_process': process}, sort_keys=True))
+        elif "success" in labels and len(flow["steps"]) > 1:
             if not process or process["order"] != flow["steps"] or not case["semantic"]:
                 raise Invalid('A multi-step success case needs its full ordered trace and semantic evidence review: '
                               + json.dumps({'case_id': case['id'], 'workflow_id': identifier,

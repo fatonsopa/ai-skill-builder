@@ -315,3 +315,13 @@ ASSIGNMENT_REVIEW = obj({
 PLAN = obj({**PLAN['properties'], 'assignments': array(ASSIGNMENT, 1), 'assignment_review': ASSIGNMENT_REVIEW},
            required=[*PLAN['required'], 'assignments', 'assignment_review'])
 PHASES = {**PHASES, 'plan': PLAN}
+
+# Protocol 7 workflows may declare only their material prerequisites.
+REQUIRES = {'type': 'object', 'additionalProperties': array(TEXT, 1)}
+WORKFLOW = obj({**WORKFLOW['properties'], 'requires': REQUIRES}, required=WORKFLOW['required'])
+SPEC = obj({**SPEC['properties'], 'workflows': array(WORKFLOW, 1)}, required=SPEC['required'])
+_EXPECT = CASE['properties']['expect']
+PROCESS = obj({**PROCESS['properties'], 'requires': REQUIRES}, required=PROCESS['required'])
+CASE = obj({**CASE['properties'], 'expect': obj({**_EXPECT['properties'], 'process': PROCESS}, required=_EXPECT['required'])}, required=CASE['required'])
+PLAN = obj({**PLAN['properties'], 'cases': array(CASE, 1)}, required=PLAN['required'])
+PHASES = {**PHASES, 'specify': SPEC, 'plan': PLAN}

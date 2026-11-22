@@ -192,7 +192,7 @@ Candidate: the T24 commit on `implementation/improve-skill-builder`. Reviewer: i
 - **T24.a Met.** With `requires: {decide: [read_brief, read_example]}`, both read orders passed. A decision before `read_example` failed as premature, an omitted read failed as omitted, a hidden decision failed its visibility check and a blank read reference failed its evidence check. Each failure names only its own missing condition, apart from the omitted read, which also leaves the decision premature. Regression: `DependencyAwareProcessTests.test_t24a_both_read_orders_pass_and_each_violation_fails_for_its_condition`.
 - **T24.b Met.** An unknown prerequisite and a cycle each fail an otherwise valid trace. The legacy strict case without `requires` still fails the audit's reversed-read trace, which keeps the original failure. Regression: `DependencyAwareProcessTests.test_t24b_malformed_relation_cannot_pass_and_legacy_strict_order_still_fails`.
 
-- [ ] 4.2 [T25](#t25--generate-checks-only-for-declared-workflow-dependencies) (T005). Generate a case requiring both reads before the decision in either order. Reject an unknown prerequisite or cycle and preserve legacy strict ordering. After T24, with T17’s schema-version boundary settled.
+- [x] 4.2 [T25](#t25--generate-checks-only-for-declared-workflow-dependencies) (T005). Generate a case requiring both reads before the decision in either order. Reject an unknown prerequisite or cycle and preserve legacy strict ordering. After T24, with T17’s schema-version boundary settled.
 
 ### T25 · Generate checks only for declared workflow dependencies
 
@@ -224,6 +224,13 @@ Parent [B2](./specs/skill-assignments/spec.md#b2--accept-valid-work-in-either-or
 #### Additional context
 
 First inspect the emitted relation. If correct but execution disagrees, resume at the generated evaluator, preserving the accepted admission evidence. This single connected check closes the producer/consumer gap without exercising every permutation.
+
+#### Verdicts
+
+Candidate: the T25 commit on `implementation/improve-skill-builder`. Reviewer: implementing agent, comparing the emitted relation and generated-evaluator result with this Issue and [B2.b](./specs/skill-assignments/spec.md#b2-b). The declaration uses protocol 7, the version boundary T17 introduced.
+
+- **T25.a Met.** The three-step workflow with `requires: {decide: [read_brief, read_example]}` derived omission tests for each step and order tests only for `read_brief->decide` and `read_example->decide`, with no order between the reads. The generated package's `evals/cases.json` carries the same `requires`. Its own `scripts/evaluate.py` graded the previously rejected order `read_example, read_brief, decide` as passing. T24's trace matrix still covers the other variants because the grader is unchanged. Regression: `DeclaredDependencyGenerationTests.test_t25a_emitted_case_requires_both_reads_and_the_generated_evaluator_accepts_either_order`.
+- **T25.b Met.** A cycle and an unknown prerequisite each stop the specification before planning or execution, and each names the offending relation. A declaration without `requires` still derives the adjacent `read_brief->read_example` order test, and protocol 6 rejects the new field. Regression: `DeclaredDependencyGenerationTests.test_t25b_invalid_relations_stop_at_admission_and_legacy_declarations_stay_strict`.
 
 <a id="b3--assess-an-ordinary-request-without-revealing-the-graders-clues-continued"></a>
 

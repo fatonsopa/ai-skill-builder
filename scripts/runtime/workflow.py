@@ -254,6 +254,8 @@ def submit(root, response):
     elif phase == "specify":
         if data["ambiguities"]:
             raise Invalid('Resolve material ambiguities before accepting the specification: ' + json.dumps(data['ambiguities'], ensure_ascii=False))
+        if state.get('protocol_version', 1) >= 7:
+            workflow_requirements(data)
         next_phase = None if operation == "specify" else "plan"
     elif phase == "plan":
         if (state.get('planning_revisions') or [{}])[-1].get('metadata_only'):

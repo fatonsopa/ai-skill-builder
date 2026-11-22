@@ -188,3 +188,108 @@ class NativeWorkflowCoverageTests(unittest.TestCase):
         self.assertEqual(plan['components'],[])
         del cases[0]['expect']['process'];plan['case_review']['cases_sha256']=digest(cases)
         with self.assertRaisesRegex(Invalid,'actual process evidence'):check_plan(spec,plan,require_workflows=True)
+
+
+DECIDE = {'id': 'decide', 'purpose': 'Decide after reading the brief and example.', 'trigger': 'A decision request with a brief and an example.',
+          'steps': ['read_brief', 'read_example', 'decide'], 'requires': {'decide': ['read_brief', 'read_example']},
+          'boundaries': [], 'branches': [], 'recovery': []}
+DECIDE_PROGRAM = '''import json, sys
+order = sys.argv[1:] or ['read_example', 'read_brief', 'decide']
+print(json.dumps({'provenance': {'kind': 'authored_control', 'source': 'Generated-package control, not model behavior.'},
+                  'events': [{'phase': p, 'evidence': 'control:' + p, 'visible': p == 'decide'} for p in order]}))
+'''
+
+
+class DeclaredDependencyGenerationTests(unittest.TestCase):
+    """T25: authoring emits only declared prerequisites and the generated evaluator honors them."""
+
+    def setUp(self):
+        from runtime import completion
+        writer_fixture(self)
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.spec = {**deepcopy(SPEC), 'workflows': [deepcopy(DECIDE)]}
+        self.plan = self.dependency_plan()
+        mechanical = [c['id'] for c in self.plan['cases'] if c['kind'] != 'behavior']
+        self.policy = completion.create(self.root, {'objective_id': 'dependency-control', 'goal': 'Generate declared dependency checks.', 'project': str(self.root / 'target'), 'scope': ['**'],
+            'checks': [{'id': 'mechanical', 'kind': 'mechanical', 'test_ids': mechanical, 'dependencies': ['scripts/decide.py']}, {'id': 'decide-use', 'kind': 'behavior', 'dependencies': ['SKILL.md']}],
+            'budget': {'runs': 4, 'revisions': 2, 'model_calls': 2, 'seconds': 600}, 'delivery': {'kind': 'local', 'authority': 'Authored test scope; no publication.'}})['policy']
+
+    def dependency_plan(self):
+        from runtime.common import digest
+        quality = {'source_clauses': ['R-1'], 'actor': 'executor', 'feasibility': 'Authored control.', 'input_validity': 'Controlled order arguments.', 'runtime': 'Python standard library.', 'correction_obligations': []}
+        plan = deepcopy(PLAN)
+        for case in plan['cases']:
+            case['quality'] = deepcopy(quality)
+        def flow_case(identifier, scenario, covers, argv):
+            return {'id': identifier, 'requirements': ['R-1'], 'critical': True, 'kind': 'command', 'command': ['{python}', 'scripts/decide.py', *argv],
+                    'expect': {'exit_code': 0}, 'semantic': False, 'timeout_seconds': 5, 'workflow': {'id': 'decide', 'scenario': scenario, 'covers': covers}, 'quality': deepcopy(quality)}
+        success = flow_case('decide-either-read-order', 'success', [], [])
+        success.update(semantic=True)
+        success['expect']['process'] = {'order': DECIDE['steps'], 'requires': DECIDE['requires'], 'visible': ['decide'], 'evidence': DECIDE['steps']}
+        plan['cases'] += [success] + [flow_case('omit-' + s, 'omission', [s], [p for p in DECIDE['steps'] if p != s]) for s in DECIDE['steps']] + [
+            flow_case('early-after-' + b, 'order', [b + '->decide'], []) for b in ('read_brief', 'read_example')]
+        plan['cases'].append({'id': 'decide-use', 'kind': 'behavior', 'critical': True, 'semantic': True, 'requirements': ['R-1'], 'request': {'instruction': 'Decide from the supplied brief and example.'},
+                              'resources': ['SKILL.md'], 'expect': {'exit_code': 0}, 'workflow': {'id': 'decide', 'scenario': 'behavior', 'covers': []}, 'quality': deepcopy(quality)})
+        reason = 'Distributed evaluator and its supported dependencies.'
+        plan.update(package_profile='maintained', authored_outputs=[{'path': p, 'owner': 'author', 'consumers': ['primary']} for p in ['SKILL.md', 'README.md', 'AGENTS.md', 'CLAUDE.md']],
+                    components=[{'path': 'scripts/normalize.py', 'requirements': ['R-1', 'R-2', 'R-3'], 'reason': 'Planned transformation.'},
+                                {'path': 'scripts/decide.py', 'requirements': ['R-1'], 'reason': 'Emits the decision trace.'}] +
+                               [{'path': p, 'requirements': ['R-1'], 'reason': reason} for p in ('scripts/evaluate.py', 'scripts/continuation.py', 'scripts/repository_files.py', 'scripts/case_inputs.py')],
+                    execution={'mode': 'single', 'rationale': 'One task owner.', 'file_workflow': False, 'file_reason': 'Inputs arrive as arguments.', 'bindings': [], 'document_context': {'applicable': False, 'reason': 'Synthetic fixture.', 'sources': []}},
+                    allowed_candidate_paths=['scripts/normalize.py', 'scripts/decide.py'])
+        plan['domains'][0]['owned_paths'] = ['scripts/normalize.py', 'scripts/decide.py']
+        plan['case_review'] = {'reviewer': {'kind': 'authored_control', 'identity': 'test', 'method': 'Fixture.'}, 'cases_sha256': digest(plan['cases']), 'accepted': True, 'evidence': 'Feasible fixture.'}
+        return plan
+
+    def start(self, name, spec):
+        run = self.root / name
+        workflow.start(run, {'operation': 'create', 'skill_name': 'decide-control', 'brief': 'Decide after both reads.', 'copyright_holder': 'Fixture', 'completion_policy': self.policy}, protocol_version=7)
+        self.submit(run, RESEARCH)
+        self.submit(run, spec)
+        return run
+
+    def submit(self, run, data):
+        packet = workflow.packet(run)
+        workflow.submit(run, {**{k: packet[k] for k in ('run_id', 'phase', 'packet_sha256')}, 'data': deepcopy(data)})
+        return packet
+
+    def test_t25a_emitted_case_requires_both_reads_and_the_generated_evaluator_accepts_either_order(self):
+        from runtime.artifacts import execution_logging_rules
+        from runtime.common import digest
+        run = self.start('generate', self.spec)
+        packet = workflow.packet(run)
+        self.assertEqual(packet['required_workflow_tests']['decide'], ['behavior', 'omission:decide', 'omission:read_brief', 'omission:read_example',
+                                                                         'order:read_brief->decide', 'order:read_example->decide', 'success'])
+        revision = packet['governing_revision']
+        plan = deepcopy(self.plan)
+        plan['assignments'] = [{'id': 'W' + r[-1], 'outcome': 'Deliver ' + r, 'owner_role': 'author', 'criterion': r, 'governing_revision': revision, 'prerequisites': [],
+                                'permitted_effects': ['Edit scripts/decide.py and scripts/normalize.py'], 'failure_behavior': 'Report the failed case.', 'proof': ['Its frozen cases pass.']} for r in ('R-1', 'R-2', 'R-3')]
+        plan['assignment_review'] = {'reviewer': {'kind': 'authored_control', 'identity': 'plan reviewer', 'method': 'Fixture.'}, 'assignments_sha256': digest(plan['assignments']),
+                                     'decisions': [{'id': a['id'], 'accepted': True, 'source': a['criterion'], 'rationale': 'Serves its criterion.'} for a in plan['assignments']]}
+        self.submit(run, plan)
+        rules = execution_logging_rules(); text = '# Fixture guide\n\nA protocol control only.\n'
+        produced = {**deepcopy(PRODUCE), 'files': {'scripts/normalize.py': PRODUCE['files']['scripts/normalize.py'], 'scripts/decide.py': DECIDE_PROGRAM},
+                    'instructions': 'Use scripts/decide.py and follow AGENTS.md.', 'repository_instructions': '# Repository instructions\n\n' + rules,
+                    'documentation': {'schema_version': 2, 'owner': 'author', 'profiles': {'source': text, 'runtime': text}, 'commands': []},
+                    'execution_logging': {'mode': 'host_public', 'owner': 'host', 'record_location': 'Task public tool history', 'rules_sha256': digest(rules.encode())}}
+        self.submit(run, produced)
+        candidate = run / 'candidate'
+        emitted = next(c for c in json.loads((candidate / 'evals/cases.json').read_text()) if c['id'] == 'decide-either-read-order')
+        self.assertEqual(emitted['expect']['process']['requires'], {'decide': ['read_brief', 'read_example']})
+        result = subprocess.run([sys.executable, 'scripts/evaluate.py', '--package', '.', '--allow-exec', '--case', 'decide-either-read-order'], cwd=candidate, capture_output=True, text=True)
+        verdict = json.loads(result.stdout)['attempts'][0]
+        self.assertEqual(verdict['process']['observed_order'], ['read_example', 'read_brief', 'decide'])
+        self.assertTrue(verdict['process']['passed'], verdict)
+
+    def test_t25b_invalid_relations_stop_at_admission_and_legacy_declarations_stay_strict(self):
+        for requires, message in (({'decide': ['read_brief'], 'read_brief': ['decide']}, 'cycle: read_brief -> decide -> read_brief'),
+                                  ({'decide': ['read_brief', 'read_notes']}, "Unknown prerequisite 'read_notes' for step 'decide'")):
+            spec = deepcopy(self.spec); spec['workflows'][0]['requires'] = requires
+            with self.subTest(requires=requires), self.assertRaisesRegex(Invalid, 'invalid dependency relation.*' + message):
+                self.start('invalid-' + str(len(requires)), spec)
+        strict = {key: value for key, value in DECIDE.items() if key != 'requires'}
+        self.assertIn('order:read_brief->read_example', workflow_requirements({'workflows': [strict]})['decide'])
+        with self.assertRaises(Invalid):
+            validate({'run_id': 'r', 'phase': 'specify', 'packet_sha256': 'a' * 64, 'data': self.spec}, contracts.response_schema('specify', 6))
