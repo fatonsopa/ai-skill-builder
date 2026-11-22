@@ -854,6 +854,15 @@
         "completion-policy",
         "workflow"
       ]
+    },
+    {
+      "paths": [
+        "evals/fixtures/*"
+      ],
+      "tests": [
+        "agent-guidance",
+        "case-inputs"
+      ]
     }
   ],
   "final_checks": {

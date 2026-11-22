@@ -57,8 +57,8 @@ class AgentGuidanceTests(unittest.TestCase):
 
     def test_behavior_tasks_remain_distinct_and_runtime_resources_exist(self):
         cases = json.loads((ROOT / 'evals/agent_guidance_cases.json').read_text())
-        self.assertEqual({c['id'] for c in cases}, {'agent-simple', 'agent-bundle', 'agent-recovery', 'agent-host', 'agent-authoring', 'agent-evidence', 'agent-client'})
-        self.assertEqual(len(cases), 7)
+        self.assertEqual({c['id'] for c in cases}, {'agent-simple', 'agent-bundle', 'agent-recovery', 'agent-host', 'agent-authoring', 'agent-evidence', 'agent-client', 'agent-related-reports'})
+        self.assertEqual(len(cases), 8)
         for case in cases:
             self.assertEqual(case['kind'], 'behavior')
             self.assertTrue(case['critical'] and case['semantic'])
@@ -70,6 +70,16 @@ class AgentGuidanceTests(unittest.TestCase):
                 self.assertNotIn(resource.split('/')[0], {'evals', 'tests'})
         impact = json.loads((ROOT / 'config/test_impact.json').read_text())
         self.assertTrue(any('evals/agent_guidance_cases.json' in rule['paths'] and 'agent-guidance' in rule['tests'] for rule in impact['rules']))
+
+    def test_related_reports_task_stages_its_sources_without_the_rubric(self):
+        from case_inputs import prepare_inputs
+        case = next(c for c in json.loads((ROOT / 'evals/agent_guidance_cases.json').read_text()) if c['id'] == 'agent-related-reports')
+        request = prepare_inputs(ROOT, case)
+        self.assertEqual(set(request['source']), {'bulk-edit-specification.md', 'bulk-edit-test-example.md'})
+        self.assertIn('### WEB-09', request['source']['bulk-edit-specification.md'])
+        self.assertIn('| T16 / WEB-09 |', request['source']['bulk-edit-test-example.md'])
+        rubric = json.loads((ROOT / 'evals/behavior_rubric.json').read_text())['builder_cases']['agent-related-reports']
+        self.assertFalse(any(line in json.dumps(request) for line in rubric))
 
     def test_reference_retains_authority_recovery_and_host_sections(self):
         text = (ROOT / REFERENCE).read_text()
