@@ -15,7 +15,7 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from evaluate import run_process, json_hash, write_json
+from evaluate import controller_binding, run_process, json_hash, write_json
 from case_inputs import prepare_inputs, stage_sources
 from repository_files import inventory, copy_repository, skill_name, PRIVATE_DIRS
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -211,11 +211,13 @@ def run(config_path, output, executable=None):
     subject_name = skill_name(subject)
     for repetition in range(1, repetitions + 1):
         for case in cases:
-            identifier = f'{len(attempts) + 1:03d}-{case["id"]}'
+            # Paths reach the performer, so name the attempt by its neutral task ID; the row keeps the case.
+            task_id = controller_binding(subject, case)['task_id']
+            identifier = f'{len(attempts) + 1:03d}-{task_id}'
             folder = output / identifier
             folder.mkdir()
             remaining = config['max_seconds'] - (time.monotonic() - started)
-            row = {'id': identifier, 'case_id': case['id'], 'case_sha256': json_hash(case), 'repetition': repetition, 'status': 'not_run', 'critical': case['critical'], 'semantic': True}
+            row = {'id': identifier, 'task_id': task_id, 'case_id': case['id'], 'case_sha256': json_hash(case), 'repetition': repetition, 'status': 'not_run', 'critical': case['critical'], 'semantic': True}
             if execution_block:
                 if execution_block.get('code') == 'completion_policy':
                     row['reason'] = 'Completion policy stopped further work; no new model invocation.'

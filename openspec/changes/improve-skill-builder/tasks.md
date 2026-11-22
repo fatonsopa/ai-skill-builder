@@ -238,7 +238,7 @@ Candidate: the T25 commit on `implementation/improve-skill-builder`. Reviewer: i
 
 **Demonstrate the story.** Recover the original case at the controller while the performer sees an ordinary request. [Story criteria](./specs/skill-assignments/spec.md#b3--assess-an-ordinary-request-without-revealing-the-graders-clues)
 
-- [ ] 5.1 [T37](#t37--stage-a-neutral-host-workspace-and-recover-its-real-case-identity) (T006). Inspect each host’s final staged arguments for grader clues. Bind a real captured result to the original case and reject a stale binding. After T36 supplies the fixture and controller identity.
+- [x] 5.1 [T37](#t37--stage-a-neutral-host-workspace-and-recover-its-real-case-identity) (T006). Inspect each host’s final staged arguments for grader clues. Bind a real captured result to the original case and reject a stale binding. After T36 supplies the fixture and controller identity.
 
 ### T37 · Stage a neutral host workspace and recover its real case identity
 
@@ -270,6 +270,13 @@ Parent [B3](./specs/skill-assignments/spec.md#b3--assess-an-ordinary-request-wit
 #### Additional context
 
 Ship the harness, changed reader and path-compatibility regression together. A recorded launch settles this input question. Spend a live host run only for the separately specified A5 behavior.
+
+#### Verdicts
+
+Candidate: the T37 commit on `implementation/improve-skill-builder`. Reviewer: implementing agent, comparing the recorded launch inputs and report decisions with this Issue and [B3.b](./specs/skill-assignments/spec.md#b3-b). The neutral `task_id` reuses T36's controller convention.
+
+- **T37.a Met.** A local recording adapter captured the final arguments, prompt, working directory and staged tree for Codex and Claude Code. Their path and argument construction differ: Codex receives `--cd` and `--output-last-message`. Each attempt folder is `001-task-…`, the prompt names `quarterly-notes.md`, and neither host form contains `builder-no-mechanical-only-claim`, the grader-only answer or `evals/cases.json`. Regression: `NeutralLaunchTests.test_t37a_each_host_receives_the_user_file_without_grader_clues`.
+- **T37.b Met.** `host_coverage.py assess` resolved the new Codex report to the original case and candidate, and the report captured with the earlier `001-builder-no-mechanical-only-claim` folder still opened through its recorded attempt ID. A report row bound to an earlier version of the case was rejected. Regression: `NeutralLaunchTests.test_t37b_report_consumer_resolves_new_and_historical_identities_and_rejects_stale_bindings`. T36 covers native-route stale bindings.
 
 <a id="b4--keep-related-observations-and-decision-authority-through-a-handoff"></a>
 
