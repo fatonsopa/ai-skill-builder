@@ -394,6 +394,30 @@
         "-p",
         "test_completion.py"
       ]
+    },
+    "record-retention": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_record_retention.py"
+      ]
+    },
+    "release": {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_release.py"
+      ]
     }
   },
   "rules": [
@@ -520,7 +544,9 @@
         "LICENSE",
         ".gitignore",
         ".gitattributes",
-        "scripts/requirements*.txt"
+        "scripts/requirements*.txt",
+        "openspec/*",
+        "plan/*"
       ],
       "tests": [],
       "reason": "Documentation or metadata: review changed instructions and links; no unrelated behavioral suite."
@@ -784,6 +810,82 @@
         "completion-policy"
       ],
       "reason": "Frozen objective scope, cumulative limits, retained evidence, finding triage and closure must remain enforced through supported entry points."
+    },
+    {
+      "paths": [
+        "assets/phase_guidance.json"
+      ],
+      "tests": [
+        "cli-output",
+        "workflow",
+        "completion-policy"
+      ],
+      "reason": "Version-bound authored phase instructions and bounded source delivery."
+    },
+    {
+      "paths": [
+        "scripts/runtime/common.py"
+      ],
+      "tests": [
+        "cli-output",
+        "completion-policy"
+      ],
+      "reason": "Source recovery and identity encodings serve packets and retained evidence."
+    },
+    {
+      "paths": [
+        "scripts/runtime/artifacts.py",
+        "scripts/runtime/contracts.py"
+      ],
+      "tests": [
+        "readme",
+        "readme-inputs",
+        "plan-consistency",
+        "execution-contract"
+      ],
+      "reason": "Authored content and selected package mechanics affect assembly, declarations and preservation."
+    },
+    {
+      "paths": [
+        "scripts/case_inputs.py"
+      ],
+      "tests": [
+        "case-inputs",
+        "behavior-harness",
+        "behavior-evaluation"
+      ],
+      "reason": "Binary fixtures use the normal performing-packet and native staging routes."
+    },
+    {
+      "paths": [
+        "scripts/record_retention.py",
+        "tests/test_record_retention.py"
+      ],
+      "tests": [
+        "record-retention",
+        "completion-policy",
+        "workflow"
+      ]
+    },
+    {
+      "paths": [
+        "evals/fixtures/*"
+      ],
+      "tests": [
+        "agent-guidance",
+        "case-inputs"
+      ]
+    },
+    {
+      "paths": [
+        "config/release.json",
+        "scripts/release_cli.py",
+        "tools/release/*",
+        "tests/test_release.py"
+      ],
+      "tests": [
+        "release"
+      ]
     }
   ],
   "final_checks": {

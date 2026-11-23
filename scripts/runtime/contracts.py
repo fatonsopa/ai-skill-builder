@@ -54,7 +54,7 @@ REQUEST = obj({
     "examples": TEXT, "technical_writer": TEXT, "document_paths": STRINGS,
     "copyright_holder": TEXT,
     "repair_structure": BOOL,
-    "completion_policy": TEXT,
+    "completion_policy": TEXT, "checkpoint": TEXT,
     "host": HOST,
     "preserve_literals": STRINGS,
     "target_success_percent": {"type": "number", "minimum": 0, "maximum": 100},
@@ -211,10 +211,11 @@ REVIEW = obj({**REVIEW["properties"], "execution_review": obj({
 PHASES = {**PHASES, "plan": PLAN, "review": REVIEW}
 
 
-def response_schema(phase, protocol_version=PROTOCOL_VERSION):
-    if protocol_version not in (1, 2, 3, PROTOCOL_VERSION):
+def response_schema(phase, protocol_version=None):
+    protocol_version = PROTOCOL_VERSION if protocol_version is None else protocol_version
+    if protocol_version not in (1, 2, 3, 4, 5, 6, PROTOCOL_VERSION):
         raise ValueError("Unsupported authoring protocol version.")
-    phases = {1: LEGACY_PHASES, 2: V2_PHASES, 3: PHASES, 4: PHASES}[protocol_version]
+    phases = {1: LEGACY_PHASES, 2: V2_PHASES, 3: V4_PHASES, 4: V4_PHASES, 5: V5_PHASES, 6: V6_PHASES, 7: PHASES}[protocol_version]
     return obj({
         "run_id": TEXT, "phase": {"const": phase},
         "packet_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
@@ -237,3 +238,90 @@ PROCESS_TRACE_EXAMPLE = {
 
 LEGACY_REQUEST = REQUEST
 REQUEST = {**REQUEST, 'required': [*REQUEST['required'], 'completion_policy']}
+
+
+# New authoring declares substantive owners; historical contracts remain readable.
+V4_PHASES = dict(PHASES)
+PROTOCOL_VERSION = 5
+AUTHORSHIP = obj({'path': TEXT, 'owner': TEXT, 'consumers': array(TEXT, 1)})
+COMPONENT = obj({'path': TEXT, 'requirements': array(TEXT, 1), 'reason': TEXT})
+CASE_QUALITY = obj({'source_clauses': array(TEXT, 1), 'actor': TEXT,
+                    'feasibility': TEXT, 'input_validity': TEXT, 'runtime': TEXT,
+                    'correction_obligations': STRINGS})
+CASE = obj({**CASE['properties'], 'quality': CASE_QUALITY}, required=[*CASE['required'], 'quality'])
+PLAN = obj({**PLAN['properties'], 'automations': STRINGS, 'cases': array(CASE, 1),
+            'authored_outputs': array(AUTHORSHIP, 1), 'components': array(COMPONENT),
+            'package_profile': {'enum': ['native', 'maintained']}},
+           required=[*PLAN['required'], 'authored_outputs', 'components', 'package_profile'])
+AUDIT_DIMENSION = obj({'dimension': {'enum': ['authorship_execution', 'over_engineering', 'over_testing', 'over_validation', 'avoidable_complexity']},
+                       'status': {'enum': ['compliant', 'defect', 'unverified']},
+                       'evidence': TEXT, 'repair': TEXT, 'preservation': TEXT, 'regression': TEXT})
+AUDIT = obj({**AUDIT['properties'], 'dimensions': array(AUDIT_DIMENSION, 5)})
+PHASES = {**PHASES, 'plan': PLAN, 'audit': AUDIT}
+
+AUTHORED_DOCUMENTATION = obj({'schema_version': {'const': 2}, 'owner': TEXT,
+                              'profiles': obj({'source': TEXT, 'runtime': TEXT}),
+                              'commands': array(DOC_COMMAND)})
+PRODUCE = obj({**PRODUCE['properties'], 'repository_instructions': TEXT,
+               'documentation': AUTHORED_DOCUMENTATION},
+              required=[*PRODUCE['required'], 'repository_instructions'])
+PHASES = {**PHASES, 'produce': PRODUCE}
+
+CASE_REVIEW = obj({'reviewer': obj({'kind': TEXT, 'identity': TEXT, 'method': TEXT}),
+                   'cases_sha256': TEXT, 'accepted': BOOL, 'evidence': TEXT})
+PLAN = obj({**PLAN['properties'], 'case_review': CASE_REVIEW},
+           required=[*PLAN['required'], 'case_review'])
+PHASES = {**PHASES, 'plan': PLAN}
+
+FIXTURE = obj({'path': TEXT, 'destination': TEXT, 'sha256': TEXT, 'media_type': TEXT}, required=['path','destination','sha256'])
+CASE = obj({**CASE['properties'], 'fixtures': array(FIXTURE)}, required=CASE['required'])
+PLAN = obj({**PLAN['properties'], 'cases': array(CASE, 1)}, required=PLAN['required'])
+PHASES = {**PHASES, 'plan': PLAN}
+
+
+# Keep completed v5 records readable; new packages explicitly bind default logging.
+V5_PHASES = dict(PHASES)
+PROTOCOL_VERSION = 6
+CASE = obj({**CASE['properties'], 'completion_check': TEXT}, required=CASE['required'])
+PLAN = obj({**PLAN['properties'], 'cases': array(CASE, 1)}, required=PLAN['required'])
+EXECUTION_LOGGING = obj({'mode': {'enum': ['host_public', 'structured_file']}, 'owner': TEXT,
+                         'record_location': TEXT, 'rules_sha256': TEXT, 'capture_content': BOOL},
+                        required=['mode', 'owner', 'record_location', 'rules_sha256'])
+PRODUCE = obj({**PRODUCE['properties'], 'execution_logging': EXECUTION_LOGGING},
+              required=[*PRODUCE['required'], 'execution_logging'])
+PHASES = {**PHASES, 'plan': PLAN, 'produce': PRODUCE}
+
+# A project-owned maintenance script may share a supported mechanic's path.
+_COMPONENT = PLAN['properties']['components']['items']
+_COMPONENT = obj({**_COMPONENT['properties'], 'origin': {'enum': ['builder', 'project']}}, required=_COMPONENT['required'])
+PLAN = obj({**PLAN['properties'], 'components': array(_COMPONENT)}, required=PLAN['required'])
+PHASES = {**PHASES, 'plan': PLAN}
+
+
+# Independently owned work binds to its governing specification; ordinary steps stay inline.
+V6_PHASES = dict(PHASES)
+PROTOCOL_VERSION = 7
+ASSIGNMENT = obj({
+    'id': TEXT, 'outcome': TEXT, 'owner_role': TEXT,
+    'permitted_effects': array(TEXT, 1), 'governing_revision': TEXT,
+    'criterion': TEXT, 'safeguard': obj({'rationale': TEXT}),
+    'prerequisites': STRINGS, 'failure_behavior': TEXT, 'proof': array(TEXT, 1),
+}, required=['id', 'outcome', 'owner_role', 'permitted_effects', 'governing_revision', 'prerequisites', 'failure_behavior', 'proof'])
+ASSIGNMENT_REVIEW = obj({
+    'reviewer': obj({'kind': TEXT, 'identity': TEXT, 'method': TEXT}),
+    'assignments_sha256': TEXT,
+    'decisions': array(obj({'id': TEXT, 'accepted': BOOL, 'source': TEXT, 'rationale': TEXT}), 1),
+})
+PLAN = obj({**PLAN['properties'], 'assignments': array(ASSIGNMENT, 1), 'assignment_review': ASSIGNMENT_REVIEW},
+           required=[*PLAN['required'], 'assignments', 'assignment_review'])
+PHASES = {**PHASES, 'plan': PLAN}
+
+# Protocol 7 workflows may declare only their material prerequisites.
+REQUIRES = {'type': 'object', 'additionalProperties': array(TEXT, 1)}
+WORKFLOW = obj({**WORKFLOW['properties'], 'requires': REQUIRES}, required=WORKFLOW['required'])
+SPEC = obj({**SPEC['properties'], 'workflows': array(WORKFLOW, 1)}, required=SPEC['required'])
+_EXPECT = CASE['properties']['expect']
+PROCESS = obj({**PROCESS['properties'], 'requires': REQUIRES}, required=PROCESS['required'])
+CASE = obj({**CASE['properties'], 'expect': obj({**_EXPECT['properties'], 'process': PROCESS}, required=_EXPECT['required'])}, required=CASE['required'])
+PLAN = obj({**PLAN['properties'], 'cases': array(CASE, 1)}, required=PLAN['required'])
+PHASES = {**PHASES, 'specify': SPEC, 'plan': PLAN}

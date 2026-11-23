@@ -23,3 +23,23 @@ Publish only within the user's existing explicit authority for this deliverable,
 ## Shared instructions
 
 Keep repository workflow rules in AGENTS.md. Always provide CLAUDE.md with an @AGENTS.md import so Claude Code uses the same rules. Preserve this pattern in skills created or maintained by Skill Builder.
+
+## Proportionality
+
+Agents and skills author substantive content and judgments; code executes agreed mechanics. Add components, tests, reviews or evidence only for a named unmet requirement, material risk or unresolved failure. Reuse valid evidence, preserve useful safeguards and repair the responsible owner and consumers. Stop expanding when the agreed criteria pass.
+
+## Execution records
+
+Keep a structured execution record for each task using the host’s public tool history by default. When an existing executor supports durable records, save them in the authorized task workspace outside the installed skill. Link the task/run, phase, tool call, observed outcome, error, duration, retry and artifact version using available IDs and hashes. Record only observed events; disclose unavailable evidence.
+
+Capture metadata by default. Include prompt, argument or result content only when authorized and needed; exclude credentials, secrets and private model reasoning. Restrict access to task records and follow the project’s retention rules without deleting evidence still required for recovery or review. Use failures to identify a cause and add a focused regression for a demonstrated defect. Resume from the earliest affected checkpoint and retain valid earlier results, original history and consumed budgets.
+
+For local file records, use `scripts/record_retention.py` through the existing executor. Register only newly created record folders outside the installed skill, source and deliverables. Keep these classes separate:
+
+- Routine logs: 30 days after completion.
+- Investigation logs: until resolution, then 90 days.
+- Optional diagnostic content: 7 days after closure or investigation resolution, in a separately registered child folder.
+
+Active work, unresolved investigations and acceptance evidence protect the whole required bundle, including diagnostic children. The first cleanup previews; later lifecycle checks remove only unchanged, expired, unprotected managed bundles and retain a small deletion receipt. Historical folders remain unmanaged. Release an evidence pin only after its acceptance is retired.
+
+Native host history uses the host’s own retention controls. Do not claim Builder can delete app chat history.

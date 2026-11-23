@@ -59,7 +59,8 @@
         "scripts/continuation.py",
         "scripts/provider_results.py",
         "scripts/runtime/execution.py",
-        "scripts/case_inputs.py"
+        "scripts/case_inputs.py",
+        "scripts/record_retention.py"
       ],
       "depends_on": []
     },

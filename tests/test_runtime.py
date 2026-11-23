@@ -187,7 +187,7 @@ class RuntimeTests(unittest.TestCase):
         for case in plan['cases']:
             case['command'] = ['{python}', '-c', 'import runpy; runpy.run_path("scripts/normalize.py", run_name="__main__")']
             case['resources'] = ['scripts/normalize.py']
-            validate(case, contracts.CASE)
+            validate(case, contracts.V4_PHASES["plan"]["properties"]["cases"]["items"])
         # Prepare an authored component fixture with the supported v3 case fields.
         # This is not a change to a recorded model evaluation or its answers.
         save(package / 'evals/cases.json', plan['cases'])
@@ -1093,19 +1093,20 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         install(SCRIPTS.parent, "codex", installed)
         data = json.loads((installed / "config/documentation.json").read_text())
         doc = data["documentation"]
-        scenario = next(row for row in doc["scenarios"] if row["title"] == "Build from input/output examples")
-        for step in scenario["steps"]:
-            for file in step.get("files", []):
-                path = (installed / file["path"]).resolve()
+        import re, shlex
+        text = render(data['name'], doc)
+        walkthrough = text.split('### Build from input/output examples', 1)[1].split('### Audit an existing skill', 1)[0]
+        token = r'Save as `([^`]+)`:\s+```(?:json|text)\n(.*?)\n```|```sh\n(.*?)\n```'
+        for match in re.finditer(token, walkthrough, re.S):
+            name, content, command = match.groups()
+            if name:
+                path = (installed / name).resolve()
                 self.assertTrue(path.is_relative_to(self.root.resolve()))
                 path.parent.mkdir(parents=True, exist_ok=True)
-                if isinstance(file["content"], str):
-                    path.write_text(file["content"])
-                else:
-                    save(path, file["content"])
-            if "command" in step:
-                argv = list(step["command"]["argv"])
-                if argv[0] == ".venv/bin/python":
+                path.write_text(content + '\n')
+            else:
+                argv = shlex.split(command)
+                if argv[0] == '.venv/bin/python':
                     argv[0] = sys.executable
                 process = subprocess.run(argv, cwd=installed, capture_output=True, text=True)
                 self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
@@ -1121,6 +1122,119 @@ for title, field in [("How to reproduce", "steps"), ("Expected results", "expect
         self.assertNotIn("pairs.json", evaluation)
         self.assertNotIn("input.json", evaluation)
 
+
+
+class ManagedRefreshTests(unittest.TestCase):
+    def test_refresh_preserves_custom_bytes_and_original_record(self):
+        import base64
+        from runtime.artifacts import refresh_managed
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)/'skill';root.mkdir();(root/'config').mkdir()
+            (root/'SKILL.md').write_text('original');(root/'custom.txt').write_text('keep')
+            record={'schema_version':1,'source':{'resources':[],'authored':'original source'},'managed_hashes':{'SKILL.md':digest(b'original')}}
+            save(root/'config/build_record.json',record)
+            original=(root/'config/build_record.json').read_bytes()
+            (root/'SKILL.md').write_text('approved narrow repair')
+            evidence=Path(folder)/'refresh.json'
+            refresh_managed(root,['SKILL.md'],digest(original),evidence)
+            current=json.loads((root/'config/build_record.json').read_text())
+            self.assertEqual(current['source'],record['source'])
+            self.assertFalse((root/'.lock').exists(), 'Maintenance locks must stay outside the installable package.')
+            self.assertEqual((root/'custom.txt').read_bytes(),b'keep')
+            self.assertEqual(base64.b64decode(json.loads(evidence.read_text())['previous_record_base64']),original)
+            with self.assertRaises(Invalid):refresh_managed(root,['custom.txt'],digest((root/'config/build_record.json').read_bytes()),Path(folder)/'bad.json')
+
+    def test_authored_document_renderer_preserves_qualifiers_exactly(self):
+        from runtime.readme import render
+        text='# Supplied guide\n\nOnly after actual approval, unless the scoped user waiver applies.\n'
+        doc={'schema_version':2,'owner':'reviewed author','profiles':{'source':text,'runtime':text},'commands':[]}
+        self.assertEqual(render('example',doc),text)
+        with self.assertRaises(Invalid):render('example',{**doc,'profiles':{'source':text}})
+
+    def test_native_package_has_no_unjustified_maintenance_runtime(self):
+        from runtime.artifacts import render,check_package
+        from runtime.common import digest
+        from fixtures import SPEC,PLAN,PRODUCE
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)/'candidate'
+            text='# Native guide\n\nRead supplied facts and preserve exceptions.\n'
+            plan={**deepcopy(PLAN),'domains':[{'name':'native-guidance','purpose':'Host-native instruction capability','owned_paths':['SKILL.md'],'depends_on':[]}], 'package_profile':'native','automations':[],'components':[], 'authored_outputs':[{'path':p,'owner':'author','consumers':['primary']} for p in ['SKILL.md','README.md','AGENTS.md','CLAUDE.md']], 'execution':{'mode':'single'}}
+            produced={**deepcopy(PRODUCE),'files':{},'instructions':'Read supplied facts. Never over-engineer, over-test or over-validate.','repository_instructions':'# Repository instructions\n\nPreserve source authority; run relevant native checks.\n','documentation':{'schema_version':2,'owner':'reviewed author','profiles':{'source':text,'runtime':text},'commands':[]}}
+            render(root,{'operation':'create','skill_name':'native-guide','copyright_holder':'Fixture'},SPEC,plan,produced)
+            self.assertFalse((root/'scripts/evaluate.py').exists())
+            self.assertFalse((root/'scripts/continuation.py').exists())
+            result=check_package(root)
+            self.assertTrue(result['passed'],result['findings'])
+            self.assertEqual((root/'AGENTS.md').read_text(),produced['repository_instructions'])
+            self.assertNotIn('Host and improvement behavior',(root/'SKILL.md').read_text())
+
+    def test_owner_hash_crosswalk_and_literal_shell_arguments(self):
+        from runtime.common import identity_crosswalk
+        from runtime.readme import code_command
+        import shlex
+        value={'name':'é', 'keep':None}
+        self.assertEqual(identity_crosswalk(value),identity_crosswalk(dict(value)))
+        self.assertNotEqual(identity_crosswalk(value),identity_crosswalk({**value,'keep':''}))
+        self.assertGreater(len(set(identity_crosswalk(value).values())),1)
+        argv=['python3','folder with spaces/tool.py','$PWD','a; exit 9']
+        command=code_command({'argv':argv}).splitlines()[1]
+        self.assertEqual(shlex.split(command),argv)
+
+    def test_final_mechanical_runner_keeps_behavior_acceptance_separate(self):
+        from runtime.artifacts import generated_test_configuration
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'scripts').mkdir();(root/'scripts/normalize.py').write_text('pass')
+            plan=deepcopy(PLAN);plan['cases'].append({'id':'native-observation','kind':'behavior','resources':['SKILL.md'],'expect':{'exit_code':0}})
+            config=generated_test_configuration(root,plan)
+            self.assertNotIn('native-observation',config['tests'])
+            self.assertNotIn('native-observation',config['final_checks'])
+            self.assertEqual(set(config['final_checks']),{c['id'] for c in PLAN['cases']})
+
+    def test_required_mechanic_dependency_cannot_be_removed(self):
+        from runtime.artifacts import selected_mechanics
+        with self.assertRaisesRegex(Invalid,'dependencies'):
+            selected_mechanics({'package_profile':'maintained','components':[{'path':'scripts/evaluate.py'}]})
+
+
+class PlanningReplayTests(unittest.TestCase):
+    setUp = RuntimeTests.setUp
+    start = RuntimeTests.start
+    submit = RuntimeTests.submit
+    def test_planning_correction_replays_without_repeating_work_or_running_commands(self):
+        self.start()
+        self.submit('research')
+        self.submit('specify')
+        workflow.revise(self.run, 'Correct the specification before freezing its plan.', phase='specify')
+        self.submit('specify')
+        self.submit('plan')
+        self.submit('produce')
+        with patch('subprocess.run', side_effect=AssertionError('Replay must not execute commands.')):
+            result = replay(self.run)
+        self.assertEqual(result['rebuilt_files'], inventory(self.run/'candidate'))
+
+
+class DefaultExecutionRecordsTests(unittest.TestCase):
+    def test_native_and_maintained_packages_bind_authored_defaults_without_new_logging_scripts(self):
+        from runtime.artifacts import render, execution_logging_rules
+        rules = execution_logging_rules()
+        for profile in ['native','maintained']:
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory() as directory:
+                root=Path(directory)/'candidate'
+                text='# Task guide\n\nRead supplied facts and preserve exceptions.\n'
+                plan={**deepcopy(PLAN),'domains':[{'name':'guide','purpose':'Host-native guidance','owned_paths':['SKILL.md'],'depends_on':[]}], 'package_profile':profile,'automations':[],'components':[], 'authored_outputs':[{'path':p,'owner':'author','consumers':['primary']} for p in ['SKILL.md','README.md','AGENTS.md','CLAUDE.md']], 'execution':{'mode':'single'}}
+                produced={**deepcopy(PRODUCE),'files':{},'instructions':'Read supplied facts and follow AGENTS.md.', 'repository_instructions':'# Repository instructions\n\n'+rules, 'documentation':{'schema_version':2,'owner':'author','profiles':{'source':text,'runtime':text},'commands':[]}, 'execution_logging':{'mode':'host_public','owner':'current host','record_location':'Public tool history for this task','rules_sha256':digest(rules.encode())}}
+                validate(produced, contracts.response_schema('produce')['properties']['data'])
+                render(root,{'operation':'create','skill_name':'task-guide','copyright_holder':'Fixture'},SPEC,plan,produced)
+                record=load(root/'config/build_record.json')['source']['execution_logging']
+                self.assertFalse(record['capture_content'])
+                self.assertIn(rules.strip(),(root/'AGENTS.md').read_text())
+                self.assertFalse((root/'scripts').exists())
+                stale=deepcopy(produced);stale['execution_logging']['rules_sha256']='0'*64
+                with self.assertRaisesRegex(Invalid,'stale or missing'):
+                    render(Path(directory)/'stale',{'operation':'create','skill_name':'task-guide','copyright_holder':'Fixture'},SPEC,plan,stale)
+                legacy={k:v for k,v in produced.items() if k!='execution_logging'}
+                validate(legacy, contracts.response_schema('produce',5)['properties']['data'])
+                with self.assertRaises(Invalid):validate(legacy, contracts.response_schema('produce',6)['properties']['data'])
 
 if __name__ == "__main__":
     unittest.main()

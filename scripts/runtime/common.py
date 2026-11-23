@@ -112,3 +112,40 @@ def locked(root):
             yield
         finally:
             fcntl.flock(stream, fcntl.LOCK_UN)
+
+
+def identity_crosswalk(value):
+    """Use each owner's actual encoder; equality still requires the original value."""
+    from host_coverage import digest as host_digest
+    from run_tests import digest as test_digest
+    return {'runtime_compact_json_utf8': digest(value),
+            'host_json_utf8': host_digest(value), 'test_json_utf8': test_digest(value)}
+
+
+def source_reference(path, inline_limit=8000):
+    path = Path(path).resolve()
+    raw = path.read_bytes()
+    text = raw.decode('utf-8')
+    result = {'path': str(path), 'sha256': digest(raw), 'encoding': 'sha256_raw_bytes',
+              'bytes': len(raw), 'lines': len(text.splitlines()), 'complete': len(text) <= inline_limit}
+    if result['complete']:
+        result['text'] = text
+    return result
+
+
+def read_source(path, expected_sha256, start=1, end=None, max_chars=12000):
+    path = Path(path).resolve()
+    raw = path.read_bytes()
+    if digest(raw) != expected_sha256:
+        raise Invalid('Source revision changed; restart inspection rather than mixing reads.')
+    lines = raw.decode('utf-8').splitlines(keepends=True)
+    end = len(lines) if end is None else end
+    if type(start) is not int or type(end) is not int or start < 1 or end < start or end > len(lines) or max_chars < 1:
+        raise Invalid('Choose an existing inclusive source line range and positive output limit.')
+    text = ''.join(lines[start - 1:end])
+    if len(text) > max_chars:
+        raise Invalid('Requested section exceeds the output limit; select a narrower complete line range.')
+    if path.read_bytes() != raw:
+        raise Invalid('Source changed during recovery.')
+    return {'path': str(path), 'sha256': expected_sha256, 'start': start, 'end': end,
+            'total_lines': len(lines), 'complete_section': True, 'complete_source': start == 1 and end == len(lines), 'text': text}

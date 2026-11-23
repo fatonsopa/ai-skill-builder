@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import threading
 import math
 import fcntl
 from continuation import MAX_EXTENSIONS, extension as routine_extension
@@ -30,12 +31,31 @@ def write_json(path, value):
     os.replace(temporary, path)
 
 
-def run_process(command, *, input, cwd, timeout):
+def run_process(command, *, input, cwd, timeout, env=None, on_stdout_line=None):
     """Bound the whole process group, including children holding output pipes."""
+    deadline = None if timeout is None else time.monotonic() + timeout
     process = subprocess.Popen(
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, cwd=cwd, shell=False, start_new_session=True,
+        text=True, cwd=cwd, shell=False, start_new_session=True, env=env,
     )
+    lines, capture_errors = [], []
+    reader = None
+    if on_stdout_line is not None:
+        stream = process.stdout
+        def capture():
+            with stream:
+                for line in stream:
+                    lines.append(line)
+                    try:
+                        on_stdout_line(line)
+                    except Exception as error:
+                        if not capture_errors:
+                            capture_errors.append(error)
+        reader = threading.Thread(target=capture, daemon=True)
+        reader.start()
+        # communicate still drains stderr and handles stdin and the deadline;
+        # the reader owns stdout so it can expose public progress immediately.
+        process.stdout = None
     try:
         stdout, stderr = process.communicate(input=input, timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -44,7 +64,22 @@ def run_process(command, *, input, cwd, timeout):
         except ProcessLookupError:
             pass
         stdout, stderr = process.communicate()
+        if reader is not None:
+            reader.join()
+            stdout = ''.join(lines)
         raise subprocess.TimeoutExpired(command, timeout, output=stdout, stderr=stderr)
+    if reader is not None:
+        reader.join(None if deadline is None else max(0, deadline - time.monotonic()))
+        if reader.is_alive():
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            reader.join()
+            raise subprocess.TimeoutExpired(command, timeout, output=''.join(lines), stderr=stderr)
+        stdout = ''.join(lines)
+    if capture_errors:
+        raise RuntimeError('Live output capture failed: ' + str(capture_errors[0]))
     return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 
@@ -92,11 +127,67 @@ def grade_process(trace, expected):
             errors.append("Required user-visible handoff is missing: " + phase)
         if phase in expected["evidence"] and (not isinstance(event.get("evidence"), str) or not event["evidence"].strip()):
             errors.append("Missing stage evidence: " + phase)
-    if observed != expected["order"]:
+    if "requires" in expected:
+        errors.extend(dependency_failures(observed, expected["order"], expected["requires"]))
+    elif observed != expected["order"]:
         errors.append("Process phases were omitted, reordered, repeated or undeclared; expected " + repr(expected["order"]) + ", observed " + repr(observed))
     return {"passed": not errors, "failures": errors, "observed_order": observed,
             "provenance": provenance, "trace": trace,
             "limits": "Checks recorded event order and declared evidence/visibility. Review actual artifacts and host observations for truth and completeness; authored controls and replay are not fresh model behavior."}
+
+
+def relation_failures(steps, requires):
+    """Reject a dependency relation that names unknown steps or contains a cycle."""
+    if not isinstance(steps, list) or len(steps) != len(set(steps)) or not isinstance(requires, dict):
+        return ["Malformed dependency relation: required steps must be unique and requires must map steps to prerequisites."]
+    errors = []
+    for step, prerequisites in requires.items():
+        if step not in steps:
+            errors.append("Dependency relation names an unknown step: " + repr(step))
+        if not isinstance(prerequisites, list) or not all(isinstance(p, str) for p in prerequisites):
+            errors.append("Malformed prerequisites for step " + repr(step))
+            continue
+        for prerequisite in prerequisites:
+            if prerequisite not in steps:
+                errors.append("Unknown prerequisite " + repr(prerequisite) + " for step " + repr(step))
+    if errors:
+        return errors
+    state = {}
+    def visit(step, trail):
+        if state.get(step) == "done":
+            return None
+        if step in trail:
+            return trail[trail.index(step):] + [step]
+        for prerequisite in requires.get(step, []):
+            cycle = visit(prerequisite, trail + [step])
+            if cycle:
+                return cycle
+        state[step] = "done"
+        return None
+    for step in steps:
+        cycle = visit(step, [])
+        if cycle:
+            return ["Dependency relation contains a cycle: " + " -> ".join(cycle)]
+    return []
+
+
+def dependency_failures(observed, steps, requires):
+    """Grade a dependency-aware trace: any order that honors the declared prerequisites passes."""
+    errors = relation_failures(steps, requires)
+    if errors:
+        return errors
+    for step in steps:
+        if step not in observed:
+            errors.append("Required step omitted: " + step)
+    extra = [phase for phase in observed if phase not in steps]
+    repeated = sorted({phase for phase in observed if observed.count(phase) > 1})
+    if extra or repeated:
+        errors.append("Process phases were repeated or undeclared: " + repr(extra + repeated))
+    for position, step in enumerate(observed):
+        for prerequisite in requires.get(step, []):
+            if prerequisite not in observed[:position]:
+                errors.append("Premature " + step + ": prerequisite " + prerequisite + " was not completed before it.")
+    return errors
 
 
 def process_metrics(attempts, suite):
@@ -113,10 +204,10 @@ def process_metrics(attempts, suite):
             "limits": "Declared workflow-case results; not universal skill accuracy or proof of unobserved model behavior."}
 
 
-from case_inputs import prepare_inputs
+from case_inputs import prepare_inputs, stage_sources
 
 
-def behavior_packet(package, case):
+def behavior_packet(package, case, input_dir=None):
     """Inputs for a fresh performing context; expected answers are excluded."""
     package = Path(package).resolve()
     resources = {}
@@ -128,9 +219,40 @@ def behavior_packet(package, case):
         if relative.parts[0] in {'evals', 'tests', 'tools'} or relative.suffix == '.py' and (relative.name.startswith('test_') or relative.name.endswith('.test.py')):
             raise ValueError('Performing resources cannot include evaluation answers or development controls: ' + name)
         resources[name] = path.read_text()
-    return {"case_id": case["id"], "case_sha256": json_hash(case), "package_hashes": hash_tree(package),
-            "request": prepare_inputs(package, case), "skill": (package / "SKILL.md").read_text(), "resources": resources,
-            "role": "performing_agent", "instructions": "Use the actual skill for this task in a fresh context. Capture public messages, tool calls and artifacts. Do not claim tools ran when unavailable. Return the requested result; this packet does not contain the grader's expected answer."}
+    request = prepare_inputs(package, case)
+    source = request.get('source') if isinstance(request, dict) else None
+    if isinstance(source, dict) and any(isinstance(v, dict) for v in source.values()):
+        if input_dir is None:
+            raise ValueError('Binary behavioral packets require --input-dir for isolated file staging.')
+        staging = Path(input_dir).resolve()
+        if staging.exists() or staging.is_relative_to(package):
+            raise ValueError('Choose a new input directory outside the package.')
+        staging.mkdir(parents=True)
+        request['input_files'] = stage_sources(staging, request.pop('source'))
+        request['source_path'] = str(staging)
+    return {"task_id": controller_binding(package, case)["task_id"],
+            "request": request, "skill": (package / "SKILL.md").read_text(), "resources": resources,
+            "role": "performing_agent", "instructions": "Use the actual skill for this task in a fresh context. Capture public messages, tool calls and artifacts. Do not claim tools ran when unavailable. Return the requested result with this task_id; this packet does not contain the grader's expected answer."}
+
+
+def controller_binding(package, case):
+    """Controller-only record mapping a neutral task ID to its case and candidate bytes."""
+    package_hashes = hash_tree(Path(package).resolve())
+    case_sha256 = json_hash(case)
+    return {"task_id": "task-" + json_hash({"case_sha256": case_sha256, "package_hashes": package_hashes})[:16],
+            "case_id": case["id"], "case_sha256": case_sha256, "package_hashes": package_hashes}
+
+
+def bound_case_id(row, bindings):
+    """Resolve a neutral performer result to the case its controller record names."""
+    if "task_id" not in row:
+        return row.get("case_id")
+    matches = [item for item in bindings if isinstance(item, dict) and item.get("task_id") == row["task_id"]]
+    if len(matches) != 1:
+        raise ValueError("Behavior observation has no single controller binding for its task_id.")
+    if "case_id" in row and row["case_id"] != matches[0]["case_id"]:
+        raise ValueError("Behavior observation names a different case from its controller binding.")
+    return matches[0]["case_id"]
 
 
 def observation_for(package, case, observations):
@@ -142,14 +264,21 @@ def observation_for(package, case, observations):
     records = observations.get("observations", [])
     if not isinstance(records, list) or any(not isinstance(row, dict) for row in records):
         raise ValueError("Behavior observations must contain a list of captured records.")
-    matches = [row for row in records if row.get("case_id") == case["id"]]
+    bindings = observations.get("bindings", [])
+    if not isinstance(bindings, list):
+        raise ValueError("Controller bindings must be a list.")
+    matches = [row for row in records if bound_case_id(row, bindings) == case["id"]]
     if not matches:
         return None
     if len(matches) != 1:
         raise ValueError("Duplicate behavioral observations for one case.")
     row = matches[0]
     provenance = row.get("provenance", {})
-    if row.get("case_sha256") != json_hash(case):
+    if "task_id" in row:
+        binding = next(item for item in bindings if item.get("task_id") == row["task_id"])
+        if binding != controller_binding(package, case):
+            raise ValueError("Behavior observation has a stale case binding; it is not eligible for this case and candidate.")
+    elif row.get("case_sha256") != json_hash(case):
         raise ValueError("Behavior observation belongs to a different frozen input/case.")
     if not isinstance(provenance, dict) or provenance.get("kind") not in {"host_observation", "provider_cli"} or not isinstance(provenance.get("source"), str) or not provenance["source"].strip() or not isinstance(provenance.get("host"), str) or not provenance["host"].strip() or "model" not in provenance or (provenance["model"] is not None and (not isinstance(provenance["model"], str) or not provenance["model"].strip())):
         raise ValueError("Behavior tests require actual model observations with host/model/source provenance; controls and historical replay do not qualify.")
@@ -438,6 +567,8 @@ def main():
     parser.add_argument("--case", action="append", help="Run only these exact frozen case IDs.")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--behavior-packet", help="Export one performing-agent task without expected answers.")
+    parser.add_argument("--binding", type=Path, help="New controller-only file that maps the exported task_id to its case and candidate.")
+    parser.add_argument("--input-dir", type=Path, help="New isolated file-staging directory for binary task inputs.")
     parser.add_argument("--observations", type=Path, help="Captured fresh AI behavior, bound to case and artifact hashes.")
     parser.add_argument("--allow-exec", action="store_true")
     parser.add_argument("--session", type=Path, help="Bounded local maintenance records outside the package.")
@@ -452,7 +583,12 @@ def main():
         matches = [case for case in suite if case["id"] == args.behavior_packet and case["kind"] == "behavior"]
         if len(matches) != 1:
             parser.error("Select one declared behavioral case.")
-        print(json.dumps(behavior_packet(args.package, matches[0]), indent=2))
+        if not args.binding or args.binding.exists() or args.binding.resolve().is_relative_to(args.package.resolve()):
+            parser.error("Save the controller binding with --binding NEW_FILE outside the package.")
+        packet = behavior_packet(args.package, matches[0], args.input_dir)
+        args.binding.parent.mkdir(parents=True, exist_ok=True)
+        write_json(args.binding, controller_binding(args.package, matches[0]))
+        print(json.dumps(packet, indent=2))
         return 0
     if args.case:
         known = {case["id"] for case in suite}

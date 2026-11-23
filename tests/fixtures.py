@@ -137,7 +137,7 @@ def validate_fixture_documents(run, *, changes=None):
     for index, (name, sha) in enumerate(technical_writer.documents(state, inventory(run / 'candidate')).items()):
         session = folder / str(index)
         kind = 'skill' if Path(name).name == 'SKILL.md' else 'readme' if Path(name).name == 'README.md' else 'agent' if Path(name).name == 'AGENTS.md' else 'explanation'
-        request = {'kind': kind, 'operation': 'create' if kind in {'skill', 'readme', 'agent'} else 'review', 'scope': 'complete', 'sources': [{'id': 'builder', 'text': technical_writer.source_text(state)}], 'destination': str(session / 'accepted.md')}
+        request = {'kind': kind, 'operation': 'create' if kind in {'skill', 'readme', 'agent'} else 'review', 'scope': 'complete', 'sources': [{'id': 'builder', 'text': technical_writer.source_text(state)}], 'destination': str(session / 'accepted.md'), 'context': {'instruction_format': 'project'} if kind == 'agent' else {}}
         save(session / 'state.json', {'frozen': {'request': request}})
         review = {'output_sha256': sha, 'accepted': True, 'checks_passed': True, 'style_passed': True, **(changes or {})}
         save(session / 'review.json', review)

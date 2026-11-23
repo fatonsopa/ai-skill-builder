@@ -4,7 +4,7 @@ Skill Builder requires the `technical-writer` skill for every document it create
 
 ## Before you begin
 
-Set `technical_writer` in the request to the skill folder or its `SKILL.md`, or set `SKILL_BUILDER_TECHNICAL_WRITER`. Otherwise the runner looks for an adjacent `technical-writer` folder, then the standard local skill locations under `~/.agents`, `~/.codex` and `~/.claude`. An explicit path takes precedence. The runner captures the dependency’s files; a changed dependency requires a new run. An unavailable dependency blocks document delivery.
+The writer is being renamed to SpecDev. The runner accepts a skill whose frontmatter name is the canonical `specdev` or the legacy `technical-writer`. Set `technical_writer` in the request to the skill folder or its `SKILL.md`, or set `SKILL_BUILDER_TECHNICAL_WRITER`; both keys keep their names across the rename. Otherwise the runner looks for an adjacent `specdev` folder, then `specdev` in the standard local skill locations under `~/.agents`, `~/.codex` and `~/.claude`, and only then for the same `technical-writer` locations. An explicit path takes precedence and is the only candidate: a skill with another name or without `scripts/validate_document.py` and `references/writing_style.md` is rejected, and the runner doesn't fall back to a discovered one. The runner records the selected identity and captures the dependency’s files; a changed dependency requires a new run. An unavailable dependency blocks document delivery.
 
 Read the dependency guidance returned in each phase packet, then use its applicable references while authoring. The runner does not carry a second writing guide.
 
@@ -46,3 +46,9 @@ Run `scripts/run_tests.py --execute` for impacted checks. The integration tests 
 ## If it fails
 
 Read `document_check.findings` in the lifecycle response and retain the failed attempt. Supply missing sessions or repair failed document checks through Technical Writer, then refresh the review packet. A later failed validation invalidates earlier acceptance for the current candidate; the runner retains its earlier receipts. If candidate bytes change, reevaluate the candidate and validate the changed documents again. A changed or unavailable Technical Writer dependency requires a new run with the intended skill installed.
+
+## Planning documents and explicit instruction formats
+
+A completed `plan` or `specify` run can validate actual authored files without an evaluated candidate. Declare their relative `document_paths` in the request, then call `validate-documents --run RUN --document-root AUTHORED_FOLDER --manifest MANIFEST.json`. The runner captures a separate immutable `documents` snapshot and validates those exact bytes against the accepted request/objective. A changed draft requires a versioned run; a candidate is never fabricated. Unsupported formats and stale sessions still block acceptance.
+
+Use Technical Writer's catalogue-derived `--kind` help and its explicit `context.instruction_format`: `project`, `subagent` or the supported `codex-toml` route. Preserve the verified interpreter through every dependent call. A review operation does not establish complete creation validation.

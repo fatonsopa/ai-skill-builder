@@ -11,6 +11,41 @@ Create and improve reusable AI skills with executable workflows, focused referen
 
 ## Installation
 
+### Planned release installation
+
+Skill Builder `0.1.0-rc.1` is a tested release candidate, not a public release. Its GitHub assets and npm package aren't published yet, so the commands below work only after a release owner publishes them; until then, use the source instructions in the next sections. The candidate's install evidence covers macOS. Linux and WSL use the same steps but aren't verified yet.
+
+You need Python 3.11 or later. The GitHub route also needs `curl` and `sha256sum` or `shasum`; the npm route needs Node.js 18 or later with npm. Document authoring also needs the checked writing dependency described above: SpecDev (`specdev`) or the supported Technical Writer installation.
+
+1. Download the installer from the GitHub release, then run it:
+
+   ```sh
+   install_dir=$(mktemp -d)
+   curl -fsSL https://github.com/fatonsopa/ai-skill-builder/releases/latest/download/install.sh -o "$install_dir/install.sh" && sh "$install_dir/install.sh"
+   ```
+
+   The installer downloads the release's `SHA256SUMS` and the payload it lists, and checks the payload's checksum before changing anything. If the checksum doesn't match, it stops and keeps the current installation. It installs the release under `~/.local/share/skill-builder/releases/VERSION` with its own Python environment, points `~/.local/share/skill-builder/current` at it, and writes the `skill-builder` command to `~/.local/bin`. Set `SKILL_BUILDER_VERSION` to a tag such as `v0.1.0-rc.1` for a specific release, or `SKILL_BUILDER_PREFIX` to install somewhere other than `~/.local`. If a prerequisite is missing, the installer names it and stops.
+
+   Or install the same release with npm:
+
+   ```sh
+   npm install -g @fatonsopa/skill-builder@latest
+   ```
+
+   The npm package carries the same payload. On its first run, `skill-builder` sets up the Python environment inside the installed package folder; if Python 3.11 or later is missing, it names the prerequisite and stops.
+
+2. Run `skill-builder --version`. It prints the version, the source revision and the command's path; if another copy is earlier on your PATH, fix that before continuing. Then connect the hosts you use:
+
+   ```sh
+   skill-builder host init --tools codex,claude
+   ```
+
+   You can select just one host. Setup copies the release into `~/.agents/skills/skill-builder` for Codex and `~/.claude/skills/skill-builder` for Claude Code, and links that copy to the release's Python environment. It reports each destination and the invocation to use: start a new session, then invoke `$skill-builder` in Codex or `/skill-builder` in Claude Code. If a destination already holds a Skill Builder that this command didn't install, such as a source installation, setup stops without changing it. Repeating setup leaves one entry per host. Setup doesn't touch your projects or other skills.
+
+3. To upgrade, use the channel you installed with: run the installer again, or run `npm install -g @fatonsopa/skill-builder@latest`. Then run `skill-builder host update`. If you edited a file that setup installed, the update names the file and leaves that host on its current version; your own files beside the skill are kept. To remove Skill Builder, run `skill-builder host remove`, which deletes only unedited files that setup installed. Then remove the command with the channel you installed it with. For npm, run `npm uninstall -g @fatonsopa/skill-builder`. For the GitHub installer, delete the paths it printed: `~/.local/bin/skill-builder` and `~/.local/share/skill-builder`.
+
+To have an agent help, ask it to follow this section for your chosen hosts, check for an existing installation first, and report the version, destination and working invocation. [Release acceptance](openspec/changes/improve-skill-builder/specs/skill-assignments/spec.md#install-the-release-and-connect-a-host) · [OpenSpec’s installation method](https://github.com/Fission-AI/OpenSpec/blob/v2.1.1/docs/installation.md)
+
 ### Get the skill
 
 Clone the repository, then enter the skill folder:

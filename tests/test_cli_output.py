@@ -160,3 +160,47 @@ class CliOutputTests(unittest.TestCase):
             status = subprocess.run(cli + ['status', '--run', str(run)], capture_output=True, text=True, check=True)
             self.assertLess(len(status.stdout), 4096)
             self.assertEqual(json.loads(status.stdout)['run_id'], state['run_id'])
+
+
+class SourceRecoveryTests(unittest.TestCase):
+    def test_omitted_middle_and_tail_are_recovered_from_one_revision(self):
+        from runtime.common import read_source, source_reference, Invalid
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'source.md'
+            path.write_text('Opening\n'+'A long ordinary clause.\n'*500+'Only release after actual approval.\nUnless the scoped waiver applies.\n')
+            ref=source_reference(path,100)
+            self.assertFalse(ref['complete']);self.assertNotIn('text',ref)
+            row=read_source(path,ref['sha256'],502,503)
+            self.assertIn('Unless',row['text']);self.assertTrue(row['complete_section'])
+            path.write_text('new revision')
+            with self.assertRaisesRegex(Invalid,'revision changed'):read_source(path,ref['sha256'],1,1)
+            small=source_reference(path)
+            self.assertTrue(small['complete']);self.assertEqual(small['text'],'new revision')
+
+
+class IsolatedCliEntryTests(unittest.TestCase):
+    def test_isolated_python_resolves_the_actual_package_from_another_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run([sys.executable, '-I', str(ROOT / 'scripts/skill_builder_cli.py'), 'schema', 'request'],
+                                    cwd=directory, text=True, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('operation', json.loads(result.stdout)['properties'])
+
+
+class RejectedOperationLoggingTests(unittest.TestCase):
+    def test_rejected_cli_operation_records_correlated_metadata_without_reason_content(self):
+        import contextlib, io
+        from skill_builder_cli import main
+        writer_fixture(self)
+        with tempfile.TemporaryDirectory() as directory:
+            run=Path(directory)/'run'
+            state=workflow.start(run,{'operation':'create','skill_name':'example','brief':'A bounded task.'},protocol_version=1)
+            with contextlib.redirect_stderr(io.StringIO()):
+                status=main(['revise','--run',str(run),'--phase','plan','--hypothesis','SENSITIVE_REASON'])
+            self.assertEqual(status,2)
+            event=json.loads((run/'events.jsonl').read_text().splitlines()[-1])
+            self.assertEqual(event['event'],'operation_failed')
+            self.assertEqual(event['run_id'],state['run_id'])
+            self.assertEqual(event['phase'],'research')
+            self.assertEqual(event['data']['error_type'],'Invalid')
+            self.assertNotIn('SENSITIVE_REASON',json.dumps(event))

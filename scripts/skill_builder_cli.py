@@ -7,6 +7,10 @@ import sys
 import tempfile
 import shutil
 
+# Keep this entry point usable with Python's isolated mode as well as through
+# a task-local skill symlink; imports belong to this installed package.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from runtime import contracts, workflow, completion
 from runtime.artifacts import check_package
 from runtime.common import Invalid, load, locked, save
@@ -21,10 +25,20 @@ def parser():
     policy = commands.add_parser('completion-init', help='Freeze one objective-wide scope, check list and cumulative budget.')
     policy.add_argument('--workspace', type=Path, required=True)
     policy.add_argument('--definition', type=Path, required=True)
-    for name in ('completion-status', 'completion-record-check', 'completion-record-hosts', 'completion-finding', 'completion-amend', 'completion-delivered'):
+    for name in ('completion-status', 'completion-record-check', 'completion-record-hosts', 'completion-finding', 'completion-amend', 'completion-delivered', 'completion-checkpoint', 'completion-wait', 'completion-resume'):
         item = commands.add_parser(name)
         item.add_argument('--policy', type=Path, required=True)
         item.add_argument('--package', type=Path)
+        if name == 'completion-checkpoint':
+            item.add_argument('--component', required=True)
+            item.add_argument('--lesson', action='append', default=[])
+        if name in {'completion-wait', 'completion-resume'}:
+            item.add_argument('--gate', required=True)
+        if name == 'completion-wait':
+            item.add_argument('--check', action='append', required=True)
+            item.add_argument('--reason', required=True)
+        if name == 'completion-resume':
+            item.add_argument('--authorization', type=Path, required=True)
         if name == 'completion-record-check':
             item.add_argument('--check', required=True)
             item.add_argument('--evidence', type=Path, required=True)
@@ -41,6 +55,18 @@ def parser():
     documents = commands.add_parser("validate-documents", help="Accept every changed document through Technical Writer.")
     documents.add_argument("--run", type=Path, required=True)
     documents.add_argument("--manifest", type=Path, required=True)
+    documents.add_argument("--document-root", type=Path, help="Authored planning documents; no candidate is fabricated.")
+    refresh = commands.add_parser('refresh-managed', help='Refresh declared managed identities while preserving immutable provenance.')
+    refresh.add_argument('--package', type=Path, required=True)
+    refresh.add_argument('--path', action='append', required=True)
+    refresh.add_argument('--expected-record-sha256', required=True)
+    refresh.add_argument('--evidence', type=Path, required=True)
+    read = commands.add_parser('read-source', help='Recover a bounded complete source section from exact original bytes.')
+    read.add_argument('--path', type=Path, required=True)
+    read.add_argument('--sha256', required=True)
+    read.add_argument('--start', type=int, default=1)
+    read.add_argument('--end', type=int)
+    read.add_argument('--max-chars', type=int, default=12000)
     start = commands.add_parser("start", help="Capture a request and source snapshot.")
     start.add_argument("--request", type=Path, required=True)
     start.add_argument("--run", type=Path, required=True)
@@ -58,6 +84,7 @@ def parser():
     revise = commands.add_parser("revise")
     revise.add_argument("--run", type=Path, required=True)
     revise.add_argument("--hypothesis", required=True)
+    revise.add_argument('--phase', choices=['research', 'specify', 'plan'], help='Correct planning in the same run; before the first candidate, plan metadata can be corrected while frozen criteria and cumulative limits remain fixed.')
     apply = commands.add_parser("apply")
     apply.add_argument("--run", type=Path, required=True)
     apply.add_argument("--destination", type=Path)
@@ -141,7 +168,10 @@ def replay(root):
         if request.get("source"):
             request["source"] = str((Path(root) / "baseline").resolve())
         workflow.start(target, request, protocol_version=state.get("protocol_version", 1), replay_only=True)
-        for path in sorted((Path(root) / "responses").glob("*.json")):
+        for response_index, path in enumerate(sorted((Path(root) / "responses").glob("*.json"))):
+            for revision in state.get('planning_revisions', []):
+                if revision['after_responses'] == response_index:
+                    workflow.revise(target, revision['hypothesis'], phase=revision['phase'])
             original = load(path)
             current_state = workflow.read_state(target)
             if original["phase"] == "produce" and current_state["phase"] != "produce":
@@ -178,6 +208,9 @@ def replay(root):
                 "packet_sha256": current_packet["packet_sha256"],
             }
             workflow.submit(target, adapted)
+        for revision in state.get('planning_revisions', []):
+            if revision['after_responses'] == len(responses):
+                workflow.revise(target, revision['hypothesis'], phase=revision['phase'])
         rebuilt = workflow.read_state(target)
         files = workflow.inventory(target / "candidate")
     return {
@@ -216,7 +249,13 @@ def main(argv=None):
             value = completion.create(args.workspace, load(args.definition))
         elif args.command.startswith('completion-'):
             package = args.package or Path(completion.read(args.policy)['contract']['project'])
-            if args.command == 'completion-status':
+            if args.command == 'completion-checkpoint':
+                value = completion.checkpoint(args.policy, args.component, package, args.lesson)
+            elif args.command == 'completion-wait':
+                value = completion.user_wait(args.policy, args.gate, args.check, args.reason)
+            elif args.command == 'completion-resume':
+                value = completion.user_resume(args.policy, args.gate, load(args.authorization))
+            elif args.command == 'completion-status':
                 value = completion.status(args.policy, package)
             elif args.command == 'completion-record-check':
                 value = completion.record(args.policy, args.check, package, args.evidence)
@@ -228,6 +267,12 @@ def main(argv=None):
                 value = completion.finding(args.policy, args.classification, args.requirement, args.text, args.check)
             else:
                 value = completion.delivered(args.policy, package)
+        elif args.command == 'refresh-managed':
+            from runtime.artifacts import refresh_managed
+            value = refresh_managed(args.package, args.path, args.expected_record_sha256, args.evidence)
+        elif args.command == 'read-source':
+            from runtime.common import read_source
+            value = read_source(args.path, args.sha256, args.start, args.end, args.max_chars)
         elif args.command == "check-process":
             from evaluate import grade_process
             from runtime.common import validate
@@ -270,13 +315,13 @@ def main(argv=None):
                     value = workflow.packet(args.run)
                 elif args.command == "validate-documents":
                     from runtime.technical_writer import validate_documents
-                    value = validate_documents(args.run, args.manifest)
+                    value = validate_documents(args.run, args.manifest, args.document_root)
                 elif args.command == "submit":
                     value = workflow.submit(args.run, load(args.response))
                 elif args.command == "evaluate":
                     value = workflow.run_evaluation(args.run, args.allow_exec, args.baseline, args.observations)
                 elif args.command == "revise":
-                    value = workflow.revise(args.run, args.hypothesis)
+                    value = workflow.revise(args.run, args.hypothesis, args.phase)
                 elif args.command == "apply":
                     value = workflow.apply(args.run, args.destination)
                 elif args.command == "recover":
@@ -307,6 +352,14 @@ def main(argv=None):
             return 1
         return 0
     except (Invalid, OSError, ValueError, KeyError) as error:
+        run = getattr(args, 'run', None)
+        if run and (Path(run) / 'state.json').is_file():
+            try:
+                from runtime.common import digest
+                workflow.event(run, 'operation_failed', {'operation': args.command,
+                    'error_type': type(error).__name__, 'error_sha256': digest(str(error).encode())})
+            except (OSError, ValueError, KeyError):
+                pass  # A logging failure must not replace the original operation error.
         print(json.dumps({"error": str(error), "type": type(error).__name__}), file=sys.stderr)
         return 2
 

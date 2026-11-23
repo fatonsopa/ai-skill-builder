@@ -1,4 +1,6 @@
 """Package rendering and checks; supplied documents never execute themselves."""
+import record_retention
+
 import json
 from pathlib import Path
 import re
@@ -15,8 +17,51 @@ from .common import Invalid, digest, inside, inventory, relative, save, copy_pac
 from .hosts import POLICY
 from .readme import render as render_readme, check as check_readme
 
-MANAGED = {"scripts/case_inputs.py", "scripts/provider_results.py", "scripts/host_coverage.py", "config/host_validation.json", "scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
+MANAGED = {"scripts/record_retention.py", "scripts/case_inputs.py", "scripts/provider_results.py", "scripts/host_coverage.py", "config/host_validation.json", "scripts/continuation.py", "scripts/run_tests.py", "config/test_impact.json", "AGENTS.md", "CLAUDE.md", "LICENSE", "config/repository_layout.json", "config/domains.json", "scripts/repository_files.py", "scripts/repository_layout.py", "SKILL.md", "README.md", "config/documentation.json", "evals/cases.json", "scripts/evaluate.py", "scripts/install_skill.py", "config/build_record.json", "config/host_policy.json"}
 EVALUATOR = Path(__file__).resolve().parents[1] / "evaluate.py"
+
+
+def execution_logging_rules():
+    """Read the authored default; assembly never invents logging policy."""
+    shared = (EVALUATOR.parent.parent / 'assets/AGENTS.md').read_text()
+    return '## Execution records\n' + shared.split('## Execution records\n', 1)[1]
+MECHANIC_DEPENDENCIES = {
+    'scripts/evaluate.py': {'scripts/continuation.py', 'scripts/repository_files.py', 'scripts/case_inputs.py'},
+    'scripts/run_tests.py': {'scripts/repository_files.py'},
+    'scripts/install_skill.py': {'scripts/repository_files.py'},
+    'scripts/repository_layout.py': set(),
+    'scripts/host_coverage.py': {'scripts/repository_files.py', 'scripts/case_inputs.py', 'scripts/provider_results.py'},
+}
+
+
+def selected_mechanics(plan):
+    if 'package_profile' not in plan:
+        return {p for p in MANAGED if p.startswith('scripts/') and p != 'scripts/record_retention.py'}
+    selected = {c['path'] for c in plan['components'] if c.get('origin', 'builder') == 'builder' and c['path'] in MANAGED and c['path'].startswith('scripts/')}
+    for path in selected:
+        if MECHANIC_DEPENDENCIES.get(path, set()) - selected:
+            raise Invalid('A selected mechanic lacks its required supported dependencies: ' + path)
+    if plan['package_profile'] == 'native' and (selected or plan['automations']):
+        raise Invalid('A native package cannot declare custom automation or maintenance scripts.')
+    return selected
+
+
+def check_plan_metadata_change(previous, current):
+    """Permit annotations for already planned files, not acceptance changes."""
+    editable = {'components', 'authored_outputs'}
+    if {k: v for k, v in previous.items() if k not in editable} != {k: v for k, v in current.items() if k not in editable}:
+        raise Invalid('Frozen plan criteria, permissions and scope cannot change during metadata correction; only components and authored_outputs may be corrected.')
+    owned = [path for domain in previous.get('domains', []) for path in domain['owned_paths']]
+    for field in editable:
+        old_paths = {item['path'] for item in previous.get(field, [])}
+        new_paths = {item['path'] for item in current.get(field, [])}
+        if old_paths - new_paths:
+            raise Invalid('Metadata correction cannot remove already declared components or owners.')
+        for path in new_paths - old_paths:
+            relative(path)
+            if not any(path == name or name.endswith('/') and path.startswith(name) for name in owned):
+                raise Invalid('Metadata correction adds an unplanned output path: ' + path)
+
 
 
 
@@ -31,8 +76,16 @@ def workflow_requirements(spec):
         if identifier in result or not steps or len(steps) != len(set(steps)):
             raise Invalid("Workflow IDs and step IDs must be unique and nonempty.")
         checks = {"success", "behavior"}
+        if "requires" in flow:
+            from evaluate import relation_failures
+            errors = relation_failures(steps, flow["requires"])
+            if errors:
+                raise Invalid("Workflow " + identifier + " has an invalid dependency relation: " + "; ".join(errors))
         if len(steps) == 1:
             checks.add("invalid_input")
+        elif "requires" in flow:
+            checks.update("omission:" + step for step in steps)
+            checks.update("order:" + before + "->" + step for step, prerequisites in flow["requires"].items() for before in prerequisites)
         else:
             checks.update("omission:" + step for step in steps)
             checks.update("order:" + a + "->" + b for a, b in zip(steps, steps[1:]))
@@ -49,6 +102,7 @@ def check_workflow_coverage(spec, plan):
     required = workflow_requirements(spec)
     flows = {item["id"]: item for item in spec["workflows"]}
     covered = {identifier: set() for identifier in required}
+    native = plan.get("package_profile") == "native"
     for case in plan["cases"]:
         flow_case = case.get("workflow")
         if not flow_case:
@@ -62,19 +116,34 @@ def check_workflow_coverage(spec, plan):
         labels = {scenario} if scenario in {"success", "invalid_input", "behavior"} else {scenario + ":" + value for value in flow_case["covers"]}
         if not labels or labels - set(required[identifier]):
             raise Invalid("Workflow case covers an undeclared or empty check: " + case["id"])
+        if native and scenario == "behavior":
+            labels.update(flow_case["covers"])
+            if labels - set(required[identifier]):
+                raise Invalid("Native case claims an undeclared workflow outcome.")
         flow = flows[identifier]
-        if scenario == "behavior":
+        if scenario == "behavior" or native and case["kind"] == "behavior":
             if case["kind"] != "behavior" or not case["semantic"] or "request" not in case or not case.get("resources"):
                 raise Invalid("Every workflow needs a real AI behavioral case, its task/resources, and semantic review.")
         elif case["kind"] == "behavior":
             raise Invalid("Classify model observations as behavioral coverage, not mechanical workflow proof.")
         process = case["expect"].get("process")
+        if native and case["kind"] == "behavior" and not process:
+            raise Invalid("Native workflow coverage needs code-checked actual process evidence and semantic review.")
         if process:
             if set(process["order"]) - set(flow["steps"]) or (set(process["visible"]) | set(process["evidence"])) - set(process["order"]):
                 raise Invalid("Trace assertions name unknown or absent workflow steps.")
-        if scenario == "success" and len(flow["steps"]) > 1:
+        if "success" in labels and len(flow["steps"]) > 1 and "requires" in flow:
+            if not process or sorted(process["order"]) != sorted(flow["steps"]) or process.get("requires") != flow["requires"] or not case["semantic"]:
+                raise Invalid('A dependency-aware success case needs every declared step, exactly the declared prerequisites and semantic evidence review: '
+                              + json.dumps({'case_id': case['id'], 'workflow_id': identifier, 'required_steps': flow['steps'],
+                                            'requires': flow['requires'], 'actual_process': process}, sort_keys=True))
+        elif "success" in labels and len(flow["steps"]) > 1:
             if not process or process["order"] != flow["steps"] or not case["semantic"]:
-                raise Invalid("A multi-step success case needs its full ordered trace and semantic evidence review.")
+                raise Invalid('A multi-step success case needs its full ordered trace and semantic evidence review: '
+                              + json.dumps({'case_id': case['id'], 'workflow_id': identifier,
+                                            'required_order': flow['steps'], 'actual_process': process,
+                                            'semantic': case['semantic']}, sort_keys=True)
+                              + '. If the declared workflow is incorrect, use revise --phase specify before the plan is frozen; do not invent an order requirement or trace.')
         covered[identifier].update(labels)
     missing = {name: sorted(set(checks) - covered[name]) for name, checks in required.items() if set(checks) - covered[name]}
     if missing:
@@ -82,10 +151,37 @@ def check_workflow_coverage(spec, plan):
     return {name: {"required": checks, "covered": sorted(covered[name])} for name, checks in required.items()}
 
 
-def check_plan(spec, plan, require_workflows=False):
+def check_plan(spec, plan, require_workflows=False, required_root_outputs=None):
     if require_workflows:
         check_workflow_coverage(spec, plan)
-    requirements = [item["id"] for item in spec["requirements"]]
+    if 'authored_outputs' in plan:
+        quality = plan.get('case_review', {})
+        if quality.get('cases_sha256') != digest(plan['cases']) or quality.get('accepted') is not True:
+            raise Invalid('Cases need accepted source-grounded feasibility, input, oracle, runtime and correction review bound to their actual bytes. '
+                          + json.dumps({'expected_cases_sha256': digest(plan['cases'])}, sort_keys=True)
+                          + ' Review the actual cases before correcting the binding; a matching hash does not establish semantic acceptance.')
+        outputs = plan['authored_outputs']
+        names = [item['path'] for item in outputs]
+        roots = {'SKILL.md', 'README.md', 'AGENTS.md', 'CLAUDE.md'} if required_root_outputs is None else set(required_root_outputs)
+        required_outputs = roots | {r['path'] for r in plan['resources']}
+        if len(names) != len(set(names)) or required_outputs - set(names):
+            raise Invalid('Declare one authored owner and execution consumers for each instruction/document output: '
+                          + json.dumps({'missing_outputs': sorted(required_outputs - set(names)),
+                                        'duplicate_outputs': sorted({name for name in names if names.count(name) > 1})}, sort_keys=True))
+        for output in outputs:
+            relative(output['path'])
+            if not output['owner'].strip() or not output['consumers']:
+                raise Invalid('Authored output lacks its owner or consumers.')
+        requirement_ids = {r['id'] for r in spec['requirements']}
+        selected_mechanics(plan)
+        components = plan['components']
+        if len({c['path'] for c in components}) != len(components):
+            raise Invalid('Component paths must be unique.')
+        for component in components:
+            relative(component['path'])
+            if not component['requirements'] or set(component['requirements']) - requirement_ids or not component['reason'].strip():
+                raise Invalid('Each component needs known requirements and a concrete inclusion reason.')
+    requirements = [item['id'] for item in spec['requirements']]
     if len(set(requirements)) != len(requirements):
         raise Invalid("Requirement IDs must be unique.")
     cases = plan["cases"]
@@ -124,7 +220,8 @@ def check_plan(spec, plan, require_workflows=False):
     names = {row["name"] for row in domains}
     for row in domains:
         if set(row["depends_on"]) - names:
-            raise Invalid("A domain refers to an unknown dependency.")
+            raise Invalid('A domain refers to an unknown dependency: '
+                          + json.dumps({'domain': row['name'], 'unknown_dependencies': sorted(set(row['depends_on']) - names), 'declared_domains': sorted(names)}, sort_keys=True))
         for path in row["owned_paths"]:
             relative(path.rstrip("/"))
             if any(path == old or path.endswith("/") and old.startswith(path) or old.endswith("/") and path.startswith(old) for old in owners):
@@ -155,7 +252,7 @@ def check_plan(spec, plan, require_workflows=False):
 def generated_test_configuration(root, plan):
     """Select controls for their implementation domains and declared dependencies."""
     root = Path(root)
-    groups = {case['id']: {'argv': ['{python}', 'scripts/evaluate.py', '--package', '.', '--allow-exec', '--case', case['id']]} for case in plan['cases']}
+    groups = {case['id']: {'argv': ['{python}', 'scripts/evaluate.py', '--package', '.', '--allow-exec', '--case', case['id']]} for case in plan['cases'] if case['kind'] != 'behavior'}
     domains = {domain['name']: domain for domain in plan['domains']}
 
     def local_path(value, existing=False):
@@ -168,6 +265,8 @@ def generated_test_configuration(root, plan):
 
     rules = []
     for case in plan['cases']:
+        if case['kind'] == 'behavior':
+            continue  # Actual native observations use the separate behavioral acceptance gate.
         direct = {name for value in case.get('command', [])[1:] if not value.startswith('-')
                   if (name := local_path(value, existing=True)) is not None}
         if case['kind'] != 'behavior':
@@ -195,7 +294,8 @@ def generated_test_configuration(root, plan):
     rules.append({'paths': ['evals/cases.json', 'scripts/evaluate.py'], 'tests': list(groups)})
     rules.append({'paths': ['AGENTS.md', 'CLAUDE.md', 'README.md', 'SKILL.md', 'LICENSE'], 'tests': [],
                   'reason': 'Review changed instructions; unrelated executable cases are not selected.'})
-    return {'schema_version': 1, 'tests': groups, 'rules': rules, 'final_checks': groups}
+    return {'schema_version': 1, 'tests': groups, 'rules': rules,
+            'final_checks': {c['id']: groups[c['id']] for c in plan['cases'] if c['kind'] != 'behavior'}}
 
 
 def render(root, request, spec, plan, response, source=None):
@@ -207,6 +307,7 @@ def render(root, request, spec, plan, response, source=None):
     else:
         root.mkdir(parents=True)
     creating = request["operation"] in {"create", "rebuild"}
+    mechanics = selected_mechanics(plan)
     for name in response.get("remove", []):
         path = inside(root, name)
         if creating and name in MANAGED:
@@ -221,7 +322,12 @@ def render(root, request, spec, plan, response, source=None):
             except OSError:
                 break
             parent = parent.parent
-    for name, content in response["files"].items():
+    if 'components' in plan:
+        justified = {c['path'] for c in plan['components']}
+        unjustified = sorted(name for name in response['files'] if Path(name).suffix in {'.py', '.sh', '.js', '.mjs', '.ts'} and name not in justified)
+        if unjustified:
+            raise Invalid('Produced executable needs a capability justification: ' + json.dumps(unjustified))
+    for name, content in response['files'].items():
         path = inside(root, name)
         if creating and name in MANAGED:
             raise Invalid(f"Use structured fields rather than overriding managed file {name}.")
@@ -243,20 +349,24 @@ def render(root, request, spec, plan, response, source=None):
             project_notes = (root / "AGENTS.md").read_text()
         instructions = shared
         if project_notes and project_notes.strip() != shared.strip():
-            instructions += "\n## Project guidance\n\nThe shared testing and approval rules above take precedence over conflicting project notes.\n\n" + project_notes.strip() + "\n"
+            instructions += "\n## Project guidance\n\n" + project_notes.strip() + "\n"
         (root / "AGENTS.md").write_text(instructions)
         (root / "CLAUDE.md").write_text("@AGENTS.md\n")
-        for name in ("case_inputs.py", "continuation.py", "repository_files.py", "repository_layout.py", "run_tests.py", "host_coverage.py", "provider_results.py"):
-            (root / "scripts").mkdir(exist_ok=True)
-            shutil.copyfile(EVALUATOR.parent / name, root / "scripts" / name)
-        save(root / "config/host_validation.json", {"schema_version": 1, "required_hosts": ["codex", "claude-code"], "case_files": [{"path": "evals/cases.json"}]})
+        for name in ("record_retention.py", "case_inputs.py", "continuation.py", "repository_files.py", "repository_layout.py", "run_tests.py", "host_coverage.py", "provider_results.py"):
+            if "scripts/" + name in mechanics:
+                (root / "scripts").mkdir(exist_ok=True)
+                shutil.copyfile(EVALUATOR.parent / name, root / "scripts" / name)
+        if "scripts/host_coverage.py" in mechanics:
+            save(root / "config/host_validation.json", {"schema_version": 1, "required_hosts": ["codex", "claude-code"], "case_files": [{"path": "evals/cases.json"}]})
         save(root / "config/repository_layout.json", json.loads((EVALUATOR.parent.parent / "config/repository_layout.json").read_text()))
         save(root / "config/domains.json", {"schema_version": 1, "domains": plan["domains"]})
-        save(root / "config/test_impact.json", generated_test_configuration(root, plan))
+        if "scripts/run_tests.py" in mechanics:
+            save(root / "config/test_impact.json", generated_test_configuration(root, plan))
         data = {
             "name": request["skill_name"], "description": response["description"],
             "instructions": response["instructions"], "resources": plan["resources"],
             "documentation": response["documentation"],
+            **({"execution": plan["execution"], "authored_outputs": plan["authored_outputs"], "components": plan["components"], "package_profile": plan["package_profile"]} if "authored_outputs" in plan else {}),
         }
         inherited = {}
         if source and (Path(source) / "SKILL.md").is_file():
@@ -273,35 +383,59 @@ def render(root, request, spec, plan, response, source=None):
             f"- [{item['path']}]({item['path']}): {item['purpose']} Read when {re.sub(r'(?i)^when +', '', item['when'])}."
             for item in data["resources"]
         )
-        (root / "SKILL.md").write_text(
-            f"---\n{metadata}\n---\n\n# {data['name']}\n\n{data['instructions'].strip()}\n"
-            + (f"\n## Resources\n\n{routing}\n" if routing else "")
-            + "\n## Host and improvement behavior\n\n"
-            "Use the current host's model when AI judgment is needed. Keep shared mechanics portable across ChatGPT, Claude, Codex, and Claude Code; check the task's required execution and file tools. Do not require another provider's CLI for normal use.\n\n"
-            "Before claiming multi-host validation, freeze config/host_validation.json with scripts/host_coverage.py, collect actual tasks and public traces on each required host, and assess their bound reviews. A missing host or unreviewed result prevents acceptance of that claim; installation or a mechanical pass is not behavioral evidence. Native use still requires only the current host.\n\n"
-            "An observed task timeout is failed even with an incomplete trace; missing observations are not run. Preserve both the failed attempt and uncertainty about its cause. Do not relabel a timeout as unrun or require a code change merely to retry an unchanged task.\n\n"
-            "Routine testing and necessary retries are part of the authorized task. Choose bounded batches from task complexity and observed runtime, and continue without asking for each extra test. Use scripts/continuation.py to enforce retry ceilings, record each reason and preserve failed attempts and frozen criteria. Stop and report stalled progress or exhausted retry ceilings. Respect explicit user hard limits, host permissions and paid-service restrictions; ask only when a material change requires a new decision.\n"
-        )
+        if 'authored_outputs' in plan:
+            if not response.get('repository_instructions', '').strip():
+                raise Invalid('Missing authored reconciled repository instructions.')
+            if 'execution_logging' in response:
+                rules = execution_logging_rules()
+                logging = response['execution_logging']
+                if logging['rules_sha256'] != digest(rules.encode()) or rules.strip() not in response['repository_instructions']:
+                    raise Invalid('Include the exact authored execution-record rules from the current packet in repository_instructions; stale or missing defaults cannot be assembled.')
+                if 'AGENTS.md' not in response['instructions']:
+                    raise Invalid('Route runtime instructions to AGENTS.md so default execution records reach the skill user.')
+                managed_retention = logging['mode'] == 'structured_file'
+                if managed_retention and 'scripts/record_retention.py' not in selected_mechanics(plan):
+                    raise Invalid('Structured-file execution records need the justified scripts/record_retention.py mechanic and start/finish integration in their existing executor.')
+                data['execution_logging'] = {**logging, 'capture_content': logging.get('capture_content', False),
+                    'retention': {'policy': record_retention.DEFAULT_POLICY,
+                                  'mode': 'managed_files' if managed_retention else 'host_managed',
+                                  'controller': 'scripts/record_retention.py' if managed_retention else 'host retention controls'}}
+            (root / 'AGENTS.md').write_text(response['repository_instructions'])
+            (root / 'SKILL.md').write_text(f"---\n{metadata}\n---\n\n" + response['instructions'])
+        else:
+            (root / "SKILL.md").write_text(
+                f"---\n{metadata}\n---\n\n# {data['name']}\n\n{data['instructions'].strip()}\n"
+                + (f"\n## Resources\n\n{routing}\n" if routing else "")
+                + "\n## Host and improvement behavior\n\n"
+                "Use the current host's model when AI judgment is needed. Keep shared mechanics portable across ChatGPT, Claude, Codex, and Claude Code; check the task's required execution and file tools. Do not require another provider's CLI for normal use.\n\n"
+                "Before claiming multi-host validation, freeze config/host_validation.json with scripts/host_coverage.py, collect actual tasks and public traces on each required host, and assess their bound reviews. A missing host or unreviewed result prevents acceptance of that claim; installation or a mechanical pass is not behavioral evidence. Native use still requires only the current host.\n\n"
+                "An observed task timeout is failed even with an incomplete trace; missing observations are not run. Preserve both the failed attempt and uncertainty about its cause. Do not relabel a timeout as unrun or require a code change merely to retry an unchanged task.\n\n"
+                "Routine testing and necessary retries are part of the authorized task. Choose bounded batches from task complexity and observed runtime, and continue without asking for each extra test. Use scripts/continuation.py to enforce retry ceilings, record each reason and preserve failed attempts and frozen criteria. Stop and report stalled progress or exhausted retry ceilings. Respect explicit user hard limits, host permissions and paid-service restrictions; ask only when a material change requires a new decision.\n"
+            )
         readme = render_readme(data["name"], data["documentation"])
-        save(root / "config/documentation.json", {"schema_version": 1, "name": data["name"], "documentation": data["documentation"]})
+        save(root / "config/documentation.json", {"schema_version": data["documentation"].get("schema_version", 1), "name": data["name"], "documentation": data["documentation"]})
         (root / "README.md").write_text(readme)
         (root / "evals").mkdir(exist_ok=True)
-        (root / "scripts").mkdir(exist_ok=True)
+        if mechanics:
+            (root / "scripts").mkdir(exist_ok=True)
         save(root / "evals/cases.json", plan["cases"])
-        shutil.copyfile(EVALUATOR, root / "scripts/evaluate.py")
-        shutil.copyfile(EVALUATOR.parent / "install_skill.py", root / "scripts/install_skill.py")
-        save(root / "config/host_policy.json", {
-            **POLICY,
-            "maintenance": {
-                "max_experiments": request.get("limits", {}).get("max_experiments", 5),
-                "max_stagnant_experiments": request.get("limits", {}).get("max_stagnant_experiments", 3),
-                "max_seconds": request.get("limits", {}).get("max_seconds", 600),
-                "target_success_percent": plan["target_success_percent"],
-                "allowed_candidate_paths": plan["allowed_candidate_paths"],
-                "hard_limits": request.get("hard_limits", {}),
-            },
-        })
-        managed = {name: digest((root / name).read_bytes()) for name in sorted(MANAGED) if name != "config/build_record.json"}
+        if "scripts/evaluate.py" in mechanics:
+            shutil.copyfile(EVALUATOR, root / "scripts/evaluate.py")
+        if "scripts/install_skill.py" in mechanics:
+            shutil.copyfile(EVALUATOR.parent / "install_skill.py", root / "scripts/install_skill.py")
+        if "scripts/evaluate.py" in mechanics:
+            save(root / "config/host_policy.json", {
+                **POLICY,
+                "maintenance": {
+                    "max_experiments": request.get("limits", {}).get("max_experiments", 5),
+                    "max_stagnant_experiments": request.get("limits", {}).get("max_stagnant_experiments", 3),
+                    "max_seconds": request.get("limits", {}).get("max_seconds", 600),
+                    "target_success_percent": plan["target_success_percent"],
+                    "allowed_candidate_paths": plan["allowed_candidate_paths"],
+                    "hard_limits": request.get("hard_limits", {}),
+                },
+            })
+        managed = {name: digest((root / name).read_bytes()) for name in sorted(MANAGED) if name != "config/build_record.json" and (root / name).is_file()}
         save(root / "config/build_record.json", {"schema_version": 1, "source": data, "managed_hashes": managed})
     return inventory(root)
 
@@ -310,7 +444,17 @@ def check_package(root, full=True, literals=(), structure=False):
     root = Path(root)
     findings = []
     files = inventory(root)
+    build = root / 'config/build_record.json'
+    authored_record = json.loads(build.read_text()).get('source', {}) if build.is_file() else {}
+    selected_profile = authored_record.get('package_profile')
     required = ["SKILL.md"] + (["LICENSE", "README.md", "AGENTS.md", "CLAUDE.md", "evals/cases.json", "scripts/evaluate.py", "config/host_policy.json"] if full else [])
+    if selected_profile:
+        required = ['SKILL.md', 'README.md', 'LICENSE', 'AGENTS.md', 'CLAUDE.md', 'evals/cases.json']
+        component_paths = {c['path'] for c in authored_record['components']}
+        required += sorted(component_paths)
+        extra = {name for name in files if name in MANAGED and name.startswith('scripts/')} - component_paths
+        if extra:
+            findings.append('Unjustified bundled mechanics: ' + ', '.join(sorted(extra)))
     for name in required:
         if name not in files:
             findings.append(f"Missing required file: {name}")
@@ -346,7 +490,8 @@ def check_package(root, full=True, literals=(), structure=False):
         if path.suffix == ".md":
             content = path.read_text()
             texts[filename] = content
-            for match in re.finditer(r"\]\((<[^>]+>|[^)\s]+)\)", content):
+            # Raw task inputs keep their original bytes, including links to their own source tree.
+            for match in [] if filename.startswith("evals/fixtures/") else re.finditer(r"\]\((<[^>]+>|[^)\s]+)\)", content):
                 link = match[1].strip("<>")
                 parsed = urlsplit(link)
                 if parsed.scheme or not parsed.path:
@@ -372,6 +517,9 @@ def check_package(root, full=True, literals=(), structure=False):
             for filename, expected in contract["managed_hashes"].items():
                 if files.get(filename) != expected:
                     findings.append(f"Managed-file drift: {filename}")
+            for output in contract['source'].get('authored_outputs', []):
+                if output['path'] not in files:
+                    findings.append('Missing authored output: ' + output['path'])
             for resource in contract["source"]["resources"]:
                 if resource["path"] not in files:
                     findings.append(f"Missing declared resource: {resource['path']}")
@@ -383,3 +531,103 @@ def check_package(root, full=True, literals=(), structure=False):
         except (Invalid, OSError, ValueError, KeyError) as error:
             findings.append(f"Invalid public README: {error}")
     return {"passed": not findings, "findings": findings, "name": name, "files": files}
+
+
+def refresh_managed(root, paths, expected_record_sha256, evidence):
+    """Refresh only declared managed identities, preserving immutable prior bytes."""
+    from .common import load, locked
+    import base64
+    root, evidence = Path(root).resolve(), Path(evidence).resolve()
+    names = list(paths)
+    if not names or len(set(names)) != len(names) or evidence.is_relative_to(root) or evidence.exists():
+        raise Invalid('Choose unique managed paths and a new evidence file outside the package.')
+    import tempfile
+    lock_root = Path(tempfile.gettempdir()) / 'skill-builder-locks' / digest(str(root))
+    with locked(lock_root):
+        record_path = inside(root, 'config/build_record.json')
+        original = record_path.read_bytes()
+        if digest(original) != expected_record_sha256:
+            raise Invalid('Managed record changed; inspect the current provenance before refreshing.')
+        record = json.loads(original)
+        if any(name not in record['managed_hashes'] for name in names):
+            raise Invalid('Refresh is restricted to explicitly managed paths.')
+        before = inventory(root)
+        if any(name not in before for name in names):
+            raise Invalid('A managed refresh cannot hide a missing file.')
+        if any(before.get(name) != sha for name, sha in record['managed_hashes'].items() if name not in names):
+            raise Invalid('Unrelated managed drift remains; do not broaden a scoped refresh.')
+        updated = {**record, 'managed_hashes': {**record['managed_hashes'], **{n: before[n] for n in names}}}
+        proof = {'schema_version': 1, 'previous_record_sha256': digest(original),
+                 'previous_record_base64': base64.b64encode(original).decode(),
+                 'paths': names, 'before_managed_hashes': {n: record['managed_hashes'][n] for n in names},
+                 'after_managed_hashes': {n: before[n] for n in names},
+                 'identity_encoding': 'sha256_raw_bytes', 'source_fields_preserved': True}
+        if inventory(root) != before or record_path.read_bytes() != original:
+            raise Invalid('Package changed concurrently during managed refresh.')
+        save(evidence, proof)
+        updated['refresh_provenance'] = {'evidence': str(evidence), 'sha256': digest(evidence.read_bytes())}
+        save(record_path, updated)
+    return {'paths': names, 'evidence': str(evidence), 'record_sha256': digest(record_path.read_bytes())}
+
+
+def governing_revision(spec):
+    """Identity of the accepted specification that admitted assignments must cite."""
+    return 'spec-sha256:' + digest(spec)
+
+
+def check_assignments(spec, plan):
+    """Admit independently owned work only against the frozen specification and its review."""
+    revision = governing_revision(spec)
+    requirements = {item['id'] for item in spec['requirements']}
+    rows = plan['assignments']
+    identifiers = [row['id'] for row in rows]
+    if len(identifiers) != len(set(identifiers)):
+        raise Invalid('Assignment IDs must be unique: ' + json.dumps(sorted({i for i in identifiers if identifiers.count(i) > 1})))
+    for index, row in enumerate(rows):
+        location = {'assignment': row['id'], 'row': index}
+        if ('criterion' in row) == ('safeguard' in row):
+            raise Invalid('Bind each assignment to exactly one agreed criterion or one justified safeguard: ' + json.dumps(location, sort_keys=True))
+        if 'criterion' in row and row['criterion'] not in requirements:
+            raise Invalid('Assignment cites an unknown criterion; correct the reference before production: '
+                          + json.dumps({**location, 'criterion': row['criterion'], 'known_criteria': sorted(requirements)}, sort_keys=True))
+        if row['governing_revision'] != revision:
+            raise Invalid('Assignment is bound to a different specification revision: '
+                          + json.dumps({**location, 'cited': row['governing_revision'], 'governing_revision': revision}, sort_keys=True))
+    coverage = assignment_coverage(spec, plan)
+    orphaned = {requirement: row for requirement, row in coverage.items() if not row['assignments']}
+    if orphaned:
+        raise Invalid('Coverage is incomplete: a requirement has tests but no owning assignment. Add an eligible owner to this plan: '
+                      + json.dumps({requirement: {'cases': row['cases']} for requirement, row in orphaned.items()}, sort_keys=True))
+    review = plan['assignment_review']
+    if review['assignments_sha256'] != digest(rows):
+        raise Invalid('The assignment review must be bound to the submitted assignments: '
+                      + json.dumps({'expected_assignments_sha256': digest(rows)}, sort_keys=True)
+                      + ' Review the actual entries before correcting the binding; a matching hash does not establish acceptance.')
+    decisions = {row['id']: row for row in review['decisions']}
+    if len(decisions) != len(review['decisions']) or set(decisions) != set(identifiers):
+        raise Invalid('Record exactly one reviewer decision per assignment: '
+                      + json.dumps({'unreviewed': sorted(set(identifiers) - set(decisions)), 'unknown': sorted(set(decisions) - set(identifiers))}, sort_keys=True))
+    rejected = [{'assignment': d['id'], 'source': d['source'], 'rationale': d['rationale']} for d in review['decisions'] if d['accepted'] is not True]
+    if rejected:
+        raise Invalid('The plan reviewer rejected assignment meaning against its cited source: ' + json.dumps(rejected, sort_keys=True, ensure_ascii=False))
+    return {'governing_revision': revision, 'assignments_sha256': digest(rows), 'admitted': identifiers, 'coverage': coverage}
+
+
+def assignment_coverage(spec, plan):
+    """Reverse mapping from each requirement to its owning assignments and its cases."""
+    return {item['id']: {'assignments': [row['id'] for row in plan['assignments'] if row.get('criterion') == item['id']],
+                         'cases': [case['id'] for case in plan['cases'] if item['id'] in case['requirements']]}
+            for item in spec['requirements']}
+
+
+def admitted_assignments(state):
+    """The bounded assignment packet consumed by production and later phases."""
+    plan = state['data']['plan']
+    return {
+        'governing_revision': governing_revision(state['data']['specify']),
+        'assignments_sha256': digest(plan['assignments']),
+        'entries': plan['assignments'],
+        'coverage': assignment_coverage(state['data']['specify'], plan),
+        'reviewer': plan['assignment_review']['reviewer'],
+        'authority': 'Admission binds work to its criterion or safeguard. It grants no publication or other external action; request scope, completion scope and publication controls apply separately.',
+    }

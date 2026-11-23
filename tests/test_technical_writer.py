@@ -217,5 +217,75 @@ class TechnicalWriterTests(unittest.TestCase):
             writer.validate_documents(self.run, manifest)
 
 
+
+class PlanningDocumentTests(unittest.TestCase):
+    setUp = TechnicalWriterTests.setUp
+
+    def test_planning_acceptance_uses_actual_documents_without_a_candidate(self):
+        from fixtures import RESEARCH,SPEC
+        from runtime.common import digest
+        source=self.root/'source';source.mkdir();(source/'SKILL.md').write_text('Captured planning source.')
+        workflow.start(self.run,{'operation':'specify','skill_name':'plan-control','brief':'Specify the scoped change.','source':str(source),'document_paths':['plan.md']},protocol_version=1)
+        for data in (RESEARCH,SPEC):
+            packet=workflow.packet(self.run)
+            workflow.submit(self.run,{**{k:packet[k] for k in ('run_id','phase','packet_sha256')},'data':deepcopy(data)})
+        authored=self.root/'authored';authored.mkdir();draft=authored/'plan.md';draft.write_text('# Scoped plan\n\nPreserve the supplied requirements.\n')
+        state=workflow.read_state(self.run);session=self.root/'document-session'
+        save(session/'state.json',{'frozen':{'request':{'kind':'explanation','operation':'review','scope':'complete','context':{},'sources':[{'id':'builder','text':writer.source_text(state)}],'destination':str(self.root/'accepted-plan.md')}}})
+        review=session/'review.json';save(review,{'output_sha256':digest(draft.read_bytes()),'accepted':True,'checks_passed':True,'style_passed':True})
+        manifest=self.root/'manifest.json';save(manifest,[{'path':'plan.md','session':str(session),'review':str(review)}])
+        result=writer.validate_documents(self.run,manifest,authored)
+        self.assertTrue(result['passed']);self.assertFalse((self.run/'candidate').exists())
+        current=workflow.read_state(self.run)
+        self.assertNotIn('evaluation',current)
+        self.assertEqual((self.root/'accepted-plan.md').read_bytes(),draft.read_bytes())
+        (self.run/'documents/plan.md').write_text('Changed after acceptance.')
+        self.assertFalse(writer.gate(self.run,current,inventory(self.run/'documents'))['passed'])
+
 if __name__ == '__main__':
     unittest.main()
+
+
+class WriterIdentityTests(unittest.TestCase):
+    """T50: resolve SpecDev and its legacy identity without silent fallback."""
+
+    def setUp(self):
+        import os
+        from unittest.mock import patch
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        environment = {k: v for k, v in os.environ.items() if k != 'SKILL_BUILDER_TECHNICAL_WRITER'}
+        for patcher in (patch.dict(os.environ, environment, clear=True), patch.object(Path, 'home', return_value=self.root / 'home'),
+                        patch.object(writer, 'ROOT', self.root / 'workspace/skill-builder')):
+            patcher.start(); self.addCleanup(patcher.stop)
+
+    def writer(self, folder, name, validator=True):
+        (folder / 'scripts').mkdir(parents=True)
+        (folder / 'references').mkdir()
+        (folder / 'SKILL.md').write_text('---\nname: ' + name + '\ndescription: Staged writer.\n---\nStaged copy.\n')
+        (folder / 'references/writing_style.md').write_text('Style.\n')
+        if validator:
+            (folder / 'scripts/validate_document.py').write_text('print("{}")\n')
+        return folder
+
+    def test_t50_default_prefers_canonical_and_explicit_legacy_path_wins(self):
+        canonical = self.writer(self.root / 'home/.agents/skills/specdev', 'specdev')
+        self.writer(self.root / 'home/.claude/skills/technical-writer', 'technical-writer')
+        selected = writer.capture({})
+        self.assertEqual((selected['name'], selected['path']), ('specdev', str(canonical.resolve())))
+        legacy = self.writer(self.root / 'explicit/technical-writer', 'technical-writer')
+        for request in ({'technical_writer': str(legacy)}, {'technical_writer': str(legacy / 'SKILL.md')}):
+            self.assertEqual(writer.capture(request)['path'], str(legacy.resolve()))
+        import os
+        os.environ['SKILL_BUILDER_TECHNICAL_WRITER'] = str(legacy)
+        self.assertEqual(writer.capture({})['name'], 'technical-writer')
+
+    def test_t50_explicit_unrelated_identity_or_missing_validator_is_rejected_without_fallback(self):
+        self.writer(self.root / 'home/.agents/skills/specdev', 'specdev')
+        unrelated = self.writer(self.root / 'explicit/notes-writer', 'notes-writer')
+        with self.assertRaisesRegex(Invalid, "found 'notes-writer'"):
+            writer.capture({'technical_writer': str(unrelated)})
+        incomplete = self.writer(self.root / 'explicit/specdev', 'specdev', validator=False)
+        with self.assertRaisesRegex(Invalid, 'Incomplete specdev dependency.*validate_document.py'):
+            writer.capture({'technical_writer': str(incomplete)})

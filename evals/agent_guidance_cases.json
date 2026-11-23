@@ -179,5 +179,44 @@
       "scenario": "behavior",
       "covers": []
     }
+  },
+  {
+    "id": "agent-related-reports",
+    "kind": "behavior",
+    "requirements": [
+      "AG-DESIGN"
+    ],
+    "critical": true,
+    "semantic": true,
+    "request": {
+      "instruction": "/skill-builder Please use Skill Builder to prepare the first Technical Writer change for the maintainer. One reviewer saw the second batch stop returning a response. Another saw the completion summary lose track of which rows were still uncertain. They may be related. Use the attached bulk-edit specification and test example. Give me the work item, what would prove it, and a brief return to the owner based on the supplied evidence, including any decision that still belongs to me. Keep this to planning."
+    },
+    "fixtures": [
+      {
+        "path": "evals/fixtures/bulk-edit/specification.md",
+        "destination": "bulk-edit-specification.md",
+        "sha256": "9469388c334af92e5f6a9dcf1ce19427ba89b0631bbf4fdd6a7bae91ef1d0e3f",
+        "media_type": "text/markdown"
+      },
+      {
+        "path": "evals/fixtures/bulk-edit/test_specification.md",
+        "destination": "bulk-edit-test-example.md",
+        "sha256": "be05918b1c6b29036e79b3846ae41ebb3441903059363f0499ffe707dfeed757",
+        "media_type": "text/markdown"
+      }
+    ],
+    "resources": [
+      "SKILL.md",
+      "references/authoring.md",
+      "references/agents_and_skills.md"
+    ],
+    "expect": {
+      "exit_code": 0
+    },
+    "workflow": {
+      "id": "agent-design",
+      "scenario": "behavior",
+      "covers": []
+    }
   }
 ]

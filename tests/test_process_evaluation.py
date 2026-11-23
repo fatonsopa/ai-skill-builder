@@ -111,3 +111,61 @@ class ProcessEvaluationTests(unittest.TestCase):
                 result = subprocess.run([sys.executable, str(root / 'scripts/skill_builder_cli.py'), 'check-process', '--trace', str(trace_file), '--expect', str(expected_file)], cwd=root, text=True, capture_output=True)
                 self.assertEqual(result.returncode, code, result.stderr)
                 self.assertEqual(json.loads(result.stdout)['passed'], code == 0)
+
+
+STEPS = ['read_brief', 'read_example', 'decide']
+DEPENDENT = {'order': STEPS, 'requires': {'decide': ['read_brief', 'read_example']}, 'visible': ['decide'], 'evidence': STEPS}
+
+
+def steps_trace(order):
+    return {'provenance': {'kind': 'authored_control', 'source': 'Authored grader control, not a live model run.'},
+            'events': [{'phase': stage, 'evidence': 'control:' + stage, 'visible': stage == 'decide'} for stage in order]}
+
+
+class DependencyAwareProcessTests(unittest.TestCase):
+    """T24: an explicitly supplied case grades declared prerequisites, not an invented read order."""
+
+    def run_suite(self, traces, contract=DEPENDENT):
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as folder:
+            package = Path(folder) / 'package'
+            package.mkdir()
+            suite = []
+            for name, raw in traces.items():
+                (package / (name + '.json')).write_text(json.dumps(raw))
+                suite.append({'id': name, 'requirements': ['R-1'], 'critical': True, 'kind': 'artifact', 'semantic': False,
+                              'expect': {'exit_code': 0, 'file': name + '.json', 'process': {**contract, 'trace_file': name + '.json'}}})
+            suite_file = Path(folder) / 'suite.json'
+            suite_file.write_text(json.dumps(suite))
+            args = [sys.executable, str(root / 'scripts/evaluate.py'), '--package', str(package), '--suite', str(suite_file)]
+            for name in traces:
+                args += ['--case', name]
+            report = json.loads(subprocess.run(args, text=True, capture_output=True).stdout)
+        return {row['id']: row['process'] for row in report['attempts']}
+
+    def test_t24a_both_read_orders_pass_and_each_violation_fails_for_its_condition(self):
+        hidden = steps_trace(STEPS); hidden['events'][2]['visible'] = False
+        unevidenced = steps_trace(STEPS); unevidenced['events'][1]['evidence'] = ''
+        verdicts = self.run_suite({
+            'brief-first': steps_trace(STEPS), 'example-first': steps_trace(['read_example', 'read_brief', 'decide']),
+            'early-decision': steps_trace(['read_brief', 'decide', 'read_example']), 'omitted-read': steps_trace(['read_brief', 'decide']),
+            'hidden-decision': hidden, 'missing-evidence': unevidenced})
+        self.assertTrue(verdicts['brief-first']['passed'], verdicts['brief-first'])
+        self.assertTrue(verdicts['example-first']['passed'], verdicts['example-first'])
+        self.assertEqual(verdicts['early-decision']['failures'], ['Premature decide: prerequisite read_example was not completed before it.'])
+        self.assertIn('Required step omitted: read_example', verdicts['omitted-read']['failures'])
+        self.assertEqual(verdicts['hidden-decision']['failures'], ['Required user-visible handoff is missing: decide'])
+        self.assertEqual(verdicts['missing-evidence']['failures'], ['Missing stage evidence: read_example'])
+
+    def test_t24b_malformed_relation_cannot_pass_and_legacy_strict_order_still_fails(self):
+        for requires, message in (({'decide': ['read_brief', 'read_notes']}, "Unknown prerequisite 'read_notes'"),
+                                  ({'decide': ['read_brief'], 'read_brief': ['decide']}, 'cycle')):
+            with self.subTest(requires=requires):
+                verdict = self.run_suite({'valid-trace': steps_trace(STEPS)}, {**DEPENDENT, 'requires': requires})['valid-trace']
+                self.assertFalse(verdict['passed'])
+                self.assertTrue(any(message in error for error in verdict['failures']), verdict['failures'])
+        legacy = {key: value for key, value in DEPENDENT.items() if key != 'requires'}
+        audit_trace = steps_trace(['read_example', 'read_brief', 'decide'])
+        verdict = self.run_suite({'audit-reversed-reads': audit_trace}, legacy)['audit-reversed-reads']
+        self.assertFalse(verdict['passed'])
+        self.assertIn('reordered', verdict['failures'][0])

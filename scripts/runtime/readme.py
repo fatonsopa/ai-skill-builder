@@ -26,7 +26,7 @@ def invoked(name, prompt):
     return f"/{name} {prompt}"
 
 
-def render(name, documentation, profile="source"):
+def _legacy_render(name, documentation, profile="source"):
     validate(documentation, DOCUMENTATION)
     d = documentation
     rows = [
@@ -158,12 +158,26 @@ def render(name, documentation, profile="source"):
     return "\n".join(rows)
 
 
+
+def render(name, documentation, profile='source'):
+    if documentation.get('schema_version') != 2:
+        return _legacy_render(name, documentation, profile)
+    from .contracts import AUTHORED_DOCUMENTATION
+    validate(documentation, AUTHORED_DOCUMENTATION)
+    if profile not in documentation['profiles']:
+        raise Invalid('Missing authored documentation profile: ' + profile)
+    text = documentation['profiles'][profile]
+    if not text.strip():
+        raise Invalid('Missing authored public documentation.')
+    return text
+
+
 def contract(root):
     path = Path(root) / "config/documentation.json"
     data = load(path)
-    if data.get("schema_version") != 1 or not isinstance(data.get("name"), str):
+    if data.get("schema_version") not in (1, 2) or not isinstance(data.get("name"), str):
         raise Invalid("Invalid documentation contract.")
-    validate(data["documentation"], DOCUMENTATION)
+    validate(data["documentation"], DOCUMENTATION if data["schema_version"] == 1 else __import__("runtime.contracts", fromlist=["AUTHORED_DOCUMENTATION"]).AUTHORED_DOCUMENTATION)
     return data
 
 
@@ -187,9 +201,12 @@ def check(root):
     metadata = (root / "SKILL.md").read_text().split("---\n", 2)
     if len(metadata) != 3 or not re.search(rf"^name:\s*['\"]?{re.escape(data['name'])}['\"]?\s*$", metadata[1], re.M):
         errors.append("README skill name does not match SKILL.md metadata.")
-    commands = [*data["documentation"]["setup"], data["documentation"]["verification"]["command"], data["documentation"]["testing"]["run_command"]]
-    commands += [row["command"] for row in data["documentation"]["scenarios"] if "command" in row]
-    commands += [step["command"] for row in data["documentation"]["scenarios"] for step in row.get("steps", []) if "command" in step]
+    if data['schema_version'] == 2:
+        commands = data['documentation']['commands']
+    else:
+        commands = [*data["documentation"]["setup"], data["documentation"]["verification"]["command"], data["documentation"]["testing"]["run_command"]]
+        commands += [row["command"] for row in data["documentation"]["scenarios"] if "command" in row]
+        commands += [step["command"] for row in data["documentation"]["scenarios"] for step in row.get("steps", []) if "command" in step]
     for command in commands:
         argv = command["argv"]
         index = 0

@@ -149,3 +149,84 @@ class BehaviorEvaluationTests(unittest.TestCase):
         self.assertTrue(all(case['semantic'] and case['critical'] and case['request'] and case['resources'] for case in behaviors))
         rubric_text = json.dumps(rubric)
         self.assertTrue(all(case['id'] in rubric_text for case in behaviors))
+
+
+class LiveProcessCaptureTests(unittest.TestCase):
+    def test_output_is_available_before_the_child_can_finish(self):
+        from evaluate import run_process
+        with tempfile.TemporaryDirectory() as directory:
+            flag = Path(directory) / 'received'
+            code = "import pathlib,time; print('public progress',flush=True); p=pathlib.Path('received'); deadline=time.monotonic()+3\nwhile not p.exists() and time.monotonic()<deadline: time.sleep(0.01)\nassert p.exists(), 'output was buffered until exit'"
+            result = run_process([sys.executable, '-u', '-c', code], input='', cwd=directory, timeout=5,
+                                 on_stdout_line=lambda line: flag.write_text(line))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'public progress\n')
+            self.assertEqual(flag.read_text(), result.stdout)
+
+    def test_timeout_preserves_streamed_output_and_the_deadline(self):
+        from evaluate import run_process
+        commands = ["import time; print('started',flush=True); time.sleep(10)",
+                    "import subprocess,sys; subprocess.Popen([sys.executable,'-c','import time; time.sleep(10)']); print('started',flush=True)"]
+        for code in commands:
+            seen = []
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as directory, self.assertRaises(subprocess.TimeoutExpired) as error:
+                run_process([sys.executable, '-u', '-c', code], input='', cwd=directory, timeout=0.5, on_stdout_line=seen.append)
+            self.assertEqual(seen, ['started\n'])
+            self.assertEqual(error.exception.output, 'started\n')
+
+
+class NeutralExportTests(unittest.TestCase):
+    """T36: the performer sees an ordinary request; the controller keeps the case identity."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.package = self.root / 'skill'
+        (self.package / 'evals').mkdir(parents=True)
+        (self.package / 'SKILL.md').write_text('---\nname: summary-control\ndescription: Summarize supplied notes.\n---\nSummarize only what the notes state.\n')
+        self.case = {'id': 'builder-no-mechanical-only-claim', 'requirements': ['R-1'], 'critical': True, 'kind': 'behavior', 'semantic': True,
+                     'request': {'text': 'Summarize quarterly-notes.md for the team.', 'source': {'quarterly-notes.md': 'Revenue rose; one test was not run.'}},
+                     'resources': ['SKILL.md'], 'expect': {'exit_code': 0, 'contains': ['GRADER-ONLY: report the unrun test as not run']}}
+        (self.package / 'evals/cases.json').write_text(json.dumps([self.case]))
+
+    def export(self, binding):
+        process = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] / 'scripts/evaluate.py'), '--package', str(self.package),
+                                  '--behavior-packet', self.case['id'], '--binding', str(binding)], capture_output=True, text=True)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        return json.loads(process.stdout), json.loads(binding.read_text())
+
+    def test_t36a_performer_view_keeps_request_and_file_without_grader_material(self):
+        view, binding = self.export(self.root / 'controller/binding.json')
+        text = json.dumps(view)
+        self.assertEqual(view['request'], self.case['request'])
+        self.assertIn('quarterly-notes.md', text)
+        for clue in (self.case['id'], 'GRADER-ONLY', 'evals/cases.json', 'case_sha256', 'package_hashes'):
+            self.assertNotIn(clue, text)
+        self.assertEqual(binding['task_id'], view['task_id'])
+        self.assertEqual(binding['case_id'], self.case['id'])
+        self.assertIn('evals/cases.json', binding['package_hashes'])
+
+    def test_binding_must_be_a_new_file_outside_the_package(self):
+        script = str(Path(__file__).resolve().parents[1] / 'scripts/evaluate.py')
+        for binding in (None, self.package / 'binding.json'):
+            args = [sys.executable, script, '--package', str(self.package), '--behavior-packet', self.case['id']] + (['--binding', str(binding)] if binding else [])
+            with self.subTest(binding=binding):
+                self.assertNotEqual(subprocess.run(args, capture_output=True, text=True).returncode, 0)
+
+    def test_t36b_only_the_matching_binding_is_eligible(self):
+        from evaluate import controller_binding
+        current = controller_binding(self.package, self.case)
+        stale_case = deepcopy(self.case); stale_case['request']['text'] = 'An earlier frozen request.'
+        stale = controller_binding(self.package, stale_case)
+        def observed(binding):
+            return {'package_hashes': inventory(self.package), 'bindings': [binding], 'observations': [{'task_id': binding['task_id'], 'output': 'Revenue rose. One test was not run.',
+                    'provenance': {'kind': 'host_observation', 'host': 'fixture', 'model': None, 'source': 'Authored transport control; no model invocation.'}}]}
+        matching = check_case(self.package, self.case, False, observations=observed(current))
+        self.assertIn('observation', matching)  # eligible: graded against the case, not rejected at binding
+        self.assertEqual(matching['failures'], ["Missing required literal in output: 'GRADER-ONLY: report the unrun test as not run'."])
+        stale_result = check_case(self.package, self.case, False, observations=observed({**stale, 'case_id': self.case['id']}))
+        self.assertEqual(stale_result['status'], 'failed')
+        self.assertTrue(any('stale case binding' in error for error in stale_result['failures']))
+        unbound = observed(current); unbound['bindings'] = []
+        self.assertEqual(check_case(self.package, self.case, False, observations=unbound)['status'], 'failed')

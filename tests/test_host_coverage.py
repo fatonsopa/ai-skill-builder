@@ -30,7 +30,7 @@ class HostCoverageTests(unittest.TestCase):
         (self.package / 'evals').mkdir()
         self.case = {'id': 'audit', 'kind': 'behavior', 'request': {'instruction': 'Audit only.'}, 'critical': True, 'semantic': True, 'expect': {'exit_code': 0}}
         (self.package / 'evals/cases.json').write_text(json.dumps([self.case]))
-        self.config = {'required_hosts': ['codex', 'claude-code'], 'case_files': [{'path': 'evals/cases.json'}]}
+        self.config = {'capture_content': True, 'required_hosts': ['codex', 'claude-code'], 'case_files': [{'path': 'evals/cases.json'}]}
         self.plan = matrix.freeze(self.package, self.config)
 
     def run_harness(self, config_path, output):
@@ -166,7 +166,7 @@ class HostCoverageTests(unittest.TestCase):
     def test_claude_transport_invokes_the_local_skill_with_tools_and_keeps_public_evidence(self):
         config = {'subject': str(self.package), 'cases': str(self.package / 'evals/cases.json'), 'host': 'claude-code', 'model': 'fixture-model', 'reasoning_effort': 'medium', 'max_invocations': 1, 'max_seconds': 30}
         (self.root / 'config.json').write_text(json.dumps(config))
-        def perform(argv, *, input, cwd, timeout):
+        def perform(argv, *, input, cwd, timeout, on_stdout_line=None):
             self.assertNotIn('--bare', argv)
             self.assertNotIn('--disable-slash-commands', argv)
             self.assertNotIn('--sandbox', argv)
@@ -196,7 +196,7 @@ class HostCoverageTests(unittest.TestCase):
         row = result['attempts'][0]
         self.assertEqual(result['model_invocations'], 1)
         self.assertEqual(row['status'], 'failed')
-        self.assertIn('Started audit', Path(self.root / 'timed-out-run' / row['id'] / 'public-events.json').read_text())
+        self.assertEqual(json.loads(Path(self.root / 'timed-out-run' / row['id'] / 'public-events.json').read_text())[0]['type'], 'assistant')
 
     def test_workspace_capture_keeps_internal_target_skill_links_and_both_controlled_aliases(self):
         work = self.root / 'links-work';work.mkdir()
@@ -238,7 +238,7 @@ class HostCoverageTests(unittest.TestCase):
     def test_capture_failure_keeps_earlier_case_results_and_the_actual_public_trace(self):
         config = {'subject': str(self.package), 'cases': str(self.package/'evals/cases.json'), 'model':'fixture-model','max_invocations':2,'max_seconds':30,'repetitions':2}
         (self.root/'capture-config.json').write_text(json.dumps(config));calls=[]
-        def perform(argv, *, input, cwd, timeout):
+        def perform(argv, *, input, cwd, timeout, on_stdout_line=None):
             calls.append(str(cwd));Path(argv[argv.index('--output-last-message')+1]).write_text('Actual fixture response.')
             if len(calls)==2:(Path(cwd)/'escape').symlink_to(self.package)
             return subprocess.CompletedProcess(argv,0,json.dumps({'type':'thread.started','thread_id':'authored-control'}),'')
@@ -246,7 +246,7 @@ class HostCoverageTests(unittest.TestCase):
             result=self.run_harness(self.root/'capture-config.json',self.root/'captured-run')
         self.assertEqual([r['status'] for r in result['attempts']],['pending_review','failed'])
         self.assertIn('artifact capture failed',result['attempts'][1]['reason'])
-        self.assertTrue((self.root/'captured-run/002-audit/public-events.json').is_file())
+        self.assertTrue((self.root/'captured-run'/result['attempts'][1]['id']/'public-events.json').is_file())
         self.assertTrue(result['controller_hashes'])
 
     def test_provider_limit_stops_following_calls_and_distinguishes_unstarted_from_interrupted(self):
@@ -387,5 +387,138 @@ class PublicDeliveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'No actual public'):
             public_delivery_match(self.report, '001-case')
 
+
+class ScopedHostTests(unittest.TestCase):
+    setUp = HostCoverageTests.setUp
+    bundle = HostCoverageTests.bundle
+    def test_explicit_inapplicability_is_frozen_but_case_required_hosts_cannot_be_skipped(self):
+        other={**self.case,'id':'other'}
+        (self.package/'evals/cases.json').write_text(json.dumps([self.case,other]))
+        config={**self.config,'applicability':[{'case_id':'other','host':'claude-code','required':False,'reason':'Focused domain method; native integration remains covered by audit.'}]}
+        plan=matrix.freeze(self.package,config)
+        self.assertEqual(len([c for c in plan['cells'] if c['required']]),3)
+        other['required_hosts']=['codex','claude-code']
+        (self.package/'evals/cases.json').write_text(json.dumps([self.case,other]))
+        with self.assertRaisesRegex(ValueError,'cannot be omitted'):matrix.freeze(self.package,config)
+
+    def test_reviewed_unchanged_dependencies_retain_original_host_evidence(self):
+        config={**self.config,'case_dependencies':{'audit':['SKILL.md']},'dependency_reviews':{'audit':{'accepted':True,'reviewer':'authored control','evidence':'Only entry instructions govern this source-free task.'}}}
+        old=matrix.freeze(self.package,config);source=self.root/'original-plan.json';source.write_text(json.dumps(old))
+        bundle=self.bundle('codex')
+        (self.package/'notes.txt').write_text('An unrelated addition.')
+        current=matrix.freeze(self.package,config)
+        with self.assertRaisesRegex(ValueError,'equivalence review'):matrix.assess(current,self.package,[bundle])
+        report_hash=matrix.digest(Path(bundle['report']).read_bytes())
+        bundle['reuse']={'source_plan':str(source),'current_plan_sha256':current['plan_sha256'],'report_sha256':report_hash,'accepted':True,'reviewer':{'kind':'authored_control','identity':'test','method':'Compare declared inputs'},'rationale':'Only unrelated notes changed; original artifact remains explicit.'}
+        result=matrix.assess(current,self.package,[bundle])
+        self.assertTrue(result['attempt_history'][0]['retained'])
+        self.assertFalse(result['accepted'])
+        (self.package/'SKILL.md').write_text('Changed governing instructions.')
+        changed=matrix.freeze(self.package,config);bundle['reuse']['current_plan_sha256']=changed['plan_sha256']
+        with self.assertRaisesRegex(ValueError,'dependencies'):matrix.assess(changed,self.package,[bundle])
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class LegacyEquivalenceTests(unittest.TestCase):
+    setUp = HostCoverageTests.setUp
+    bundle = HostCoverageTests.bundle
+
+    def test_explicit_equivalence_cannot_waive_changed_instructions_or_criteria(self):
+        source=self.root/'original-plan.json';source.write_text(json.dumps(self.plan))
+        bundle=self.bundle('codex')
+        (self.package/'metadata.json').write_text('{"unrelated":true}')
+        current=matrix.freeze(self.package,self.config)
+        bundle['reuse']={'source_plan':str(source),'current_plan_sha256':current['plan_sha256'],'report_sha256':matrix.digest(Path(bundle['report']).read_bytes()),'accepted':True,'reviewer':{'kind':'authored_control','identity':'test','method':'Inspect exact changed files and their consumers'},'rationale':'The added metadata is outside this source-free native audit task.','equivalent_changes':[{'path':'metadata.json','before_sha256':None,'after_sha256':current['package_hashes']['metadata.json'],'reason':'No task input, instruction, criterion, authority or profile changed.'}]}
+        result=matrix.assess(current,self.package,[bundle]);self.assertTrue(result['attempt_history'][0]['retained']);self.assertFalse(result['accepted'])
+        (self.package/'SKILL.md').write_text('Changed instructions.')
+        changed=matrix.freeze(self.package,self.config);bundle['reuse']['current_plan_sha256']=changed['plan_sha256'];bundle['reuse']['equivalent_changes'].append({'path':'SKILL.md','before_sha256':self.plan['package_hashes']['SKILL.md'],'after_sha256':changed['package_hashes']['SKILL.md'],'reason':'A declared equivalence cannot waive changed governing instructions.'})
+        with self.assertRaisesRegex(ValueError,'governing instructions'):matrix.assess(changed,self.package,[bundle])
+
+
+class NeutralLaunchTests(unittest.TestCase):
+    """T37: staged launches show an ordinary request; reports still resolve the real case."""
+
+    def historical_bundle(self, host, case=None, name='historical-'):
+        """A report captured before T37, whose attempt folder embeds the case ID."""
+        case = case or self.case
+        folder = self.root / (name + host)
+        attempt_id = '001-' + self.case['id']
+        work = folder / attempt_id / 'workspace'
+        work.mkdir(parents=True)
+        (work / 'summary.md').write_text('Revenue rose. One test was not run.')
+        matrix.save_new(folder / attempt_id / 'public-events.json', [{'type': 'result', 'subtype': 'success', 'result': 'Captured before T37.'}])
+        row = {'id': attempt_id, 'case_id': case['id'], 'case_sha256': matrix.digest(case), 'status': 'pending_review', 'exit_code': 0, 'output': 'Revenue rose.', 'requested_model': 'fixture-model',
+               'resolved_model': None, 'provenance': {'host': host, 'kind': 'authored_control'}, 'public_events': str(folder / attempt_id / 'public-events.json'), 'workspace_hashes': inventory(work)}
+        matrix.save_new(folder / 'report.json', {'execution_host': host, 'requested_model': 'fixture-model', 'reasoning_effort': None, 'package_hashes': inventory(self.package), 'attempts': [row]})
+        return self.review(folder)
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.package = self.root / 'skill'
+        (self.package / 'evals').mkdir(parents=True)
+        (self.package / 'SKILL.md').write_text('---\nname: example\ndescription: A fixture.\n---\nSummarize the supplied notes.')
+        self.case = {'id': 'builder-no-mechanical-only-claim', 'kind': 'behavior', 'critical': True, 'semantic': True,
+                     'request': {'instruction': 'Summarize quarterly-notes.md for the team.', 'source': {'quarterly-notes.md': 'Revenue rose; one test was not run.'}},
+                     'expect': {'exit_code': 0, 'contains': ['GRADER-ONLY expected answer']}}
+        (self.package / 'evals/cases.json').write_text(json.dumps([self.case]))
+        self.plan = matrix.freeze(self.package, {'required_hosts': ['codex', 'claude-code'], 'case_files': [{'path': 'evals/cases.json'}]})
+
+    def launch(self, host):
+        from runtime.completion import create
+        recorded = {}
+        def record(argv, *, input, cwd, timeout, on_stdout_line=None, env=None):
+            work = Path(cwd)
+            recorded.update(argv=argv, prompt=input, cwd=str(work), staged=sorted(str(p) for p in work.parent.rglob('*')))
+            if host == 'codex':
+                Path(argv[argv.index('--output-last-message') + 1]).write_text('Revenue rose. One test was not run.')
+                return subprocess.CompletedProcess(argv, 0, json.dumps({'type': 'thread.started', 'thread_id': 'recording-adapter'}) + '\n', '')
+            lines = [{'type': 'system', 'subtype': 'init', 'model': 'fixture-model', 'tools': [], 'session_id': 's'},
+                     {'type': 'result', 'subtype': 'success', 'is_error': False, 'result': 'Revenue rose. One test was not run.'}]
+            return subprocess.CompletedProcess(argv, 0, ''.join(json.dumps(line) + '\n' for line in lines), '')
+        config = {'host': host, 'subject': str(self.package), 'cases': str(self.package / 'evals/cases.json'), 'model': 'fixture-model', 'max_invocations': 1, 'max_seconds': 30,
+                  'completion_policy': create(self.root / host, {'objective_id': 'neutral-launch-' + host, 'goal': 'Record launch inputs.', 'project': str(self.package), 'scope': ['**'],
+                      'checks': [{'id': self.case['id'], 'kind': 'behavior', 'dependencies': ['SKILL.md']}], 'budget': {'runs': 2, 'revisions': 2, 'model_calls': 2, 'seconds': 600},
+                      'delivery': {'kind': 'local', 'authority': 'Recording adapter only.'}})['policy']}
+        path = self.root / (host + '-config.json')
+        path.write_text(json.dumps(config))
+        with patch.object(harness.shutil, 'which', return_value='/recording-adapter'), patch.object(harness, 'run_process', side_effect=record):
+            report = harness.run(path, self.root / (host + '-report'), executable='recording-adapter')
+        return recorded, report
+
+    def test_t37a_each_host_receives_the_user_file_without_grader_clues(self):
+        for host in ('codex', 'claude-code'):
+            with self.subTest(host=host):
+                recorded, report = self.launch(host)
+                submitted = json.dumps(recorded)
+                self.assertIn('quarterly-notes.md', recorded['prompt'])
+                for clue in (self.case['id'], 'GRADER-ONLY', 'evals/cases.json'):
+                    self.assertNotIn(clue, submitted)
+                row = report['attempts'][0]
+                self.assertEqual((row['case_id'], row['status']), (self.case['id'], 'pending_review'))
+                self.assertEqual(row['id'], '001-' + row['task_id'])
+
+    def review(self, bundle_folder):
+        report_path = bundle_folder / 'report.json'
+        report = json.loads(report_path.read_text())
+        row = report['attempts'][0]
+        review = {'report_sha256': matrix.digest(report_path.read_bytes()), 'reviewer': {'kind': 'authored_control', 'identity': 'unit test', 'method': 'Binding control, not semantic evaluation.'},
+                  'cases': [{'attempt_id': row['id'], 'accepted': True, 'rationale': 'Authored control.', 'capture_sha256': matrix.digest(row),
+                             'public_events_sha256': matrix.digest((bundle_folder / row['id'] / 'public-events.json').read_bytes())}]}
+        matrix.save_new(bundle_folder / 'review.json', review)
+        return {'report': str(report_path), 'review': str(bundle_folder / 'review.json')}
+
+    def test_t37b_report_consumer_resolves_new_and_historical_identities_and_rejects_stale_bindings(self):
+        self.launch('codex')
+        current = self.review(self.root / 'codex-report')
+        historical = self.historical_bundle('claude-code')
+        result = matrix.assess(self.plan, self.package, [current, historical])
+        self.assertTrue(result['accepted'], result)
+        self.assertEqual({(c['host'], c['case_id']) for c in result['cells']}, {('codex', self.case['id']), ('claude-code', self.case['id'])})
+        earlier = deepcopy(self.case); earlier['request']['instruction'] = 'An earlier frozen request.'
+        stale = self.historical_bundle('claude-code', earlier, 'stale-')
+        with self.assertRaisesRegex(ValueError, 'does not match'):
+            matrix.assess(self.plan, self.package, [current, stale])
