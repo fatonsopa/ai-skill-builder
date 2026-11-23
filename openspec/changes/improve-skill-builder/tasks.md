@@ -517,3 +517,22 @@ Candidate: `implementation/improve-skill-builder` after T52. Each verdict cites 
 | A7b · B6.2 | Met | T52: the npm candidate installed in an empty prefix, reached Claude Code, refused an update over a local edit, and removed only owned files. |
 
 The A5 runs used `2b967f2`. Later commits changed the package link check, the release tooling and `README.md`, but not `SKILL.md`, `references/agents_and_skills.md`, `references/authoring.md` or the case. Those are the inputs the planning run used, so its evidence still applies. A5 establishes planning and handoff behavior only. Readiness beyond it would need the full host matrix and a real skill-creation pilot, which this delivery doesn't claim. Public GitHub and npm availability remain unproven until a release owner publishes the assets.
+
+### Cross-host verification
+
+On 2026-11-23 the owner asked for every change to be observed on both hosts, then for both hosts to behave the same way, testing one host at a time. Each release route had been observed on one host: the GitHub installer on Codex (T51) and npm on Claude Code (T52). Each was run on the other host. Assets were built from accepted `main` (`3a350e8`, payload identical to `979ccf5`) and installed into isolated homes. Both hosts got the same `requirements.md` (R-1 to R-3) and the same request: write the assignment for one bounded work item. Reviewer: implementing agent.
+
+| Run | Verdict | Evidence |
+| --- | --- | --- |
+| GitHub installer · Claude Code | Met | `skill-builder --version` reported `0.1.0-rc.1` at `3a350e8`. `host init --tools claude` installed one entry, and repeating it reported `unchanged`. `/skill-builder` was answered from that installed copy. |
+| npm · Codex | Met | The tarball installed into an empty prefix and reported `3a350e8`. `host init --tools codex` installed one entry, and repeating it reported `unchanged`. `$skill-builder` was answered from that installed copy. |
+| Same behavior, SpecDev `5238f73` | Met | Codex, then Claude Code. Both took R-1, the first requirement that can be delivered and checked alone. Both saved `task.md` through SpecDev's checked delivery (`prepare`, `check`, `review`, `finalize`) in a new `mktemp -d` folder. Both replied with only the receipt and its R-1 decision sentence, and left `requirements.md` unchanged. |
+
+- **Where the hosts first differed:** Every difference was fixed in SpecDev, Skill Builder's writing dependency, and the run was repeated on both hosts. Skill Builder itself needed no change.
+  - **Destination and source:** A document was appended to its source (`3acd9e1`).
+  - **Interpreter:** The system `python3` 3.9 was used (`bb745b6`).
+  - **Requirement chosen:** The hosts took different requirements (`857b137`).
+  - **Checked delivery:** The full workflow was skipped (`f03fe7e`).
+  - **Filename and final reply:** Different filenames were used and text was added after the receipt (`bf058e5`, `8a79c7f`, `94a7876`).
+  - **Session folder:** A fixed temporary path was reused (`5238f73`).
+- **Earlier observations still apply:** T49's handoff case and A5's planning case were already observed on both hosts through A5.
