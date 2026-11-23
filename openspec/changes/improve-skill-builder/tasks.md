@@ -536,3 +536,4 @@ On 2026-11-23 the owner asked for every change to be observed on both hosts, the
   - **Filename and final reply:** Different filenames were used and text was added after the receipt (`bf058e5`, `8a79c7f`, `94a7876`).
   - **Session folder:** A fixed temporary path was reused (`5238f73`).
 - **Earlier observations still apply:** T49's handoff case and A5's planning case were already observed on both hosts through A5.
+- **Final-version rerun (2026-11-23):** Release assets were rebuilt from final `main` (`037a343`) with SpecDev `8e5cfd0` as the writer. On Codex (npm install) and then Claude Code (GitHub installer), both reported revision `037a343`. Both took R-1, the first requirement in source order that can be checked on its own. Both saved `task.md` through checked delivery (`prepare`, `check`, `review`, `finalize`) and replied with only the receipt and its R-1 decision sentence. `requirements.md` was unchanged on both hosts.
